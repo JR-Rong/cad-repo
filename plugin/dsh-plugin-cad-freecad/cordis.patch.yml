@@ -1,0 +1,24 @@
+# Bundle-layer patch: registers the host row and its defaults. It deliberately
+# names NO path belonging to any one machine — `freecadBin` and `cadRoot` are
+# discovered at run time (see index.js: resolveBin / resolveRoot). Put
+# per-device overrides in the PROFILE's own patch layer
+# (~/.dsh/profiles/<profile>/cordis.patch.yml), which is applied after every
+# bundle layer.
+- insert:
+    - id: cad-freecad
+      name: '@local/dsh-plugin-cad-freecad'
+      config:
+        # --- memory governor -------------------------------------------------
+        # macOS enforces neither RLIMIT_AS nor RLIMIT_RSS (`ulimit -v` is a
+        # no-op), so the budget below sizes the work up front, the engine's
+        # watchdog degrades then aborts, and the Host kills the whole
+        # freecadcmd process group as the backstop.
+        memCapMb: 2048          # RSS cap for one freecadcmd process
+        memFloorMb: 768         # keep this much physical memory free for the OS
+        probeMaxWorkers: 2      # ceiling; the engine picks fewer per model
+        groupCapMb: 6144        # kill switch for the whole freecadcmd tree
+        memSampleMs: 2000
+        # --- optional per-device overrides (leave unset to auto-discover) ----
+        # freecadBin: ~/FreeCAD.app/Contents/Resources/bin/freecadcmd
+        # cadRoot: ~/dsh-cad            # holds projects/ registry/ mem/ delivery/
+        # timeoutMs: 1200000

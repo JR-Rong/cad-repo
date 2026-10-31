@@ -5,119 +5,1159 @@
  "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
  "issued_by": "machine-A dsh-cad-agent",
  "created": "2026-10-31",
- "parts": [
-  "e_gpump_25",
-  "e_gpump_63",
-  "e_solbody_nc",
-  "e_solbody_22",
-  "e_filter_cup",
-  "e_filter_hv",
-  "e_manifold_5",
-  "e_manifold_8",
-  "e_mpspd_single",
-  "e_mpspd_triple"
- ],
- "detail": [
+ "quota": {
+  "families": 100,
+  "parts": 40000,
+  "per_family": 400,
+  "per_wave_families": 5,
+  "per_wave_parts": 2000,
+  "waves": 20
+ },
+ "families": [
   {
-   "project_id": "e_gpump_25",
-   "title": "外啮合齿轮泵壳体 25",
-   "family": "gear_pump_housing",
+   "family": "fl01",
+   "object": "齿轮泵壳体",
    "category": "机械零件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "主/侧齿轮腔+卸荷槽 2+进出油口+O 形圈槽+轴封腔+紧固螺孔 8"
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "e_fl01_"
   },
   {
-   "project_id": "e_gpump_63",
-   "title": "大排量齿轮泵壳体 63",
-   "family": "gear_pump_housing",
+   "family": "fl02",
+   "object": "柱塞泵壳体",
    "category": "机械零件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "溢流阀孔道+端盖止口+测压口 2+法兰油口；卸荷槽 4"
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "e_fl02_"
   },
   {
-   "project_id": "e_solbody_nc",
-   "title": "常闭先导式电磁阀体",
-   "family": "solenoid_valve_body",
+   "family": "fl03",
+   "object": "叶片泵壳体",
    "category": "机械零件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "膜片腔+弹簧座+进/出/泄三口+线圈定位环+指示灯窗"
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "e_fl03_"
   },
   {
-   "project_id": "e_solbody_22",
-   "title": "2/2 通电磁阀体（手动应急）",
-   "family": "solenoid_valve_body",
+   "family": "fl04",
+   "object": "离心泵蜗壳",
    "category": "机械零件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "手动按钮腔+滤网腔+DIN 插座座+先导孔阵 6；无指示窗"
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "e_fl04_"
   },
   {
-   "project_id": "e_filter_cup",
-   "title": "杯式过滤器壳体",
-   "family": "filter_housing",
+   "family": "fl05",
+   "object": "隔膜泵壳体",
    "category": "机械零件",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "滤芯腔+排污阀口+压差表座+卡箍槽+支架耳 2+密封唇"
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "e_fl05_"
   },
   {
-   "project_id": "e_filter_hv",
-   "title": "高压过滤器壳体",
-   "family": "filter_housing",
+   "family": "fl06",
+   "object": "蠕动泵泵头",
    "category": "机械零件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "法兰口+滤芯端盖+安全销孔+排气螺钉座+铭牌凹台；卡箍改螺栓 6"
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "e_fl06_"
   },
   {
-   "project_id": "e_manifold_5",
-   "title": "5 位气动歧管块",
-   "family": "pneumatic_manifold",
+   "family": "fl07",
+   "object": "计量泵液力端",
    "category": "机械零件",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "串接槽式密封+排气汇流道+进气道+工作口 5+标识槽 5"
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "e_fl07_"
   },
   {
-   "project_id": "e_manifold_8",
-   "title": "8 位高压歧管块",
-   "family": "pneumatic_manifold",
+   "family": "fl08",
+   "object": "电磁阀体",
    "category": "机械零件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "独立排气孔 8+高压进气道+导轨卡槽+堵板位 2；工作口 8"
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "e_fl08_"
   },
   {
-   "project_id": "e_mpspd_single",
-   "title": "单缸隔膜计量泵液力端",
-   "family": "metering_pump_head",
+   "family": "fl09",
+   "object": "单向阀体",
    "category": "机械零件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "隔膜腔+进/出口单向阀座+补液阀+排气孔+卡箍法兰"
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "e_fl09_"
   },
   {
-   "project_id": "e_mpspd_triple",
-   "title": "三缸计量泵液力端",
-   "family": "metering_pump_head",
+   "family": "fl10",
+   "object": "溢流阀体",
    "category": "机械零件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "三腔+脉动阻尼器接口+安全膜片腔+冲洗口；阀座 6"
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "e_fl10_"
+  },
+  {
+   "family": "fl11",
+   "object": "减压阀体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "e_fl11_"
+  },
+  {
+   "family": "fl12",
+   "object": "截止阀体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "e_fl12_"
+  },
+  {
+   "family": "fl13",
+   "object": "节流阀体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "e_fl13_"
+  },
+  {
+   "family": "fl14",
+   "object": "球阀阀体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "e_fl14_"
+  },
+  {
+   "family": "fl15",
+   "object": "蝶阀阀体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "e_fl15_"
+  },
+  {
+   "family": "fl16",
+   "object": "止回阀盖",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "e_fl16_"
+  },
+  {
+   "family": "fl17",
+   "object": "换向阀体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "e_fl17_"
+  },
+  {
+   "family": "fl18",
+   "object": "比例阀体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "e_fl18_"
+  },
+  {
+   "family": "fl19",
+   "object": "插装阀块",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "e_fl19_"
+  },
+  {
+   "family": "fl20",
+   "object": "液压集成块",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "e_fl20_"
+  },
+  {
+   "family": "fl21",
+   "object": "气动歧管块",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "inch",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "e_fl21_"
+  },
+  {
+   "family": "fl22",
+   "object": "过滤器壳体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "dn",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "e_fl22_"
+  },
+  {
+   "family": "fl23",
+   "object": "滤清器端盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "dn",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "e_fl23_"
+  },
+  {
+   "family": "fl24",
+   "object": "呼吸器体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "dn",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "e_fl24_"
+  },
+  {
+   "family": "fl25",
+   "object": "油雾器体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "dn",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "e_fl25_"
+  },
+  {
+   "family": "fl26",
+   "object": "分水滤气器体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "dn",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "e_fl26_"
+  },
+  {
+   "family": "fl27",
+   "object": "调压阀壳体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "e_fl27_"
+  },
+  {
+   "family": "fl28",
+   "object": "气缸端盖",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "e_fl28_"
+  },
+  {
+   "family": "fl29",
+   "object": "缸筒法兰",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "e_fl29_"
+  },
+  {
+   "family": "fl30",
+   "object": "液压缸导向套",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "e_fl30_"
+  },
+  {
+   "family": "fl31",
+   "object": "蓄能器体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "e_fl31_"
+  },
+  {
+   "family": "fl32",
+   "object": "蓄能器支架",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "e_fl32_"
+  },
+  {
+   "family": "fl33",
+   "object": "油箱顶盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "e_fl33_"
+  },
+  {
+   "family": "fl34",
+   "object": "油箱清洗孔盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "e_fl34_"
+  },
+  {
+   "family": "fl35",
+   "object": "冷却器端板",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "e_fl35_"
+  },
+  {
+   "family": "fl36",
+   "object": "换热器端盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "e_fl36_"
+  },
+  {
+   "family": "fl37",
+   "object": "板式压紧板",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "e_fl37_"
+  },
+  {
+   "family": "fl38",
+   "object": "法兰接头体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "e_fl38_"
+  },
+  {
+   "family": "fl39",
+   "object": "快换接头体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "e_fl39_"
+  },
+  {
+   "family": "fl40",
+   "object": "旋转接头体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "e_fl40_"
+  },
+  {
+   "family": "fl41",
+   "object": "软管接头体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "e_fl41_"
+  },
+  {
+   "family": "fl42",
+   "object": "喷嘴体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "inch",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "e_fl42_"
+  },
+  {
+   "family": "fl43",
+   "object": "喷枪壳体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "inch",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "e_fl43_"
+  },
+  {
+   "family": "fl44",
+   "object": "雾化器外壳",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "inch",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "e_fl44_"
+  },
+  {
+   "family": "fl45",
+   "object": "流量计体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "e_fl45_"
+  },
+  {
+   "family": "fl46",
+   "object": "流量传感器体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "dn",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "e_fl46_"
+  },
+  {
+   "family": "fl47",
+   "object": "压力变送器壳",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "dn",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "e_fl47_"
+  },
+  {
+   "family": "fl48",
+   "object": "液位传感器座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "e_fl48_"
+  },
+  {
+   "family": "fl49",
+   "object": "取样阀体",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "e_fl49_"
+  },
+  {
+   "family": "fl50",
+   "object": "混合器壳体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "dn",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "e_fl50_"
+  },
+  {
+   "family": "en01",
+   "object": "逆变器外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "e_en01_"
+  },
+  {
+   "family": "en02",
+   "object": "光伏接线盒",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "e_en02_"
+  },
+  {
+   "family": "en03",
+   "object": "储能电池包壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "e_en03_"
+  },
+  {
+   "family": "en04",
+   "object": "电池模组端板",
+   "category": "机电产品",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "e_en04_"
+  },
+  {
+   "family": "en05",
+   "object": "电池包泄压阀座",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "e_en05_"
+  },
+  {
+   "family": "en06",
+   "object": "电池管理控制盒",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "e_en06_"
+  },
+  {
+   "family": "en07",
+   "object": "充电桩外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "t",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "e_en07_"
+  },
+  {
+   "family": "en08",
+   "object": "充电枪壳体",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "e_en08_"
+  },
+  {
+   "family": "en09",
+   "object": "车载充电机壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "e_en09_"
+  },
+  {
+   "family": "en10",
+   "object": "直流变换器壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "e_en10_"
+  },
+  {
+   "family": "en11",
+   "object": "配电盒盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "e_en11_"
+  },
+  {
+   "family": "en12",
+   "object": "母线连接排座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "e_en12_"
+  },
+  {
+   "family": "en13",
+   "object": "液冷板",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "e_en13_"
+  },
+  {
+   "family": "en14",
+   "object": "冷板接头座",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "e_en14_"
+  },
+  {
+   "family": "en15",
+   "object": "电子膨胀阀体",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "e_en15_"
+  },
+  {
+   "family": "en16",
+   "object": "四通换向阀体",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "e_en16_"
+  },
+  {
+   "family": "en17",
+   "object": "压缩机缸盖",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "e_en17_"
+  },
+  {
+   "family": "en18",
+   "object": "压缩机接线盒",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "e_en18_"
+  },
+  {
+   "family": "en19",
+   "object": "冷凝器端板",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "e_en19_"
+  },
+  {
+   "family": "en20",
+   "object": "蒸发器水室",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "e_en20_"
+  },
+  {
+   "family": "en21",
+   "object": "水泵壳体",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "e_en21_"
+  },
+  {
+   "family": "en22",
+   "object": "风机蜗壳",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "e_en22_"
+  },
+  {
+   "family": "en23",
+   "object": "风轮轮毂",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "e_en23_"
+  },
+  {
+   "family": "en24",
+   "object": "导风叶座",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "e_en24_"
+  },
+  {
+   "family": "en25",
+   "object": "散热器水室",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "e_en25_"
+  },
+  {
+   "family": "en26",
+   "object": "暖风壳体",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "e_en26_"
+  },
+  {
+   "family": "en27",
+   "object": "膨胀罐盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "dn",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "e_en27_"
+  },
+  {
+   "family": "en28",
+   "object": "烟道法兰",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "e_en28_"
+  },
+  {
+   "family": "en29",
+   "object": "热交换器端盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "dn",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "e_en29_"
+  },
+  {
+   "family": "en30",
+   "object": "燃烧器壳体",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "dn",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "e_en30_"
+  },
+  {
+   "family": "en31",
+   "object": "燃气阀体",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "e_en31_"
+  },
+  {
+   "family": "en32",
+   "object": "热风幕风道",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "e_en32_"
+  },
+  {
+   "family": "en33",
+   "object": "温控阀体",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "e_en33_"
+  },
+  {
+   "family": "en34",
+   "object": "太阳跟踪支架座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "e_en34_"
+  },
+  {
+   "family": "en35",
+   "object": "支架倾角调节座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "e_en35_"
+  },
+  {
+   "family": "en36",
+   "object": "光伏边框角件",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "alu",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "e_en36_"
+  },
+  {
+   "family": "en37",
+   "object": "汇流箱外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "e_en37_"
+  },
+  {
+   "family": "en38",
+   "object": "变压器外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "e_en38_"
+  },
+  {
+   "family": "en39",
+   "object": "散热器罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "e_en39_"
+  },
+  {
+   "family": "en40",
+   "object": "电池散热风道",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "e_en40_"
+  },
+  {
+   "family": "en41",
+   "object": "热管固定座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "e_en41_"
+  },
+  {
+   "family": "en42",
+   "object": "相变储能壳体",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "e_en42_"
+  },
+  {
+   "family": "en43",
+   "object": "疏水阀体",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "e_en43_"
+  },
+  {
+   "family": "en44",
+   "object": "分汽缸端盖",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "e_en44_"
+  },
+  {
+   "family": "en45",
+   "object": "保温外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "dn",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "e_en45_"
+  },
+  {
+   "family": "en46",
+   "object": "热泵机箱",
+   "category": "机电产品",
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "e_en46_"
+  },
+  {
+   "family": "en47",
+   "object": "除霜排水盘",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "e_en47_"
+  },
+  {
+   "family": "en48",
+   "object": "风机减振座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "e_en48_"
+  },
+  {
+   "family": "en49",
+   "object": "补偿器座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "e_en49_"
+  },
+  {
+   "family": "en50",
+   "object": "烟气取样座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "e_en50_"
   }
  ],
- "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
+ "wave_layout": {
+  "1": [
+   "fl01",
+   "fl02",
+   "fl03",
+   "fl04",
+   "fl05"
+  ],
+  "2": [
+   "fl06",
+   "fl07",
+   "fl08",
+   "fl09",
+   "fl10"
+  ],
+  "3": [
+   "fl11",
+   "fl12",
+   "fl13",
+   "fl14",
+   "fl15"
+  ],
+  "4": [
+   "fl16",
+   "fl17",
+   "fl18",
+   "fl19",
+   "fl20"
+  ],
+  "5": [
+   "fl21",
+   "fl22",
+   "fl23",
+   "fl24",
+   "fl25"
+  ],
+  "6": [
+   "fl26",
+   "fl27",
+   "fl28",
+   "fl29",
+   "fl30"
+  ],
+  "7": [
+   "fl31",
+   "fl32",
+   "fl33",
+   "fl34",
+   "fl35"
+  ],
+  "8": [
+   "fl36",
+   "fl37",
+   "fl38",
+   "fl39",
+   "fl40"
+  ],
+  "9": [
+   "fl41",
+   "fl42",
+   "fl43",
+   "fl44",
+   "fl45"
+  ],
+  "10": [
+   "fl46",
+   "fl47",
+   "fl48",
+   "fl49",
+   "fl50"
+  ],
+  "11": [
+   "en01",
+   "en02",
+   "en03",
+   "en04",
+   "en05"
+  ],
+  "12": [
+   "en06",
+   "en07",
+   "en08",
+   "en09",
+   "en10"
+  ],
+  "13": [
+   "en11",
+   "en12",
+   "en13",
+   "en14",
+   "en15"
+  ],
+  "14": [
+   "en16",
+   "en17",
+   "en18",
+   "en19",
+   "en20"
+  ],
+  "15": [
+   "en21",
+   "en22",
+   "en23",
+   "en24",
+   "en25"
+  ],
+  "16": [
+   "en26",
+   "en27",
+   "en28",
+   "en29",
+   "en30"
+  ],
+  "17": [
+   "en31",
+   "en32",
+   "en33",
+   "en34",
+   "en35"
+  ],
+  "18": [
+   "en36",
+   "en37",
+   "en38",
+   "en39",
+   "en40"
+  ],
+  "19": [
+   "en41",
+   "en42",
+   "en43",
+   "en44",
+   "en45"
+  ],
+  "20": [
+   "en46",
+   "en47",
+   "en48",
+   "en49",
+   "en50"
+  ]
+ },
+ "how_to_materialise": "python3 tools/emit_members.py --machine E --wave N > intake/waves/fleet_e_2026_11_wN.json",
+ "wave_rule": "一次只做一波（2000 件）；上一波全部 ACCEPT 且指纹并入底表才准开下一波",
+ "notes": "成员在 5 条结构轴上取不同组合；禁止等比缩放；关掉的特征组其参数不得留在 params 表。"
 }

@@ -1,44 +1,184 @@
-任务：你是 CAD 流水线的机器 E，本批次 fleet_e_2026_11（10 件，全新族谱）
+任务：你是 CAD 流水线的机器 E，批次 fleet_e_2026_11：100 个族谱 × 400 件 = 40000 件（20 波）
 
-仓库：git clone git@github.com:JR-Rong/cad-repo.git cad-repo（或你已有的本地 clone 先 git pull）
-先读：cad-repo/WORK-ORDER.md（通用规则），再读下面你自己的件清单；规格原文在 cad-repo/shared/spec-extract.txt。
-开工前必须先把全局去重底表同步进来：python3 cad-repo/tools/registry_sync.py --root ~/cad-fleet
+第一步（强制，不许跳）：`cd cad-repo && python3 tools/recall.py --machine E`
+  打印教训全文 + 项目记忆 + 版本握手 + 你的切片，并给出 LESSONS_ACK；
+  回传 REPORT.md 必须带 `LESSONS_ACK: <那 8 位>`，merge_check 核对，缺或过期直接 REJECT。
+第二步：`python3 tools/registry_sync.py --root ~/cad-fleet`（非 0 就停下喊人）
+第三步（开工前）：`python3 tools/emit_members.py --machine E --wave 1 > intake/waves/fleet_e_2026_11_w1.json`
+再读：WORKFLOW.md（流程、所有权、波次）、WORK-ORDER.md（技术口径）。
 
-你的件（project id 一字不差；同族两件之间拓扑必须不同）：
+**本轮只做 wave 1 的 2000 件（5 个族谱）**；回传并被 A 机 ACCEPT、指纹并入底表之后才准开 wave 2。
+wave 1 族谱与件号区间：
+  - `e_fl01_…001–e_fl01_…400`  齿轮泵壳体（机械零件｜阀泵体 轴族｜400 件）
+  - `e_fl02_…001–e_fl02_…400`  柱塞泵壳体（机械零件｜阀泵体 轴族｜400 件）
+  - `e_fl03_…001–e_fl03_…400`  叶片泵壳体（机械零件｜阀泵体 轴族｜400 件）
+  - `e_fl04_…001–e_fl04_…400`  离心泵蜗壳（机械零件｜阀泵体 轴族｜400 件）
+  - `e_fl05_…001–e_fl05_…400`  隔膜泵壳体（机械零件｜阀泵体 轴族｜400 件）
 
-族谱 `filter_housing`
-  - e_filter_cup  目标 A 级｜杯式过滤器壳体｜拓扑差异：滤芯腔+排污阀口+压差表座+卡箍槽+支架耳 2+密封唇
-  - e_filter_hv  目标 S 级｜高压过滤器壳体｜拓扑差异：法兰口+滤芯端盖+安全销孔+排气螺钉座+铭牌凹台；卡箍改螺栓 6
+成员展开规则：同一族谱的 400 个成员在 5 条结构轴上逐一取不同组合
+（`emit_members.py` 会给每件写出 sig 与尺寸档），design.md 必须把 sig 落成具体特征数。
 
-族谱 `gear_pump_housing`
-  - e_gpump_25  目标 S 级｜外啮合齿轮泵壳体 25｜拓扑差异：主/侧齿轮腔+卸荷槽 2+进出油口+O 形圈槽+轴封腔+紧固螺孔 8
-  - e_gpump_63  目标 S 级｜大排量齿轮泵壳体 63｜拓扑差异：溢流阀孔道+端盖止口+测压口 2+法兰油口；卸荷槽 4
+全部 20 个波次（每波开工前先 emit 该波的 intake）：
 
-族谱 `metering_pump_head`
-  - e_mpspd_single  目标 S 级｜单缸隔膜计量泵液力端｜拓扑差异：隔膜腔+进/出口单向阀座+补液阀+排气孔+卡箍法兰
-  - e_mpspd_triple  目标 S 级｜三缸计量泵液力端｜拓扑差异：三腔+脉动阻尼器接口+安全膜片腔+冲洗口；阀座 6
+wave 1 —— `python3 tools/emit_members.py --machine E --wave 1`
+  - `e_fl01_…001–…400`  齿轮泵壳体（机械零件｜阀泵体）
+  - `e_fl02_…001–…400`  柱塞泵壳体（机械零件｜阀泵体）
+  - `e_fl03_…001–…400`  叶片泵壳体（机械零件｜阀泵体）
+  - `e_fl04_…001–…400`  离心泵蜗壳（机械零件｜阀泵体）
+  - `e_fl05_…001–…400`  隔膜泵壳体（机械零件｜阀泵体）
 
-族谱 `pneumatic_manifold`
-  - e_manifold_5  目标 A 级｜5 位气动歧管块｜拓扑差异：串接槽式密封+排气汇流道+进气道+工作口 5+标识槽 5
-  - e_manifold_8  目标 S 级｜8 位高压歧管块｜拓扑差异：独立排气孔 8+高压进气道+导轨卡槽+堵板位 2；工作口 8
+wave 2 —— `python3 tools/emit_members.py --machine E --wave 2`
+  - `e_fl06_…001–…400`  蠕动泵泵头（机械零件｜阀泵体）
+  - `e_fl07_…001–…400`  计量泵液力端（机械零件｜阀泵体）
+  - `e_fl08_…001–…400`  电磁阀体（机械零件｜阀泵体）
+  - `e_fl09_…001–…400`  单向阀体（机械零件｜阀泵体）
+  - `e_fl10_…001–…400`  溢流阀体（机械零件｜阀泵体）
 
-族谱 `solenoid_valve_body`
-  - e_solbody_nc  目标 S 级｜常闭先导式电磁阀体｜拓扑差异：膜片腔+弹簧座+进/出/泄三口+线圈定位环+指示灯窗
-  - e_solbody_22  目标 S 级｜2/2 通电磁阀体（手动应急）｜拓扑差异：手动按钮腔+滤网腔+DIN 插座座+先导孔阵 6；无指示窗
+wave 3 —— `python3 tools/emit_members.py --machine E --wave 3`
+  - `e_fl11_…001–…400`  减压阀体（机械零件｜阀泵体）
+  - `e_fl12_…001–…400`  截止阀体（机械零件｜阀泵体）
+  - `e_fl13_…001–…400`  节流阀体（机械零件｜阀泵体）
+  - `e_fl14_…001–…400`  球阀阀体（机械零件｜阀泵体）
+  - `e_fl15_…001–…400`  蝶阀阀体（机械零件｜阀泵体）
 
-以上之外的件都不要做（其他机器在产）。其余规则照通用工单执行：
-通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
-1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
-   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
-2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
-   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
-3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
-4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
-5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
-6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
-   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
-   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
-   ACCEPT 才 commit + push。
-7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+wave 4 —— `python3 tools/emit_members.py --machine E --wave 4`
+  - `e_fl16_…001–…400`  止回阀盖（机械零件｜阀泵体）
+  - `e_fl17_…001–…400`  换向阀体（机械零件｜阀泵体）
+  - `e_fl18_…001–…400`  比例阀体（机械零件｜阀泵体）
+  - `e_fl19_…001–…400`  插装阀块（机械零件｜阀泵体）
+  - `e_fl20_…001–…400`  液压集成块（机械零件｜支架）
+
+wave 5 —— `python3 tools/emit_members.py --machine E --wave 5`
+  - `e_fl21_…001–…400`  气动歧管块（机械零件｜阀泵体）
+  - `e_fl22_…001–…400`  过滤器壳体（机械零件｜壳体）
+  - `e_fl23_…001–…400`  滤清器端盖（机械零件｜盒盖）
+  - `e_fl24_…001–…400`  呼吸器体（机械零件｜壳体）
+  - `e_fl25_…001–…400`  油雾器体（机械零件｜壳体）
+
+wave 6 —— `python3 tools/emit_members.py --machine E --wave 6`
+  - `e_fl26_…001–…400`  分水滤气器体（机械零件｜壳体）
+  - `e_fl27_…001–…400`  调压阀壳体（机械零件｜阀泵体）
+  - `e_fl28_…001–…400`  气缸端盖（机械零件｜阀泵体）
+  - `e_fl29_…001–…400`  缸筒法兰（机械零件｜阀泵体）
+  - `e_fl30_…001–…400`  液压缸导向套（机械零件｜阀泵体）
+
+wave 7 —— `python3 tools/emit_members.py --machine E --wave 7`
+  - `e_fl31_…001–…400`  蓄能器体（机械零件｜阀泵体）
+  - `e_fl32_…001–…400`  蓄能器支架（机械零件｜阀泵体）
+  - `e_fl33_…001–…400`  油箱顶盖（机械零件｜盒盖）
+  - `e_fl34_…001–…400`  油箱清洗孔盖（机械零件｜盒盖）
+  - `e_fl35_…001–…400`  冷却器端板（机械零件｜支架）
+
+wave 8 —— `python3 tools/emit_members.py --machine E --wave 8`
+  - `e_fl36_…001–…400`  换热器端盖（机械零件｜盒盖）
+  - `e_fl37_…001–…400`  板式压紧板（机械零件｜支架）
+  - `e_fl38_…001–…400`  法兰接头体（机械零件｜阀泵体）
+  - `e_fl39_…001–…400`  快换接头体（机械零件｜阀泵体）
+  - `e_fl40_…001–…400`  旋转接头体（机械零件｜阀泵体）
+
+wave 9 —— `python3 tools/emit_members.py --machine E --wave 9`
+  - `e_fl41_…001–…400`  软管接头体（机械零件｜阀泵体）
+  - `e_fl42_…001–…400`  喷嘴体（机械零件｜阀泵体）
+  - `e_fl43_…001–…400`  喷枪壳体（机械零件｜阀泵体）
+  - `e_fl44_…001–…400`  雾化器外壳（机械零件｜阀泵体）
+  - `e_fl45_…001–…400`  流量计体（机械零件｜阀泵体）
+
+wave 10 —— `python3 tools/emit_members.py --machine E --wave 10`
+  - `e_fl46_…001–…400`  流量传感器体（机械零件｜壳体）
+  - `e_fl47_…001–…400`  压力变送器壳（机械零件｜壳体）
+  - `e_fl48_…001–…400`  液位传感器座（机械零件｜支架）
+  - `e_fl49_…001–…400`  取样阀体（机械零件｜阀泵体）
+  - `e_fl50_…001–…400`  混合器壳体（机械零件｜壳体）
+
+wave 11 —— `python3 tools/emit_members.py --machine E --wave 11`
+  - `e_en01_…001–…400`  逆变器外壳（机电产品｜罩壳）
+  - `e_en02_…001–…400`  光伏接线盒（机电产品｜盒盖）
+  - `e_en03_…001–…400`  储能电池包壳（机电产品｜壳体）
+  - `e_en04_…001–…400`  电池模组端板（机电产品｜工装）
+  - `e_en05_…001–…400`  电池包泄压阀座（机电产品｜阀泵体）
+
+wave 12 —— `python3 tools/emit_members.py --machine E --wave 12`
+  - `e_en06_…001–…400`  电池管理控制盒（机电产品｜盒盖）
+  - `e_en07_…001–…400`  充电桩外壳（机电产品｜罩壳）
+  - `e_en08_…001–…400`  充电枪壳体（机电产品｜壳体）
+  - `e_en09_…001–…400`  车载充电机壳（机电产品｜壳体）
+  - `e_en10_…001–…400`  直流变换器壳（机电产品｜壳体）
+
+wave 13 —— `python3 tools/emit_members.py --machine E --wave 13`
+  - `e_en11_…001–…400`  配电盒盖（机电产品｜盒盖）
+  - `e_en12_…001–…400`  母线连接排座（机电产品｜支架）
+  - `e_en13_…001–…400`  液冷板（机电产品｜阀泵体）
+  - `e_en14_…001–…400`  冷板接头座（机电产品｜阀泵体）
+  - `e_en15_…001–…400`  电子膨胀阀体（机电产品｜阀泵体）
+
+wave 14 —— `python3 tools/emit_members.py --machine E --wave 14`
+  - `e_en16_…001–…400`  四通换向阀体（机电产品｜阀泵体）
+  - `e_en17_…001–…400`  压缩机缸盖（机电产品｜阀泵体）
+  - `e_en18_…001–…400`  压缩机接线盒（机电产品｜盒盖）
+  - `e_en19_…001–…400`  冷凝器端板（机电产品｜支架）
+  - `e_en20_…001–…400`  蒸发器水室（机电产品｜阀泵体）
+
+wave 15 —— `python3 tools/emit_members.py --machine E --wave 15`
+  - `e_en21_…001–…400`  水泵壳体（机电产品｜阀泵体）
+  - `e_en22_…001–…400`  风机蜗壳（机电产品｜阀泵体）
+  - `e_en23_…001–…400`  风轮轮毂（机电产品｜壳体）
+  - `e_en24_…001–…400`  导风叶座（机电产品｜罩壳）
+  - `e_en25_…001–…400`  散热器水室（机电产品｜阀泵体）
+
+wave 16 —— `python3 tools/emit_members.py --machine E --wave 16`
+  - `e_en26_…001–…400`  暖风壳体（机电产品｜壳体）
+  - `e_en27_…001–…400`  膨胀罐盖（机电产品｜盒盖）
+  - `e_en28_…001–…400`  烟道法兰（机电产品｜支架）
+  - `e_en29_…001–…400`  热交换器端盖（机电产品｜盒盖）
+  - `e_en30_…001–…400`  燃烧器壳体（机电产品｜壳体）
+
+wave 17 —— `python3 tools/emit_members.py --machine E --wave 17`
+  - `e_en31_…001–…400`  燃气阀体（机电产品｜阀泵体）
+  - `e_en32_…001–…400`  热风幕风道（机电产品｜罩壳）
+  - `e_en33_…001–…400`  温控阀体（机电产品｜阀泵体）
+  - `e_en34_…001–…400`  太阳跟踪支架座（机电产品｜支架）
+  - `e_en35_…001–…400`  支架倾角调节座（机电产品｜支架）
+
+wave 18 —— `python3 tools/emit_members.py --machine E --wave 18`
+  - `e_en36_…001–…400`  光伏边框角件（机电产品｜支架）
+  - `e_en37_…001–…400`  汇流箱外壳（机电产品｜罩壳）
+  - `e_en38_…001–…400`  变压器外壳（机电产品｜罩壳）
+  - `e_en39_…001–…400`  散热器罩（机电产品｜罩壳）
+  - `e_en40_…001–…400`  电池散热风道（机电产品｜罩壳）
+
+wave 19 —— `python3 tools/emit_members.py --machine E --wave 19`
+  - `e_en41_…001–…400`  热管固定座（机电产品｜支架）
+  - `e_en42_…001–…400`  相变储能壳体（机电产品｜壳体）
+  - `e_en43_…001–…400`  疏水阀体（机电产品｜阀泵体）
+  - `e_en44_…001–…400`  分汽缸端盖（机电产品｜阀泵体）
+  - `e_en45_…001–…400`  保温外壳（机电产品｜罩壳）
+
+wave 20 —— `python3 tools/emit_members.py --machine E --wave 20`
+  - `e_en46_…001–…400`  热泵机箱（机电产品｜阀泵体）
+  - `e_en47_…001–…400`  除霜排水盘（机电产品｜盒盖）
+  - `e_en48_…001–…400`  风机减振座（机电产品｜支架）
+  - `e_en49_…001–…400`  补偿器座（机电产品｜支架）
+  - `e_en50_…001–…400`  烟气取样座（机电产品｜支架）
+
+以上之外的件一律不做（别的机器在产）。通用规则：
+通用规则（五台机器一样，全文见 cad-repo/WORKFLOW.md 与 cad-repo/WORK-ORDER.md）：
 0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
-   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH（不重启侧栏图标不会出现）；
+   cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。插件源码在 cad-repo/plugin/，与 tgz 同源。
+1. 开工先 `python3 tools/recall.py --machine <你的字母>`：它打印教训全文 + 项目记忆 + 版本握手 + 你的切片。
+   记住它给的 LESSONS_ACK，回传 REPORT.md 必须带这一行，merge_check 缺它或它过期就 REJECT。
+2. 再回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb 与你的 rules_sha；
+   与 shared/versions.json 不一致就停下问人，等 A 机重签版本握手与新 tgz，**不要自己改引擎**。
+3. 每波开工先展开合同：`python3 tools/emit_members.py --machine <字母> --wave N > intake/waves/<批次>_wN.json`，
+   然后 commit 这个文件（它就是你这一波要交付的 2,000 件，交付逐件对上）。
+4. 每件顺序：new -> design.md -> build -> validate -> probe -> dedupe -> export -> package，任一 FAIL 不许往下走；
+   design.md 必须把该件的 topo_signature 落成**具体特征数**（哪个轴存在/不存在、筋几条孔几个），这是判重的正面证据。
+5. 同族成员必须换拓扑；纯缩放 = 2.5 判重复不计数；params 表里不许留已关闭特征的参数（探针逐格扰动）。
+6. dedupe 报 exact / scaled_same 立刻停，不管撞的是谁；跨机判重在 A 机合并点做（分桶比较，无损）。
+7. package 串行、一次一件，绝不并发发布（N43/N44 未修）；台账绝不手工合并 sqlite，只回传 ledger.jsonl 导出。
+8. 渲染与 STEP 全由插件产出，不许手改：8 视图、白底单色灰、长边 >=2000px、STEP AP214 是硬线。
+9. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   versions.json、REPORT.md（含 LESSONS_ACK）、豁免文件；并更新 shared/fingerprints/<你的字母>.json（只这一个文件）。
+   推之前自己跑 `python3 tools/merge_check.py --root ~/cad-fleet --theirs outbox/<批次> --baseline shared/fingerprints`，
+   **把 blocking 一次全清掉**再 push（门禁现在会一次列全部缺陷，不会只告诉你第一个）。
+10. 立刻停下来问人：判重命中 / 探针修不过 / 要把 memCapMb 降到 1536 以下 / 想改清单、族谱或 intake / 插件行为与工单不符。

@@ -1,0 +1,81 @@
+{
+ "delivered": [
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec63",
+   "object": "电机端盖 IEC63 止口端",
+   "note": "已交付 pilot_2026_10",
+   "machine": "A"
+  },
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec71",
+   "object": "电机端盖 IEC71 止口端",
+   "note": "已交付 pilot_2026_10",
+   "machine": "A"
+  },
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec80b",
+   "object": "电机端盖 IEC80b 止口端",
+   "note": "已交付 pilot_2026_10",
+   "machine": "A"
+  },
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec90",
+   "object": "电机端盖 IEC90 止口端",
+   "note": "已交付 pilot_2026_10",
+   "machine": "A"
+  },
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec90s",
+   "object": "电机端盖 IEC90s 止口端",
+   "note": "已交付 pilot_2026_10",
+   "machine": "A"
+  },
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec100",
+   "object": "电机端盖 IEC100 止口端",
+   "note": "已交付 pilot_2026_10",
+   "machine": "A"
+  },
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec112",
+   "object": "电机端盖 IEC112 止口端",
+   "note": "已交付 pilot_2026_10",
+   "machine": "A"
+  },
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec132",
+   "object": "电机端盖 IEC132 止口端",
+   "note": "已交付 pilot_2026_10（买方判为计入 ec80b，不计数）",
+   "machine": "A"
+  },
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec132x",
+   "object": "电机端盖 IEC132x 止口端",
+   "note": "已交付 pilot_2026_10",
+   "machine": "A"
+  },
+  {
+   "family": "iec_endcap",
+   "pid": "pilot_ec160",
+   "object": "电机端盖 IEC160 止口端",
+   "note": "已交付 pilot_2026_10",
+   "machine": "A"
+  },
+  {
+   "family": "motor_end_cap",
+   "pid": "motor_end_cap_80",
+   "object": "电机端盖参考件 80",
+   "note": "参考交付（待按新族谱规则重建）",
+   "machine": "A"
+  }
+ ]
+}

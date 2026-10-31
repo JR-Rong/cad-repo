@@ -5,119 +5,1159 @@
  "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
  "issued_by": "machine-A dsh-cad-agent",
  "created": "2026-10-31",
- "parts": [
-  "a_endcap_enc",
-  "a_endcap_fan",
-  "a_srvcover_52",
-  "a_srvcover_80",
-  "a_drvenc_din",
-  "a_drvenc_wall",
-  "a_invpanel_louvre",
-  "a_invpanel_filter",
-  "a_motmount_ff",
-  "a_motmount_b5"
- ],
- "detail": [
+ "quota": {
+  "families": 100,
+  "parts": 40000,
+  "per_family": 400,
+  "per_wave_families": 5,
+  "per_wave_parts": 2000,
+  "waves": 20
+ },
+ "families": [
   {
-   "project_id": "a_endcap_enc",
-   "title": "IEC 端盖·编码器法兰端",
-   "family": "iec_endcap_ext",
+   "family": "md01",
+   "object": "端盖",
    "category": "机电产品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "中心通孔+编码器止口+编码器螺柱圆阵 6+穿线孔 2；无风扇座（与 sibling 反向拓扑）"
+   "archetype": "盒盖",
+   "ladder": "frame",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "a_md01_"
   },
   {
-   "project_id": "a_endcap_fan",
-   "title": "IEC 端盖·风罩端",
-   "family": "iec_endcap_ext",
+   "family": "md02",
+   "object": "接线盒",
    "category": "机电产品",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "径向通风筋 8+风扇凸缘+轴穿透槽+风罩卡爪 4；无编码器孔"
+   "archetype": "盒盖",
+   "ladder": "frame",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "a_md02_"
   },
   {
-   "project_id": "a_srvcover_52",
-   "title": "52 框伺服电机后盖",
-   "family": "servo_rear_cover",
+   "family": "md03",
+   "object": "外风罩",
    "category": "机电产品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "编码器舱+航空插头座 1+制动释放孔+密封沟槽+周圈螺柱 4"
+   "archetype": "罩壳",
+   "ladder": "frame",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "a_md03_"
   },
   {
-   "project_id": "a_srvcover_80",
-   "title": "80 框伺服电机后盖（带传感器）",
-   "family": "servo_rear_cover",
+   "family": "md04",
+   "object": "编码器安装座",
    "category": "机电产品",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "插头座 2+温度传感器孔 2+周圈筋 6+接地螺柱；螺柱 6"
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "a_md04_"
   },
   {
-   "project_id": "a_drvenc_din",
-   "title": "小型驱动器外壳·DIN 导轨卡装",
-   "family": "drive_enclosure",
+   "family": "md05",
+   "object": "制动器壳",
    "category": "机电产品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "DIN35 卡扣+散热齿 12+端子开窗+LED 导光柱孔 4+接地螺柱"
+   "archetype": "壳体",
+   "ladder": "frame",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "a_md05_"
   },
   {
-   "project_id": "a_drvenc_wall",
-   "title": "驱动器外壳·壁挂式",
-   "family": "drive_enclosure",
+   "family": "md06",
+   "object": "输入法兰",
    "category": "机电产品",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "安装耳 4+散热齿 20+内盖板卡槽+电缆密封孔 3+铭牌凹台；无导光柱"
+   "archetype": "支架",
+   "ladder": "frame",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "a_md06_"
   },
   {
-   "project_id": "a_invpanel_louvre",
-   "title": "变频器通风面板",
-   "family": "inverter_panel",
+   "family": "md07",
+   "object": "电机机座",
    "category": "机电产品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "百叶 18+过滤棉导槽+风机电窗口+铭牌凹台+周圈螺栓 12"
+   "archetype": "支架",
+   "ladder": "frame",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "a_md07_"
   },
   {
-   "project_id": "a_invpanel_filter",
-   "title": "变频器快换滤网框",
-   "family": "inverter_panel",
+   "family": "md08",
+   "object": "吊耳座",
    "category": "机电产品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "快换卡扣 4+滤网筋阵 24+排水槽+密封唇；无百叶"
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "a_md08_"
   },
   {
-   "project_id": "a_motmount_ff",
-   "title": "电机立装 FF 机座",
-   "family": "motor_mount",
+   "family": "md09",
+   "object": "散热导风罩",
    "category": "机电产品",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "法兰止口+凸台筋 6+减重槽 4+穿线孔+地脚长孔 4"
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "a_md09_"
   },
   {
-   "project_id": "a_motmount_b5",
-   "title": "电机 B5 法兰盘",
-   "family": "motor_mount",
+   "family": "md10",
+   "object": "轴承承载套",
    "category": "机电产品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "大止口+螺柱圆阵 8+定位销 2+中心通孔+背面筋 8；无地脚长孔"
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "a_md10_"
+  },
+  {
+   "family": "md11",
+   "object": "风叶轮毂",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "a_md11_"
+  },
+  {
+   "family": "md12",
+   "object": "电缆密封板",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "a_md12_"
+  },
+  {
+   "family": "md13",
+   "object": "旋转变压器壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "a_md13_"
+  },
+  {
+   "family": "md14",
+   "object": "电刷盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "a_md14_"
+  },
+  {
+   "family": "md15",
+   "object": "集电环罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "a_md15_"
+  },
+  {
+   "family": "md16",
+   "object": "联轴器护罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "a_md16_"
+  },
+  {
+   "family": "md17",
+   "object": "油标座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "a_md17_"
+  },
+  {
+   "family": "md18",
+   "object": "安装地脚板",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "a_md18_"
+  },
+  {
+   "family": "md19",
+   "object": "减振垫座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "a_md19_"
+  },
+  {
+   "family": "md20",
+   "object": "风扇格栅罩",
+   "category": "机电产品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "a_md20_"
+  },
+  {
+   "family": "md21",
+   "object": "伺服后盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "a_md21_"
+  },
+  {
+   "family": "md22",
+   "object": "驱动器外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "u",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "a_md22_"
+  },
+  {
+   "family": "md23",
+   "object": "变频器面板",
+   "category": "机电产品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "a_md23_"
+  },
+  {
+   "family": "md24",
+   "object": "编码器护罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "a_md24_"
+  },
+  {
+   "family": "md25",
+   "object": "减速器观察盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "a_md25_"
+  },
+  {
+   "family": "md26",
+   "object": "输出法兰盘",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "frame",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "a_md26_"
+  },
+  {
+   "family": "md27",
+   "object": "行星架端盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "a_md27_"
+  },
+  {
+   "family": "md28",
+   "object": "电机尾罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "a_md28_"
+  },
+  {
+   "family": "md29",
+   "object": "绕组端盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "frame",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "a_md29_"
+  },
+  {
+   "family": "md30",
+   "object": "测温元件座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "a_md30_"
+  },
+  {
+   "family": "md31",
+   "object": "振动传感器座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "a_md31_"
+  },
+  {
+   "family": "md32",
+   "object": "电缆格兰板",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "inch",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "a_md32_"
+  },
+  {
+   "family": "md33",
+   "object": "接线柱基座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "a_md33_"
+  },
+  {
+   "family": "md34",
+   "object": "制动端盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "frame",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "a_md34_"
+  },
+  {
+   "family": "md35",
+   "object": "手轮转接座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "a_md35_"
+  },
+  {
+   "family": "md36",
+   "object": "编码器法兰",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "a_md36_"
+  },
+  {
+   "family": "md37",
+   "object": "冷却风道",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "a_md37_"
+  },
+  {
+   "family": "md38",
+   "object": "水冷端盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "frame",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "a_md38_"
+  },
+  {
+   "family": "md39",
+   "object": "减振支架",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "a_md39_"
+  },
+  {
+   "family": "md40",
+   "object": "输出轴罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "a_md40_"
+  },
+  {
+   "family": "md41",
+   "object": "止口封盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "a_md41_"
+  },
+  {
+   "family": "md42",
+   "object": "吊装横梁",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "a_md42_"
+  },
+  {
+   "family": "md43",
+   "object": "尾部法兰",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "frame",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "a_md43_"
+  },
+  {
+   "family": "md44",
+   "object": "电刷盒",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "a_md44_"
+  },
+  {
+   "family": "md45",
+   "object": "滑环支架",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "a_md45_"
+  },
+  {
+   "family": "md46",
+   "object": "冷却风机座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "a_md46_"
+  },
+  {
+   "family": "md47",
+   "object": "电磁铁外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "a_md47_"
+  },
+  {
+   "family": "md48",
+   "object": "力矩电机座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "frame",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "a_md48_"
+  },
+  {
+   "family": "md49",
+   "object": "直线电机盖板",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "a_md49_"
+  },
+  {
+   "family": "md50",
+   "object": "步进电机座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "a_md50_"
+  },
+  {
+   "family": "tr01",
+   "object": "变速箱壳体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "frame",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "a_tr01_"
+  },
+  {
+   "family": "tr02",
+   "object": "链条护罩",
+   "category": "机械零件",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "a_tr02_"
+  },
+  {
+   "family": "tr03",
+   "object": "带传动护罩",
+   "category": "机械零件",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "a_tr03_"
+  },
+  {
+   "family": "tr04",
+   "object": "张紧轮座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "a_tr04_"
+  },
+  {
+   "family": "tr05",
+   "object": "导向轮支架",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "a_tr05_"
+  },
+  {
+   "family": "tr06",
+   "object": "间隔套筒座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "inch",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "a_tr06_"
+  },
+  {
+   "family": "tr07",
+   "object": "锁紧螺母座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "a_tr07_"
+  },
+  {
+   "family": "tr08",
+   "object": "转接法兰盘",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "frame",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "a_tr08_"
+  },
+  {
+   "family": "tr09",
+   "object": "轴支承座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "a_tr09_"
+  },
+  {
+   "family": "tr10",
+   "object": "万向节叉壳",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "a_tr10_"
+  },
+  {
+   "family": "tr11",
+   "object": "棘轮罩壳",
+   "category": "机械零件",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "a_tr11_"
+  },
+  {
+   "family": "tr12",
+   "object": "离合器壳体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "a_tr12_"
+  },
+  {
+   "family": "tr13",
+   "object": "蜗轮箱上盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "a_tr13_"
+  },
+  {
+   "family": "tr14",
+   "object": "同步带导向板",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "a_tr14_"
+  },
+  {
+   "family": "tr15",
+   "object": "齿轮端盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "a_tr15_"
+  },
+  {
+   "family": "tr16",
+   "object": "输出轴法兰",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "frame",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "a_tr16_"
+  },
+  {
+   "family": "tr17",
+   "object": "减速机底座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "frame",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "a_tr17_"
+  },
+  {
+   "family": "tr18",
+   "object": "电机转接板",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "frame",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "a_tr18_"
+  },
+  {
+   "family": "tr19",
+   "object": "丝杠支承座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "a_tr19_"
+  },
+  {
+   "family": "tr20",
+   "object": "丝杠轴承座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "a_tr20_"
+  },
+  {
+   "family": "tr21",
+   "object": "联轴器罩壳",
+   "category": "机械零件",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "a_tr21_"
+  },
+  {
+   "family": "tr22",
+   "object": "轴承压盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "a_tr22_"
+  },
+  {
+   "family": "tr23",
+   "object": "油封腔盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "a_tr23_"
+  },
+  {
+   "family": "tr24",
+   "object": "润滑分配块",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "a_tr24_"
+  },
+  {
+   "family": "tr25",
+   "object": "注脂嘴座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "a_tr25_"
+  },
+  {
+   "family": "tr26",
+   "object": "齿轮泵连接法兰",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "frame",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "a_tr26_"
+  },
+  {
+   "family": "tr27",
+   "object": "花键套座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "a_tr27_"
+  },
+  {
+   "family": "tr28",
+   "object": "锁紧盘罩",
+   "category": "机械零件",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "a_tr28_"
+  },
+  {
+   "family": "tr29",
+   "object": "扭矩限制器壳",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "a_tr29_"
+  },
+  {
+   "family": "tr30",
+   "object": "摩擦片座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "a_tr30_"
+  },
+  {
+   "family": "tr31",
+   "object": "链条张紧器体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "a_tr31_"
+  },
+  {
+   "family": "tr32",
+   "object": "链轮支架",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "a_tr32_"
+  },
+  {
+   "family": "tr33",
+   "object": "三角带护罩",
+   "category": "机械零件",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "a_tr33_"
+  },
+  {
+   "family": "tr34",
+   "object": "平带张紧板",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "a_tr34_"
+  },
+  {
+   "family": "tr35",
+   "object": "传动防护网框",
+   "category": "机械零件",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "a_tr35_"
+  },
+  {
+   "family": "tr36",
+   "object": "轴端压盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "a_tr36_"
+  },
+  {
+   "family": "tr37",
+   "object": "锥套安装座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "inch",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "a_tr37_"
+  },
+  {
+   "family": "tr38",
+   "object": "法兰支承架",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "frame",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "a_tr38_"
+  },
+  {
+   "family": "tr39",
+   "object": "悬臂支承架",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "a_tr39_"
+  },
+  {
+   "family": "tr40",
+   "object": "齿轮油槽",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "a_tr40_"
+  },
+  {
+   "family": "tr41",
+   "object": "观察孔盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "dn",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "a_tr41_"
+  },
+  {
+   "family": "tr42",
+   "object": "通气过滤器座",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "a_tr42_"
+  },
+  {
+   "family": "tr43",
+   "object": "排油阀座",
+   "category": "机械零件",
+   "archetype": "阀泵体",
+   "ladder": "dn",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "a_tr43_"
+  },
+  {
+   "family": "tr44",
+   "object": "齿轮电机壳体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "frame",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "a_tr44_"
+  },
+  {
+   "family": "tr45",
+   "object": "摆线减速机壳",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "frame",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "a_tr45_"
+  },
+  {
+   "family": "tr46",
+   "object": "谐波减速器输出盘",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "a_tr46_"
+  },
+  {
+   "family": "tr47",
+   "object": "行星减速器端盖",
+   "category": "机械零件",
+   "archetype": "盒盖",
+   "ladder": "frame",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "a_tr47_"
+  },
+  {
+   "family": "tr48",
+   "object": "蜗轮蜗杆箱体",
+   "category": "机械零件",
+   "archetype": "壳体",
+   "ladder": "frame",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "a_tr48_"
+  },
+  {
+   "family": "tr49",
+   "object": "滚筒护罩",
+   "category": "机械零件",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "a_tr49_"
+  },
+  {
+   "family": "tr50",
+   "object": "传动地脚垫",
+   "category": "机械零件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "a_tr50_"
   }
  ],
- "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
+ "wave_layout": {
+  "1": [
+   "md01",
+   "md02",
+   "md03",
+   "md04",
+   "md05"
+  ],
+  "2": [
+   "md06",
+   "md07",
+   "md08",
+   "md09",
+   "md10"
+  ],
+  "3": [
+   "md11",
+   "md12",
+   "md13",
+   "md14",
+   "md15"
+  ],
+  "4": [
+   "md16",
+   "md17",
+   "md18",
+   "md19",
+   "md20"
+  ],
+  "5": [
+   "md21",
+   "md22",
+   "md23",
+   "md24",
+   "md25"
+  ],
+  "6": [
+   "md26",
+   "md27",
+   "md28",
+   "md29",
+   "md30"
+  ],
+  "7": [
+   "md31",
+   "md32",
+   "md33",
+   "md34",
+   "md35"
+  ],
+  "8": [
+   "md36",
+   "md37",
+   "md38",
+   "md39",
+   "md40"
+  ],
+  "9": [
+   "md41",
+   "md42",
+   "md43",
+   "md44",
+   "md45"
+  ],
+  "10": [
+   "md46",
+   "md47",
+   "md48",
+   "md49",
+   "md50"
+  ],
+  "11": [
+   "tr01",
+   "tr02",
+   "tr03",
+   "tr04",
+   "tr05"
+  ],
+  "12": [
+   "tr06",
+   "tr07",
+   "tr08",
+   "tr09",
+   "tr10"
+  ],
+  "13": [
+   "tr11",
+   "tr12",
+   "tr13",
+   "tr14",
+   "tr15"
+  ],
+  "14": [
+   "tr16",
+   "tr17",
+   "tr18",
+   "tr19",
+   "tr20"
+  ],
+  "15": [
+   "tr21",
+   "tr22",
+   "tr23",
+   "tr24",
+   "tr25"
+  ],
+  "16": [
+   "tr26",
+   "tr27",
+   "tr28",
+   "tr29",
+   "tr30"
+  ],
+  "17": [
+   "tr31",
+   "tr32",
+   "tr33",
+   "tr34",
+   "tr35"
+  ],
+  "18": [
+   "tr36",
+   "tr37",
+   "tr38",
+   "tr39",
+   "tr40"
+  ],
+  "19": [
+   "tr41",
+   "tr42",
+   "tr43",
+   "tr44",
+   "tr45"
+  ],
+  "20": [
+   "tr46",
+   "tr47",
+   "tr48",
+   "tr49",
+   "tr50"
+  ]
+ },
+ "how_to_materialise": "python3 tools/emit_members.py --machine A --wave N > intake/waves/fleet_a_2026_11_wN.json",
+ "wave_rule": "一次只做一波（2000 件）；上一波全部 ACCEPT 且指纹并入底表才准开下一波",
+ "notes": "成员在 5 条结构轴上取不同组合；禁止等比缩放；关掉的特征组其参数不得留在 params 表。"
 }

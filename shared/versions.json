@@ -2,10 +2,17 @@
   "engine_plugin_version": "0.5.0",
   "tarball": "local-dsh-plugin-cad-freecad-0.5.0.tgz",
   "tarball_sha256": "2c20ed9df517259616d3b22e4e8ce382ce491d7fef9e81adfdc3974b9f19a872",
-  "rules_sha": "64a95367ef997904",
+  "rules_sha": "1d835a8f3d2ef4f1",
+  "engine_source": "handoff/plugin/dsh-plugin-cad-freecad/python（与 releases/*.tgz 同源）",
+  "rules_sha_dev_checkout": "64a95367ef997904",
   "family_iec_endcap_sha256": "687e6cebde82d3e0d2665a6761dfeed129c352d9c52fa43e71c5750a169fa303",
   "spec_pdf_sha256": "9f7333e75d83b2b4e4b7e22300dd4dee439aca0bfca0a3e4396bd0a3e6d2ae4a",
   "freecad_version_local": "FreeCAD 1.1.1 Revision: 20260414 (Git shallow)",
   "handoff_batch": "fleet_b_2026_11",
+  "known_plugin_defects": {
+    "N43 (P1, 未修)": "packager.py 所有权读失败被当作“无更新者”，会删除/覆盖别人更新的交付 —— package 必须串行、一次一件",
+    "N44 (P2, 未修)": "probe.py 跨窗口 results.update() 让后到 PASS 抹掉先前 FAIL —— 同一件不要跨窗口重复上报，重跑整件",
+    "N1/N2/N16/N18/N20/N23": "部分通过：异常路径与合并语义未收敛（与上面两条同源）"
+  },
   "role": "machine-A issues this; machine B echoes the same keys into its return"
 }

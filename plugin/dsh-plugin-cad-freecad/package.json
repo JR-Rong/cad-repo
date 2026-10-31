@@ -1,0 +1,40 @@
+{
+  "name": "@local/dsh-plugin-cad-freecad",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "description": "Generate and QA-verify FreeCAD CAD parts (build / validate / edit-probe / STEP+render export / delivery packaging) against the CAD data purchase spec.",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "README.md",
+    "INSTALL.md",
+    "index.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "python/**",
+    "lib/client.js",
+    "!python/**/__pycache__",
+    "!python/**/__pycache__/**",
+    "!python/**/*.pyc"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-api-workspace-files",
+        "@deepseek-ai/dsh-client-ui-workspace"
+      ]
+    }
+  }
+}

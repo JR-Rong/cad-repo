@@ -67,6 +67,16 @@ tools/build_catalog.py     清单源表 → parts.json / CATALOG.md / intake / b
 tools/catalog_lint.py      计划自洽性门禁（同族多机、id 前缀、拓扑重复、合同漂移）
 tools/registry_sync.py     底表 → 本机 registry，并做跨机判重预检
 tools/merge_check.py       收货门禁（缺件/缺 STEP/AP214/渲染 2000px/五阶段/跨机判重）
+tools/recall.py              开工前强制读教训 + 项目记忆，盖 LESSONS_ACK 戳
+tools/emit_members.py         把族谱设计空间展开成某波的 intake（件号确定性重算）
+tools/fingerprint_merge.py    A 机收货后把指纹增量并进该机器底表（判重冲突拒绝合并）
+tools/catalog_lint.py         计划自洽性门禁（全量展开 20 万件校验唯一性）
+LESSONS.md                   教训（Round-10 不通过的根因 + 生产长期教训），带强制方式
+MEMORY.md                    项目记忆（现状 + 决策只追加）
+WORKFLOW.md                  工作流程约定（角色、路径所有权、波次门槛、升级）
+DISPATCH.md                  给 B–E 四台机器的派发单
+plugin/dsh-plugin-cad-freecad/ 插件源码（与 releases/*.tgz 同源）
+status/PROGRESS.md            进度流水（append-only）
 tools/refresh_versions.py  A 机重签版本握手
 tools/engine_predicates.py 直接 import 出厂判定函数（注入 FreeCAD 桩，host python3 可跑）
 ```

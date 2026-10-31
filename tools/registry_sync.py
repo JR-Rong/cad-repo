@@ -23,19 +23,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-try:
+import plugin_source
+
+_FP_PATH, SRC = plugin_source.discover(os.environ.get("CADKIT_PLUGIN_PY"))
+_fp, MODE, scaled_same, related = None, "unavailable", None, None
+if _FP_PATH:
     import engine_predicates
-    _fp, MODE = engine_predicates.load(os.path.join(REPO, os.pardir,
-                                 "dsh-plugin-cad-freecad", "python"))
-    scaled_same, related = _fp.scaled_same, _fp.related
-except Exception:                                             # noqa: BLE001
     try:
-        _fp, MODE = engine_predicates.load(os.path.expanduser(
-            "~/Documents/deepseek-harness/default-workspace/dsh-plugin-cad-freecad/python"))
+        _fp, MODE = engine_predicates.load(_FP_PATH)
         scaled_same, related = _fp.scaled_same, _fp.related
-    except Exception:                                          # noqa: BLE001
-        scaled_same = related = None
-        MODE = "unavailable"
+    except Exception as exc:                                     # noqa: BLE001
+        MODE = "unavailable: %s" % exc
+else:
+    MODE = SRC
 
 
 def load_files(dirpath):
@@ -62,11 +62,28 @@ def main():
     ap.add_argument("--repo", default=REPO, help="handoff 仓位置")
     ap.add_argument("--machine", default=None, help="本机代号，用于跳过自重叠检查")
     ap.add_argument("--check-only", action="store_true")
+    ap.add_argument("--plugin-python", default=None, help="含 cadkit/ 的 python 目录")
+    ap.add_argument("--allow-no-predicates", action="store_true",
+                    help="明知不做判重预检也要合并底表（默认禁止）")
     a = ap.parse_args()
+
+    global scaled_same, related, MODE
+    if a.plugin_python:
+        import engine_predicates
+        _fp, MODE = engine_predicates.load(a.plugin_python)
+        scaled_same, related = _fp.scaled_same, _fp.related
 
     fdir = os.path.join(a.repo, "shared", "fingerprints")
     if not os.path.isdir(fdir):
         raise SystemExit("找不到 %s（先 git pull）" % fdir)
+
+    if not scaled_same and not a.allow_no_predicates:
+        print("BLOCK 判重函数不可用（%s）—— 底表预检会空跑，等于没检查，"
+              "把重复几何并进全局底表后患更大。" % MODE)
+        print("      先修引擎位点：`git pull` 取仓内 plugin/dsh-plugin-cad-freecad，"
+              "或 --plugin-python <含 cadkit 的 python 目录> / CADKIT_PLUGIN_PY；")
+        print("      确属只要合并不要判重，才显式加 --allow-no-predicates（会在输出里记明）。")
+        return 2
     entries, src = load_files(fdir)
 
     # cross-machine pre-check: flag duplicates that already exist in the baseline
@@ -96,8 +113,9 @@ def main():
         except (ValueError, OSError) as exc:
             print("本机 registry 读不动（%s），用底表覆盖" % exc)
 
-    print("底表: %d 件（来自 %s）； predicates=%s"
-          % (len(entries), ",".join(sorted(set(src.values()))) or "-", MODE))
+    print("底表: %d 件（来自 %s）； predicates=%s%s"
+          % (len(entries), ",".join(sorted(set(src.values()))) or "-", MODE,
+             "；警告：本次未做判重预检" if not scaled_same else ""))
     if dupes:
         print("BLOCK 底表内部已有判重对:", "; ".join(dupes))
     for r in relatives[:5]:

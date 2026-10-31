@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "CAD（FreeCAD）",
+    "description": "用本地 FreeCAD 生成并自动审查 CAD 零件：参数化构建、机器校验、可编辑性探针、STEP AP214 与 8 图导出、严格交付打包。"
+  }
+}

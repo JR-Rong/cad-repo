@@ -3,12 +3,16 @@
 A 线（本机的另一个会话）由 [briefs/BRIEF-FOR-A-LOCAL.txt](briefs/BRIEF-FOR-A-LOCAL.txt) 驱动；
 其余四台机器各粘一份 brief 就能开工，**每台一份，别混用**。
 
-| 目标机器 | 粘这个文件 | 批次 | 件数 | 类目 |
+| 目标机器 | 粘这个文件 | 批次 | 族谱 / 件数 | 类目 |
 |---|---|---|---|---|
-| B | `briefs/BRIEF-FOR-B.txt` | `fleet_b_2026_11` | 10 | 仪器外壳 / 消费品 / 电子元器件封装 |
-| C | `briefs/BRIEF-FOR-C.txt` | `fleet_c_2026_11` | 10 | 工装夹具与检具 |
-| D | `briefs/BRIEF-FOR-D.txt` | `fleet_d_2026_11` | 10 | 结构件与机架 |
-| E | `briefs/BRIEF-FOR-E.txt` | `fleet_e_2026_11` | 10 | 流体与气路壳体（S 级最多，9 件） |
+| A | `briefs/BRIEF-FOR-A-LOCAL.txt` | `fleet_a_2026_11` | 100 / 40,000 | 电机与驱动附件、传动与减速机构 |
+| B | `briefs/BRIEF-FOR-B.txt` | `fleet_b_2026_11` | 100 / 40,000 | 仪器与人机界面、消费电子与电气封装 |
+| C | `briefs/BRIEF-FOR-C.txt` | `fleet_c_2026_11` | 100 / 40,000 | 工装夹具、检具量具与测量 |
+| D | `briefs/BRIEF-FOR-D.txt` | `fleet_d_2026_11` | 100 / 40,000 | 结构与机架、输送仓储与物料 |
+| E | `briefs/BRIEF-FOR-E.txt` | `fleet_e_2026_11` | 100 / 40,000 | 流体与气路、能源与热管理 |
+
+每台各 **20 波**，每波 5 个族谱 = 2,000 件。**第一轮只下 wave 1**（2,000 件），
+回传被 ACCEPT、指纹并入底表之后才给 wave 2；每波开工先 `tools/emit_members.py --machine X --wave N`。
 
 ## 每台机器的三个前置（缺一个就不要开工）
 

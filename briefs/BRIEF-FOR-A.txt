@@ -1,44 +1,184 @@
-任务：你是 CAD 流水线的机器 A，本批次 fleet_a_2026_11（10 件，全新族谱）
+任务：你是 CAD 流水线的机器 A，批次 fleet_a_2026_11：100 个族谱 × 400 件 = 40000 件（20 波）
 
-仓库：git clone git@github.com:JR-Rong/cad-repo.git cad-repo（或你已有的本地 clone 先 git pull）
-先读：cad-repo/WORK-ORDER.md（通用规则），再读下面你自己的件清单；规格原文在 cad-repo/shared/spec-extract.txt。
-开工前必须先把全局去重底表同步进来：python3 cad-repo/tools/registry_sync.py --root ~/cad-fleet
+第一步（强制，不许跳）：`cd cad-repo && python3 tools/recall.py --machine A`
+  打印教训全文 + 项目记忆 + 版本握手 + 你的切片，并给出 LESSONS_ACK；
+  回传 REPORT.md 必须带 `LESSONS_ACK: <那 8 位>`，merge_check 核对，缺或过期直接 REJECT。
+第二步：`python3 tools/registry_sync.py --root ~/cad-fleet`（非 0 就停下喊人）
+第三步（开工前）：`python3 tools/emit_members.py --machine A --wave 1 > intake/waves/fleet_a_2026_11_w1.json`
+再读：WORKFLOW.md（流程、所有权、波次）、WORK-ORDER.md（技术口径）。
 
-你的件（project id 一字不差；同族两件之间拓扑必须不同）：
+**本轮只做 wave 1 的 2000 件（5 个族谱）**；回传并被 A 机 ACCEPT、指纹并入底表之后才准开 wave 2。
+wave 1 族谱与件号区间：
+  - `a_md01_…001–a_md01_…400`  端盖（机电产品｜盒盖 轴族｜400 件）
+  - `a_md02_…001–a_md02_…400`  接线盒（机电产品｜盒盖 轴族｜400 件）
+  - `a_md03_…001–a_md03_…400`  外风罩（机电产品｜罩壳 轴族｜400 件）
+  - `a_md04_…001–a_md04_…400`  编码器安装座（机电产品｜支架 轴族｜400 件）
+  - `a_md05_…001–a_md05_…400`  制动器壳（机电产品｜壳体 轴族｜400 件）
 
-族谱 `drive_enclosure`
-  - a_drvenc_din  目标 A 级｜小型驱动器外壳·DIN 导轨卡装｜拓扑差异：DIN35 卡扣+散热齿 12+端子开窗+LED 导光柱孔 4+接地螺柱
-  - a_drvenc_wall  目标 S 级｜驱动器外壳·壁挂式｜拓扑差异：安装耳 4+散热齿 20+内盖板卡槽+电缆密封孔 3+铭牌凹台；无导光柱
+成员展开规则：同一族谱的 400 个成员在 5 条结构轴上逐一取不同组合
+（`emit_members.py` 会给每件写出 sig 与尺寸档），design.md 必须把 sig 落成具体特征数。
 
-族谱 `iec_endcap_ext`
-  - a_endcap_enc  目标 A 级｜IEC 端盖·编码器法兰端｜拓扑差异：中心通孔+编码器止口+编码器螺柱圆阵 6+穿线孔 2；无风扇座（与 sibling 反向拓扑）
-  - a_endcap_fan  目标 S 级｜IEC 端盖·风罩端｜拓扑差异：径向通风筋 8+风扇凸缘+轴穿透槽+风罩卡爪 4；无编码器孔
+全部 20 个波次（每波开工前先 emit 该波的 intake）：
 
-族谱 `inverter_panel`
-  - a_invpanel_louvre  目标 A 级｜变频器通风面板｜拓扑差异：百叶 18+过滤棉导槽+风机电窗口+铭牌凹台+周圈螺栓 12
-  - a_invpanel_filter  目标 A 级｜变频器快换滤网框｜拓扑差异：快换卡扣 4+滤网筋阵 24+排水槽+密封唇；无百叶
+wave 1 —— `python3 tools/emit_members.py --machine A --wave 1`
+  - `a_md01_…001–…400`  端盖（机电产品｜盒盖）
+  - `a_md02_…001–…400`  接线盒（机电产品｜盒盖）
+  - `a_md03_…001–…400`  外风罩（机电产品｜罩壳）
+  - `a_md04_…001–…400`  编码器安装座（机电产品｜支架）
+  - `a_md05_…001–…400`  制动器壳（机电产品｜壳体）
 
-族谱 `motor_mount`
-  - a_motmount_ff  目标 S 级｜电机立装 FF 机座｜拓扑差异：法兰止口+凸台筋 6+减重槽 4+穿线孔+地脚长孔 4
-  - a_motmount_b5  目标 A 级｜电机 B5 法兰盘｜拓扑差异：大止口+螺柱圆阵 8+定位销 2+中心通孔+背面筋 8；无地脚长孔
+wave 2 —— `python3 tools/emit_members.py --machine A --wave 2`
+  - `a_md06_…001–…400`  输入法兰（机电产品｜支架）
+  - `a_md07_…001–…400`  电机机座（机电产品｜支架）
+  - `a_md08_…001–…400`  吊耳座（机电产品｜支架）
+  - `a_md09_…001–…400`  散热导风罩（机电产品｜罩壳）
+  - `a_md10_…001–…400`  轴承承载套（机电产品｜壳体）
 
-族谱 `servo_rear_cover`
-  - a_srvcover_52  目标 A 级｜52 框伺服电机后盖｜拓扑差异：编码器舱+航空插头座 1+制动释放孔+密封沟槽+周圈螺柱 4
-  - a_srvcover_80  目标 S 级｜80 框伺服电机后盖（带传感器）｜拓扑差异：插头座 2+温度传感器孔 2+周圈筋 6+接地螺柱；螺柱 6
+wave 3 —— `python3 tools/emit_members.py --machine A --wave 3`
+  - `a_md11_…001–…400`  风叶轮毂（机电产品｜壳体）
+  - `a_md12_…001–…400`  电缆密封板（机电产品｜支架）
+  - `a_md13_…001–…400`  旋转变压器壳（机电产品｜壳体）
+  - `a_md14_…001–…400`  电刷盖（机电产品｜盒盖）
+  - `a_md15_…001–…400`  集电环罩（机电产品｜罩壳）
 
-以上之外的件都不要做（其他机器在产）。其余规则照通用工单执行：
-通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
-1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
-   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
-2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
-   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
-3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
-4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
-5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
-6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
-   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
-   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
-   ACCEPT 才 commit + push。
-7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+wave 4 —— `python3 tools/emit_members.py --machine A --wave 4`
+  - `a_md16_…001–…400`  联轴器护罩（机电产品｜罩壳）
+  - `a_md17_…001–…400`  油标座（机电产品｜支架）
+  - `a_md18_…001–…400`  安装地脚板（机电产品｜支架）
+  - `a_md19_…001–…400`  减振垫座（机电产品｜支架）
+  - `a_md20_…001–…400`  风扇格栅罩（机电产品｜面板）
+
+wave 5 —— `python3 tools/emit_members.py --machine A --wave 5`
+  - `a_md21_…001–…400`  伺服后盖（机电产品｜盒盖）
+  - `a_md22_…001–…400`  驱动器外壳（机电产品｜罩壳）
+  - `a_md23_…001–…400`  变频器面板（机电产品｜面板）
+  - `a_md24_…001–…400`  编码器护罩（机电产品｜罩壳）
+  - `a_md25_…001–…400`  减速器观察盖（机电产品｜盒盖）
+
+wave 6 —— `python3 tools/emit_members.py --machine A --wave 6`
+  - `a_md26_…001–…400`  输出法兰盘（机电产品｜盒盖）
+  - `a_md27_…001–…400`  行星架端盖（机电产品｜盒盖）
+  - `a_md28_…001–…400`  电机尾罩（机电产品｜罩壳）
+  - `a_md29_…001–…400`  绕组端盖（机电产品｜盒盖）
+  - `a_md30_…001–…400`  测温元件座（机电产品｜支架）
+
+wave 7 —— `python3 tools/emit_members.py --machine A --wave 7`
+  - `a_md31_…001–…400`  振动传感器座（机电产品｜支架）
+  - `a_md32_…001–…400`  电缆格兰板（机电产品｜支架）
+  - `a_md33_…001–…400`  接线柱基座（机电产品｜支架）
+  - `a_md34_…001–…400`  制动端盖（机电产品｜盒盖）
+  - `a_md35_…001–…400`  手轮转接座（机电产品｜支架）
+
+wave 8 —— `python3 tools/emit_members.py --machine A --wave 8`
+  - `a_md36_…001–…400`  编码器法兰（机电产品｜支架）
+  - `a_md37_…001–…400`  冷却风道（机电产品｜罩壳）
+  - `a_md38_…001–…400`  水冷端盖（机电产品｜盒盖）
+  - `a_md39_…001–…400`  减振支架（机电产品｜支架）
+  - `a_md40_…001–…400`  输出轴罩（机电产品｜罩壳）
+
+wave 9 —— `python3 tools/emit_members.py --machine A --wave 9`
+  - `a_md41_…001–…400`  止口封盖（机电产品｜盒盖）
+  - `a_md42_…001–…400`  吊装横梁（机电产品｜壳体）
+  - `a_md43_…001–…400`  尾部法兰（机电产品｜支架）
+  - `a_md44_…001–…400`  电刷盒（机电产品｜盒盖）
+  - `a_md45_…001–…400`  滑环支架（机电产品｜支架）
+
+wave 10 —— `python3 tools/emit_members.py --machine A --wave 10`
+  - `a_md46_…001–…400`  冷却风机座（机电产品｜支架）
+  - `a_md47_…001–…400`  电磁铁外壳（机电产品｜罩壳）
+  - `a_md48_…001–…400`  力矩电机座（机电产品｜支架）
+  - `a_md49_…001–…400`  直线电机盖板（机电产品｜盒盖）
+  - `a_md50_…001–…400`  步进电机座（机电产品｜支架）
+
+wave 11 —— `python3 tools/emit_members.py --machine A --wave 11`
+  - `a_tr01_…001–…400`  变速箱壳体（机械零件｜壳体）
+  - `a_tr02_…001–…400`  链条护罩（机械零件｜罩壳）
+  - `a_tr03_…001–…400`  带传动护罩（机械零件｜罩壳）
+  - `a_tr04_…001–…400`  张紧轮座（机械零件｜支架）
+  - `a_tr05_…001–…400`  导向轮支架（机械零件｜支架）
+
+wave 12 —— `python3 tools/emit_members.py --machine A --wave 12`
+  - `a_tr06_…001–…400`  间隔套筒座（机械零件｜支架）
+  - `a_tr07_…001–…400`  锁紧螺母座（机械零件｜支架）
+  - `a_tr08_…001–…400`  转接法兰盘（机械零件｜盒盖）
+  - `a_tr09_…001–…400`  轴支承座（机械零件｜支架）
+  - `a_tr10_…001–…400`  万向节叉壳（机械零件｜壳体）
+
+wave 13 —— `python3 tools/emit_members.py --machine A --wave 13`
+  - `a_tr11_…001–…400`  棘轮罩壳（机械零件｜罩壳）
+  - `a_tr12_…001–…400`  离合器壳体（机械零件｜壳体）
+  - `a_tr13_…001–…400`  蜗轮箱上盖（机械零件｜盒盖）
+  - `a_tr14_…001–…400`  同步带导向板（机械零件｜支架）
+  - `a_tr15_…001–…400`  齿轮端盖（机械零件｜盒盖）
+
+wave 14 —— `python3 tools/emit_members.py --machine A --wave 14`
+  - `a_tr16_…001–…400`  输出轴法兰（机械零件｜支架）
+  - `a_tr17_…001–…400`  减速机底座（机械零件｜支架）
+  - `a_tr18_…001–…400`  电机转接板（机械零件｜支架）
+  - `a_tr19_…001–…400`  丝杠支承座（机械零件｜支架）
+  - `a_tr20_…001–…400`  丝杠轴承座（机械零件｜支架）
+
+wave 15 —— `python3 tools/emit_members.py --machine A --wave 15`
+  - `a_tr21_…001–…400`  联轴器罩壳（机械零件｜罩壳）
+  - `a_tr22_…001–…400`  轴承压盖（机械零件｜盒盖）
+  - `a_tr23_…001–…400`  油封腔盖（机械零件｜盒盖）
+  - `a_tr24_…001–…400`  润滑分配块（机械零件｜支架）
+  - `a_tr25_…001–…400`  注脂嘴座（机械零件｜支架）
+
+wave 16 —— `python3 tools/emit_members.py --machine A --wave 16`
+  - `a_tr26_…001–…400`  齿轮泵连接法兰（机械零件｜阀泵体）
+  - `a_tr27_…001–…400`  花键套座（机械零件｜支架）
+  - `a_tr28_…001–…400`  锁紧盘罩（机械零件｜罩壳）
+  - `a_tr29_…001–…400`  扭矩限制器壳（机械零件｜壳体）
+  - `a_tr30_…001–…400`  摩擦片座（机械零件｜支架）
+
+wave 17 —— `python3 tools/emit_members.py --machine A --wave 17`
+  - `a_tr31_…001–…400`  链条张紧器体（机械零件｜壳体）
+  - `a_tr32_…001–…400`  链轮支架（机械零件｜支架）
+  - `a_tr33_…001–…400`  三角带护罩（机械零件｜罩壳）
+  - `a_tr34_…001–…400`  平带张紧板（机械零件｜支架）
+  - `a_tr35_…001–…400`  传动防护网框（机械零件｜面板）
+
+wave 18 —— `python3 tools/emit_members.py --machine A --wave 18`
+  - `a_tr36_…001–…400`  轴端压盖（机械零件｜盒盖）
+  - `a_tr37_…001–…400`  锥套安装座（机械零件｜支架）
+  - `a_tr38_…001–…400`  法兰支承架（机械零件｜支架）
+  - `a_tr39_…001–…400`  悬臂支承架（机械零件｜支架）
+  - `a_tr40_…001–…400`  齿轮油槽（机械零件｜壳体）
+
+wave 19 —— `python3 tools/emit_members.py --machine A --wave 19`
+  - `a_tr41_…001–…400`  观察孔盖（机械零件｜盒盖）
+  - `a_tr42_…001–…400`  通气过滤器座（机械零件｜支架）
+  - `a_tr43_…001–…400`  排油阀座（机械零件｜阀泵体）
+  - `a_tr44_…001–…400`  齿轮电机壳体（机械零件｜壳体）
+  - `a_tr45_…001–…400`  摆线减速机壳（机械零件｜壳体）
+
+wave 20 —— `python3 tools/emit_members.py --machine A --wave 20`
+  - `a_tr46_…001–…400`  谐波减速器输出盘（机械零件｜盒盖）
+  - `a_tr47_…001–…400`  行星减速器端盖（机械零件｜盒盖）
+  - `a_tr48_…001–…400`  蜗轮蜗杆箱体（机械零件｜壳体）
+  - `a_tr49_…001–…400`  滚筒护罩（机械零件｜罩壳）
+  - `a_tr50_…001–…400`  传动地脚垫（机械零件｜支架）
+
+以上之外的件一律不做（别的机器在产）。通用规则：
+通用规则（五台机器一样，全文见 cad-repo/WORKFLOW.md 与 cad-repo/WORK-ORDER.md）：
 0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
-   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH（不重启侧栏图标不会出现）；
+   cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。插件源码在 cad-repo/plugin/，与 tgz 同源。
+1. 开工先 `python3 tools/recall.py --machine <你的字母>`：它打印教训全文 + 项目记忆 + 版本握手 + 你的切片。
+   记住它给的 LESSONS_ACK，回传 REPORT.md 必须带这一行，merge_check 缺它或它过期就 REJECT。
+2. 再回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb 与你的 rules_sha；
+   与 shared/versions.json 不一致就停下问人，等 A 机重签版本握手与新 tgz，**不要自己改引擎**。
+3. 每波开工先展开合同：`python3 tools/emit_members.py --machine <字母> --wave N > intake/waves/<批次>_wN.json`，
+   然后 commit 这个文件（它就是你这一波要交付的 2,000 件，交付逐件对上）。
+4. 每件顺序：new -> design.md -> build -> validate -> probe -> dedupe -> export -> package，任一 FAIL 不许往下走；
+   design.md 必须把该件的 topo_signature 落成**具体特征数**（哪个轴存在/不存在、筋几条孔几个），这是判重的正面证据。
+5. 同族成员必须换拓扑；纯缩放 = 2.5 判重复不计数；params 表里不许留已关闭特征的参数（探针逐格扰动）。
+6. dedupe 报 exact / scaled_same 立刻停，不管撞的是谁；跨机判重在 A 机合并点做（分桶比较，无损）。
+7. package 串行、一次一件，绝不并发发布（N43/N44 未修）；台账绝不手工合并 sqlite，只回传 ledger.jsonl 导出。
+8. 渲染与 STEP 全由插件产出，不许手改：8 视图、白底单色灰、长边 >=2000px、STEP AP214 是硬线。
+9. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   versions.json、REPORT.md（含 LESSONS_ACK）、豁免文件；并更新 shared/fingerprints/<你的字母>.json（只这一个文件）。
+   推之前自己跑 `python3 tools/merge_check.py --root ~/cad-fleet --theirs outbox/<批次> --baseline shared/fingerprints`，
+   **把 blocking 一次全清掉**再 push（门禁现在会一次列全部缺陷，不会只告诉你第一个）。
+10. 立刻停下来问人：判重命中 / 探针修不过 / 要把 memCapMb 降到 1536 以下 / 想改清单、族谱或 intake / 插件行为与工单不符。

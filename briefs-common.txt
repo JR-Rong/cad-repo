@@ -1,15 +1,21 @@
-通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
-1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
-   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
-2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
-   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
-3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
-4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
-5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
-6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
-   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
-   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
-   ACCEPT 才 commit + push。
-7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+通用规则（五台机器一样，全文见 cad-repo/WORKFLOW.md 与 cad-repo/WORK-ORDER.md）：
 0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
-   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH（不重启侧栏图标不会出现）；
+   cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。插件源码在 cad-repo/plugin/，与 tgz 同源。
+1. 开工先 `python3 tools/recall.py --machine <你的字母>`：它打印教训全文 + 项目记忆 + 版本握手 + 你的切片。
+   记住它给的 LESSONS_ACK，回传 REPORT.md 必须带这一行，merge_check 缺它或它过期就 REJECT。
+2. 再回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb 与你的 rules_sha；
+   与 shared/versions.json 不一致就停下问人，等 A 机重签版本握手与新 tgz，**不要自己改引擎**。
+3. 每波开工先展开合同：`python3 tools/emit_members.py --machine <字母> --wave N > intake/waves/<批次>_wN.json`，
+   然后 commit 这个文件（它就是你这一波要交付的 2,000 件，交付逐件对上）。
+4. 每件顺序：new -> design.md -> build -> validate -> probe -> dedupe -> export -> package，任一 FAIL 不许往下走；
+   design.md 必须把该件的 topo_signature 落成**具体特征数**（哪个轴存在/不存在、筋几条孔几个），这是判重的正面证据。
+5. 同族成员必须换拓扑；纯缩放 = 2.5 判重复不计数；params 表里不许留已关闭特征的参数（探针逐格扰动）。
+6. dedupe 报 exact / scaled_same 立刻停，不管撞的是谁；跨机判重在 A 机合并点做（分桶比较，无损）。
+7. package 串行、一次一件，绝不并发发布（N43/N44 未修）；台账绝不手工合并 sqlite，只回传 ledger.jsonl 导出。
+8. 渲染与 STEP 全由插件产出，不许手改：8 视图、白底单色灰、长边 >=2000px、STEP AP214 是硬线。
+9. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   versions.json、REPORT.md（含 LESSONS_ACK）、豁免文件；并更新 shared/fingerprints/<你的字母>.json（只这一个文件）。
+   推之前自己跑 `python3 tools/merge_check.py --root ~/cad-fleet --theirs outbox/<批次> --baseline shared/fingerprints`，
+   **把 blocking 一次全清掉**再 push（门禁现在会一次列全部缺陷，不会只告诉你第一个）。
+10. 立刻停下来问人：判重命中 / 探针修不过 / 要把 memCapMb 降到 1536 以下 / 想改清单、族谱或 intake / 插件行为与工单不符。

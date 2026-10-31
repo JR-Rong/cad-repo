@@ -1,44 +1,184 @@
-任务：你是 CAD 流水线的机器 B，本批次 fleet_b_2026_11（10 件，全新族谱）
+任务：你是 CAD 流水线的机器 B，批次 fleet_b_2026_11：100 个族谱 × 400 件 = 40000 件（20 波）
 
-仓库：git clone git@github.com:JR-Rong/cad-repo.git cad-repo（或你已有的本地 clone 先 git pull）
-先读：cad-repo/WORK-ORDER.md（通用规则），再读下面你自己的件清单；规格原文在 cad-repo/shared/spec-extract.txt。
-开工前必须先把全局去重底表同步进来：python3 cad-repo/tools/registry_sync.py --root ~/cad-fleet
+第一步（强制，不许跳）：`cd cad-repo && python3 tools/recall.py --machine B`
+  打印教训全文 + 项目记忆 + 版本握手 + 你的切片，并给出 LESSONS_ACK；
+  回传 REPORT.md 必须带 `LESSONS_ACK: <那 8 位>`，merge_check 核对，缺或过期直接 REJECT。
+第二步：`python3 tools/registry_sync.py --root ~/cad-fleet`（非 0 就停下喊人）
+第三步（开工前）：`python3 tools/emit_members.py --machine B --wave 1 > intake/waves/fleet_b_2026_11_w1.json`
+再读：WORKFLOW.md（流程、所有权、波次）、WORK-ORDER.md（技术口径）。
 
-你的件（project id 一字不差；同族两件之间拓扑必须不同）：
+**本轮只做 wave 1 的 2000 件（5 个族谱）**；回传并被 A 机 ACCEPT、指纹并入底表之后才准开 wave 2。
+wave 1 族谱与件号区间：
+  - `b_in01_…001–b_in01_…400`  台式仪表壳（机电产品｜壳体 轴族｜400 件）
+  - `b_in02_…001–b_in02_…400`  手持仪表壳（机电产品｜壳体 轴族｜400 件）
+  - `b_in03_…001–b_in03_…400`  面板安装盒（机电产品｜面板 轴族｜400 件）
+  - `b_in04_…001–b_in04_…400`  仪器防护罩（机电产品｜罩壳 轴族｜400 件）
+  - `b_in05_…001–b_in05_…400`  探头手柄壳（机电产品｜壳体 轴族｜400 件）
 
-族谱 `handheld_meter_case`
-  - b_meter_hh45  目标 A 级｜手持表壳 45 框｜拓扑差异：电池仓+表笔插座 2+表头窗+胶套槽+背部磁吸板
-  - b_meter_hh60  目标 S 级｜手持表壳 60 框（翻盖支架）｜拓扑差异：翻盖+支架腿槽+探头收纳腔+硅胶护套筋 6+防护圈
+成员展开规则：同一族谱的 400 个成员在 5 条结构轴上逐一取不同组合
+（`emit_members.py` 会给每件写出 sig 与尺寸档），design.md 必须把 sig 落成具体特征数。
 
-族谱 `instrument_hood`
-  - b_hood_top  目标 S 级｜桌面仪器罩·顶置提手｜拓扑差异：提手+散热风道 2+观察窗+底部减震柱窝 4+内隔板卡槽
-  - b_hood_side  目标 S 级｜仪器罩·侧开门｜拓扑差异：侧门铰链 3+气弹簧座 2+散热格栅+背面线缆切口；无提手
+全部 20 个波次（每波开工前先 emit 该波的 intake）：
 
-族谱 `panel_box`
-  - b_panelbox_hm  目标 A 级｜膜键面板盒｜拓扑差异：膜键窗+铰链座 2+密封槽+电缆入口 3+PCB 铜柱 6
-  - b_panelbox_jb  目标 A 级｜接线盒（卡扣盖）｜拓扑差异：隔筋 2+端子导轨+敲落孔 4+接地螺柱 2；无铰链
+wave 1 —— `python3 tools/emit_members.py --machine B --wave 1`
+  - `b_in01_…001–…400`  台式仪表壳（机电产品｜壳体）
+  - `b_in02_…001–…400`  手持仪表壳（机电产品｜壳体）
+  - `b_in03_…001–…400`  面板安装盒（机电产品｜面板）
+  - `b_in04_…001–…400`  仪器防护罩（机电产品｜罩壳）
+  - `b_in05_…001–…400`  探头手柄壳（机电产品｜壳体）
 
-族谱 `snap_enclosure`
-  - b_snapenc120_r3  目标 A 级｜卡扣仪器外壳·下壳｜拓扑差异：筋 3+卡扣 6+PCB 铜柱 4+线缆出口 2；无数显窗
-  - b_snapenc120_r4w  目标 A 级｜卡扣仪器外壳·带窗上壳｜拓扑差异：筋 4+数显透光窗+按键孔 3+卡扣 8+接地螺柱
+wave 2 —— `python3 tools/emit_members.py --machine B --wave 2`
+  - `b_in06_…001–…400`  台式电源外壳（机电产品｜罩壳）
+  - `b_in07_…001–…400`  信号发生器壳（机电产品｜壳体）
+  - `b_in08_…001–…400`  示波器外壳（机电产品｜罩壳）
+  - `b_in09_…001–…400`  万用表保护壳（机电产品｜壳体）
+  - `b_in10_…001–…400`  校准器外壳（机电产品｜检具）
 
-族谱 `terminal_block`
-  - b_termblk_4p  目标 A 级｜螺钉式接线端子 4P｜拓扑差异：极腔 4+导体压板腔+导轨卡扣+防手指绝缘壁+标记牌槽；无可拆分隔板
-  - b_termblk_6p_s  目标 S 级｜螺钉式接线端子 6P 带分隔板｜拓扑差异：极腔 6+分隔板槽 5+端挡板+标记槽 2+螺钉 6
+wave 3 —— `python3 tools/emit_members.py --machine B --wave 3`
+  - `b_in11_…001–…400`  温湿度计壳（机电产品｜壳体）
+  - `b_in12_…001–…400`  照度计外壳（机电产品｜罩壳）
+  - `b_in13_…001–…400`  转速测量壳（机电产品｜壳体）
+  - `b_in14_…001–…400`  振动分析仪壳（机电产品｜壳体）
+  - `b_in15_…001–…400`  噪声计外壳（机电产品｜罩壳）
 
-以上之外的件都不要做（其他机器在产）。其余规则照通用工单执行：
-通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
-1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
-   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
-2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
-   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
-3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
-4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
-5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
-6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
-   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
-   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
-   ACCEPT 才 commit + push。
-7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+wave 4 —— `python3 tools/emit_members.py --machine B --wave 4`
+  - `b_in16_…001–…400`  气体检测仪壳（机电产品｜壳体）
+  - `b_in17_…001–…400`  水质分析仪壳（机电产品｜壳体）
+  - `b_in18_…001–…400`  电子秤台壳（机电产品｜壳体）
+  - `b_in19_…001–…400`  载荷放大器壳（机电产品｜壳体）
+  - `b_in20_…001–…400`  数据采集盒（机电产品｜盒盖）
+
+wave 5 —— `python3 tools/emit_members.py --machine B --wave 5`
+  - `b_in21_…001–…400`  工业平板壳（机电产品｜支架）
+  - `b_in22_…001–…400`  触控面板框（机电产品｜面板）
+  - `b_in23_…001–…400`  按钮悬挂盒（机电产品｜盒盖）
+  - `b_in24_…001–…400`  指示灯面板（机电产品｜面板）
+  - `b_in25_…001–…400`  急停按钮座（机电产品｜支架）
+
+wave 6 —— `python3 tools/emit_members.py --machine B --wave 6`
+  - `b_in26_…001–…400`  选择开关盒（机电产品｜盒盖）
+  - `b_in27_…001–…400`  仪表台式支架（机电产品｜支架）
+  - `b_in28_…001–…400`  显示屏遮光罩（机电产品｜罩壳）
+  - `b_in29_…001–…400`  变送器外壳（机电产品｜罩壳）
+  - `b_in30_…001–…400`  表计保护盖（机电产品｜盒盖）
+
+wave 7 —— `python3 tools/emit_members.py --machine B --wave 7`
+  - `b_in31_…001–…400`  台式机箱盖（机电产品｜盒盖）
+  - `b_in32_…001–…400`  光学平台外壳（机电产品｜罩壳）
+  - `b_in33_…001–…400`  显微观察罩（机电产品｜罩壳）
+  - `b_in34_…001–…400`  比色计外壳（机电产品｜罩壳）
+  - `b_in35_…001–…400`  旋钮电位计座（机电产品｜支架）
+
+wave 8 —— `python3 tools/emit_members.py --machine B --wave 8`
+  - `b_in36_…001–…400`  记录仪机箱（机电产品｜壳体）
+  - `b_in37_…001–…400`  计时器外壳（机电产品｜罩壳）
+  - `b_in38_…001–…400`  电源插口面板（机电产品｜面板）
+  - `b_in39_…001–…400`  信号端子罩（机电产品｜罩壳）
+  - `b_in40_…001–…400`  仪表散热罩（机电产品｜罩壳）
+
+wave 9 —— `python3 tools/emit_members.py --machine B --wave 9`
+  - `b_in41_…001–…400`  台式减震脚座（机电产品｜支架）
+  - `b_in42_…001–…400`  手持防滑护套（机电产品｜罩壳）
+  - `b_in43_…001–…400`  充电底座壳（机电产品｜支架）
+  - `b_in44_…001–…400`  便携设备提手座（机电产品｜支架）
+  - `b_in45_…001–…400`  密封电池仓盖（机电产品｜盒盖）
+
+wave 10 —— `python3 tools/emit_members.py --machine B --wave 10`
+  - `b_in46_…001–…400`  便携表包壳（机电产品｜壳体）
+  - `b_in47_…001–…400`  检测棒手柄（机电产品｜壳体）
+  - `b_in48_…001–…400`  电极保护帽（机电产品｜壳体）
+  - `b_in49_…001–…400`  探头连接器壳（机电产品｜壳体）
+  - `b_in50_…001–…400`  量热计外壳（机电产品｜罩壳）
+
+wave 11 —— `python3 tools/emit_members.py --machine B --wave 11`
+  - `b_ce01_…001–…400`  卡扣仪器外壳（消费品｜罩壳）
+  - `b_ce02_…001–…400`  螺钉接线端子体（消费品｜壳体）
+  - `b_ce03_…001–…400`  电源适配器壳（消费品｜壳体）
+  - `b_ce04_…001–…400`  驱动器电源壳（消费品｜壳体）
+  - `b_ce05_…001–…400`  路由器外壳（消费品｜罩壳）
+
+wave 12 —— `python3 tools/emit_members.py --machine B --wave 12`
+  - `b_ce06_…001–…400`  机顶盒壳（消费品｜盒盖）
+  - `b_ce07_…001–…400`  智能音箱壳（消费品｜壳体）
+  - `b_ce08_…001–…400`  无线充电底座（消费品｜支架）
+  - `b_ce09_…001–…400`  手持遥控壳（消费品｜壳体）
+  - `b_ce10_…001–…400`  游戏手柄壳（消费品｜壳体）
+
+wave 13 —— `python3 tools/emit_members.py --machine B --wave 13`
+  - `b_ce11_…001–…400`  耳机充电盒（消费品｜盒盖）
+  - `b_ce12_…001–…400`  电动牙刷柄壳（消费品｜壳体）
+  - `b_ce13_…001–…400`  剃须刀机身壳（消费品｜壳体）
+  - `b_ce14_…001–…400`  洁面仪外壳（消费品｜罩壳）
+  - `b_ce15_…001–…400`  按摩器手柄（消费品｜壳体）
+
+wave 14 —— `python3 tools/emit_members.py --machine B --wave 14`
+  - `b_ce16_…001–…400`  移动电源外壳（消费品｜罩壳）
+  - `b_ce17_…001–…400`  电池组外壳（消费品｜罩壳）
+  - `b_ce18_…001–…400`  枪机外壳（消费品｜罩壳）
+  - `b_ce19_…001–…400`  半球摄像机壳（消费品｜壳体）
+  - `b_ce20_…001–…400`  门铃面板壳（消费品｜面板）
+
+wave 15 —— `python3 tools/emit_members.py --machine B --wave 15`
+  - `b_ce21_…001–…400`  烟感探测器底座（消费品｜支架）
+  - `b_ce22_…001–…400`  温控器面板（消费品｜面板）
+  - `b_ce23_…001–…400`  开关按键面板（消费品｜面板）
+  - `b_ce24_…001–…400`  插座底盒（消费品｜盒盖）
+  - `b_ce25_…001–…400`  防水接线盒（消费品｜盒盖）
+
+wave 16 —— `python3 tools/emit_members.py --machine B --wave 16`
+  - `b_ce26_…001–…400`  光伏接线盒（消费品｜盒盖）
+  - `b_ce27_…001–…400`  端子护罩（消费品｜罩壳）
+  - `b_ce28_…001–…400`  重载连接器上盖（消费品｜盒盖）
+  - `b_ce29_…001–…400`  航空插头壳（消费品｜壳体）
+  - `b_ce30_…001–…400`  圆形连接器壳（消费品｜壳体）
+
+wave 17 —— `python3 tools/emit_members.py --machine B --wave 17`
+  - `b_ce31_…001–…400`  矩形连接器壳（消费品｜壳体）
+  - `b_ce32_…001–…400`  排针定位框（消费品｜支架）
+  - `b_ce33_…001–…400`  芯片测试座（消费品｜支架）
+  - `b_ce34_…001–…400`  功率模块散热基座（消费品｜工装）
+  - `b_ce35_…001–…400`  电磁屏蔽罩（消费品｜罩壳）
+
+wave 18 —— `python3 tools/emit_members.py --machine B --wave 18`
+  - `b_ce36_…001–…400`  电子镇流器壳（消费品｜壳体）
+  - `b_ce37_…001–…400`  灯头支架（消费品｜支架）
+  - `b_ce38_…001–…400`  灯具散热罩（消费品｜罩壳）
+  - `b_ce39_…001–…400`  电源模块壳（消费品｜工装）
+  - `b_ce40_…001–…400`  直流插座座体（消费品｜支架）
+
+wave 19 —— `python3 tools/emit_members.py --machine B --wave 19`
+  - `b_ce41_…001–…400`  数据接口护套（消费品｜罩壳）
+  - `b_ce42_…001–…400`  视频接口护套（消费品｜罩壳）
+  - `b_ce43_…001–…400`  网口屏蔽壳（消费品｜壳体）
+  - `b_ce44_…001–…400`  键盘面板板（消费品｜面板）
+  - `b_ce45_…001–…400`  手持设备上盖（消费品｜盒盖）
+
+wave 20 —— `python3 tools/emit_members.py --machine B --wave 20`
+  - `b_ce46_…001–…400`  键帽（消费品｜面板）
+  - `b_ce47_…001–…400`  手持终端保护框（消费品｜支架）
+  - `b_ce48_…001–…400`  平板后盖（消费品｜盒盖）
+  - `b_ce49_…001–…400`  阅读器后壳（消费品｜壳体）
+  - `b_ce50_…001–…400`  音箱腔体（消费品｜壳体）
+
+以上之外的件一律不做（别的机器在产）。通用规则：
+通用规则（五台机器一样，全文见 cad-repo/WORKFLOW.md 与 cad-repo/WORK-ORDER.md）：
 0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
-   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH（不重启侧栏图标不会出现）；
+   cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。插件源码在 cad-repo/plugin/，与 tgz 同源。
+1. 开工先 `python3 tools/recall.py --machine <你的字母>`：它打印教训全文 + 项目记忆 + 版本握手 + 你的切片。
+   记住它给的 LESSONS_ACK，回传 REPORT.md 必须带这一行，merge_check 缺它或它过期就 REJECT。
+2. 再回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb 与你的 rules_sha；
+   与 shared/versions.json 不一致就停下问人，等 A 机重签版本握手与新 tgz，**不要自己改引擎**。
+3. 每波开工先展开合同：`python3 tools/emit_members.py --machine <字母> --wave N > intake/waves/<批次>_wN.json`，
+   然后 commit 这个文件（它就是你这一波要交付的 2,000 件，交付逐件对上）。
+4. 每件顺序：new -> design.md -> build -> validate -> probe -> dedupe -> export -> package，任一 FAIL 不许往下走；
+   design.md 必须把该件的 topo_signature 落成**具体特征数**（哪个轴存在/不存在、筋几条孔几个），这是判重的正面证据。
+5. 同族成员必须换拓扑；纯缩放 = 2.5 判重复不计数；params 表里不许留已关闭特征的参数（探针逐格扰动）。
+6. dedupe 报 exact / scaled_same 立刻停，不管撞的是谁；跨机判重在 A 机合并点做（分桶比较，无损）。
+7. package 串行、一次一件，绝不并发发布（N43/N44 未修）；台账绝不手工合并 sqlite，只回传 ledger.jsonl 导出。
+8. 渲染与 STEP 全由插件产出，不许手改：8 视图、白底单色灰、长边 >=2000px、STEP AP214 是硬线。
+9. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   versions.json、REPORT.md（含 LESSONS_ACK）、豁免文件；并更新 shared/fingerprints/<你的字母>.json（只这一个文件）。
+   推之前自己跑 `python3 tools/merge_check.py --root ~/cad-fleet --theirs outbox/<批次> --baseline shared/fingerprints`，
+   **把 blocking 一次全清掉**再 push（门禁现在会一次列全部缺陷，不会只告诉你第一个）。
+10. 立刻停下来问人：判重命中 / 探针修不过 / 要把 memCapMb 降到 1536 以下 / 想改清单、族谱或 intake / 插件行为与工单不符。

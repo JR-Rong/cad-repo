@@ -5,119 +5,1159 @@
  "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
  "issued_by": "machine-A dsh-cad-agent",
  "created": "2026-10-31",
- "parts": [
-  "b_snapenc120_r3",
-  "b_snapenc120_r4w",
-  "b_termblk_4p",
-  "b_termblk_6p_s",
-  "b_meter_hh45",
-  "b_meter_hh60",
-  "b_panelbox_hm",
-  "b_panelbox_jb",
-  "b_hood_top",
-  "b_hood_side"
- ],
- "detail": [
+ "quota": {
+  "families": 100,
+  "parts": 40000,
+  "per_family": 400,
+  "per_wave_families": 5,
+  "per_wave_parts": 2000,
+  "waves": 20
+ },
+ "families": [
   {
-   "project_id": "b_snapenc120_r3",
-   "title": "卡扣仪器外壳·下壳",
-   "family": "snap_enclosure",
+   "family": "in01",
+   "object": "台式仪表壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "b_in01_"
+  },
+  {
+   "family": "in02",
+   "object": "手持仪表壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "b_in02_"
+  },
+  {
+   "family": "in03",
+   "object": "面板安装盒",
+   "category": "机电产品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "b_in03_"
+  },
+  {
+   "family": "in04",
+   "object": "仪器防护罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "b_in04_"
+  },
+  {
+   "family": "in05",
+   "object": "探头手柄壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "b_in05_"
+  },
+  {
+   "family": "in06",
+   "object": "台式电源外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "u",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "b_in06_"
+  },
+  {
+   "family": "in07",
+   "object": "信号发生器壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "b_in07_"
+  },
+  {
+   "family": "in08",
+   "object": "示波器外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "b_in08_"
+  },
+  {
+   "family": "in09",
+   "object": "万用表保护壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "b_in09_"
+  },
+  {
+   "family": "in10",
+   "object": "校准器外壳",
+   "category": "机电产品",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "b_in10_"
+  },
+  {
+   "family": "in11",
+   "object": "温湿度计壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "b_in11_"
+  },
+  {
+   "family": "in12",
+   "object": "照度计外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "b_in12_"
+  },
+  {
+   "family": "in13",
+   "object": "转速测量壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "b_in13_"
+  },
+  {
+   "family": "in14",
+   "object": "振动分析仪壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "b_in14_"
+  },
+  {
+   "family": "in15",
+   "object": "噪声计外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "b_in15_"
+  },
+  {
+   "family": "in16",
+   "object": "气体检测仪壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "b_in16_"
+  },
+  {
+   "family": "in17",
+   "object": "水质分析仪壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "b_in17_"
+  },
+  {
+   "family": "in18",
+   "object": "电子秤台壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "b_in18_"
+  },
+  {
+   "family": "in19",
+   "object": "载荷放大器壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "b_in19_"
+  },
+  {
+   "family": "in20",
+   "object": "数据采集盒",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "u",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "b_in20_"
+  },
+  {
+   "family": "in21",
+   "object": "工业平板壳",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "b_in21_"
+  },
+  {
+   "family": "in22",
+   "object": "触控面板框",
+   "category": "机电产品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "b_in22_"
+  },
+  {
+   "family": "in23",
+   "object": "按钮悬挂盒",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "b_in23_"
+  },
+  {
+   "family": "in24",
+   "object": "指示灯面板",
+   "category": "机电产品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "b_in24_"
+  },
+  {
+   "family": "in25",
+   "object": "急停按钮座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "b_in25_"
+  },
+  {
+   "family": "in26",
+   "object": "选择开关盒",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "b_in26_"
+  },
+  {
+   "family": "in27",
+   "object": "仪表台式支架",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "b_in27_"
+  },
+  {
+   "family": "in28",
+   "object": "显示屏遮光罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "b_in28_"
+  },
+  {
+   "family": "in29",
+   "object": "变送器外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "dn",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "b_in29_"
+  },
+  {
+   "family": "in30",
+   "object": "表计保护盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "dn",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "b_in30_"
+  },
+  {
+   "family": "in31",
+   "object": "台式机箱盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "u",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "b_in31_"
+  },
+  {
+   "family": "in32",
+   "object": "光学平台外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "b_in32_"
+  },
+  {
+   "family": "in33",
+   "object": "显微观察罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "b_in33_"
+  },
+  {
+   "family": "in34",
+   "object": "比色计外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "b_in34_"
+  },
+  {
+   "family": "in35",
+   "object": "旋钮电位计座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "b_in35_"
+  },
+  {
+   "family": "in36",
+   "object": "记录仪机箱",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "u",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "b_in36_"
+  },
+  {
+   "family": "in37",
+   "object": "计时器外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "b_in37_"
+  },
+  {
+   "family": "in38",
+   "object": "电源插口面板",
+   "category": "机电产品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "b_in38_"
+  },
+  {
+   "family": "in39",
+   "object": "信号端子罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "b_in39_"
+  },
+  {
+   "family": "in40",
+   "object": "仪表散热罩",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "b_in40_"
+  },
+  {
+   "family": "in41",
+   "object": "台式减震脚座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "b_in41_"
+  },
+  {
+   "family": "in42",
+   "object": "手持防滑护套",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "b_in42_"
+  },
+  {
+   "family": "in43",
+   "object": "充电底座壳",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "b_in43_"
+  },
+  {
+   "family": "in44",
+   "object": "便携设备提手座",
+   "category": "机电产品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "b_in44_"
+  },
+  {
+   "family": "in45",
+   "object": "密封电池仓盖",
+   "category": "机电产品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "b_in45_"
+  },
+  {
+   "family": "in46",
+   "object": "便携表包壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "b_in46_"
+  },
+  {
+   "family": "in47",
+   "object": "检测棒手柄",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "b_in47_"
+  },
+  {
+   "family": "in48",
+   "object": "电极保护帽",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "b_in48_"
+  },
+  {
+   "family": "in49",
+   "object": "探头连接器壳",
+   "category": "机电产品",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "b_in49_"
+  },
+  {
+   "family": "in50",
+   "object": "量热计外壳",
+   "category": "机电产品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "b_in50_"
+  },
+  {
+   "family": "ce01",
+   "object": "卡扣仪器外壳",
    "category": "消费品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "筋 3+卡扣 6+PCB 铜柱 4+线缆出口 2；无数显窗"
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "b_ce01_"
   },
   {
-   "project_id": "b_snapenc120_r4w",
-   "title": "卡扣仪器外壳·带窗上壳",
-   "family": "snap_enclosure",
-   "category": "机电产品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "筋 4+数显透光窗+按键孔 3+卡扣 8+接地螺柱"
-  },
-  {
-   "project_id": "b_termblk_4p",
-   "title": "螺钉式接线端子 4P",
-   "family": "terminal_block",
-   "category": "电子元器件封装",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "极腔 4+导体压板腔+导轨卡扣+防手指绝缘壁+标记牌槽；无可拆分隔板"
-  },
-  {
-   "project_id": "b_termblk_6p_s",
-   "title": "螺钉式接线端子 6P 带分隔板",
-   "family": "terminal_block",
-   "category": "电子元器件封装",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "极腔 6+分隔板槽 5+端挡板+标记槽 2+螺钉 6"
-  },
-  {
-   "project_id": "b_meter_hh45",
-   "title": "手持表壳 45 框",
-   "family": "handheld_meter_case",
+   "family": "ce02",
+   "object": "螺钉接线端子体",
    "category": "消费品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "电池仓+表笔插座 2+表头窗+胶套槽+背部磁吸板"
+   "archetype": "壳体",
+   "ladder": "m",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "b_ce02_"
   },
   {
-   "project_id": "b_meter_hh60",
-   "title": "手持表壳 60 框（翻盖支架）",
-   "family": "handheld_meter_case",
+   "family": "ce03",
+   "object": "电源适配器壳",
    "category": "消费品",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "翻盖+支架腿槽+探头收纳腔+硅胶护套筋 6+防护圈"
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "b_ce03_"
   },
   {
-   "project_id": "b_panelbox_hm",
-   "title": "膜键面板盒",
-   "family": "panel_box",
-   "category": "机电产品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "膜键窗+铰链座 2+密封槽+电缆入口 3+PCB 铜柱 6"
+   "family": "ce04",
+   "object": "驱动器电源壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "b_ce04_"
   },
   {
-   "project_id": "b_panelbox_jb",
-   "title": "接线盒（卡扣盖）",
-   "family": "panel_box",
-   "category": "机电产品",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "隔筋 2+端子导轨+敲落孔 4+接地螺柱 2；无铰链"
+   "family": "ce05",
+   "object": "路由器外壳",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "b_ce05_"
   },
   {
-   "project_id": "b_hood_top",
-   "title": "桌面仪器罩·顶置提手",
-   "family": "instrument_hood",
-   "category": "机电产品",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "提手+散热风道 2+观察窗+底部减震柱窝 4+内隔板卡槽"
+   "family": "ce06",
+   "object": "机顶盒壳",
+   "category": "消费品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "b_ce06_"
   },
   {
-   "project_id": "b_hood_side",
-   "title": "仪器罩·侧开门",
-   "family": "instrument_hood",
-   "category": "机电产品",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "侧门铰链 3+气弹簧座 2+散热格栅+背面线缆切口；无提手"
+   "family": "ce07",
+   "object": "智能音箱壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "b_ce07_"
+  },
+  {
+   "family": "ce08",
+   "object": "无线充电底座",
+   "category": "消费品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "b_ce08_"
+  },
+  {
+   "family": "ce09",
+   "object": "手持遥控壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "b_ce09_"
+  },
+  {
+   "family": "ce10",
+   "object": "游戏手柄壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "b_ce10_"
+  },
+  {
+   "family": "ce11",
+   "object": "耳机充电盒",
+   "category": "消费品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "b_ce11_"
+  },
+  {
+   "family": "ce12",
+   "object": "电动牙刷柄壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "b_ce12_"
+  },
+  {
+   "family": "ce13",
+   "object": "剃须刀机身壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "b_ce13_"
+  },
+  {
+   "family": "ce14",
+   "object": "洁面仪外壳",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "inch",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "b_ce14_"
+  },
+  {
+   "family": "ce15",
+   "object": "按摩器手柄",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "b_ce15_"
+  },
+  {
+   "family": "ce16",
+   "object": "移动电源外壳",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "b_ce16_"
+  },
+  {
+   "family": "ce17",
+   "object": "电池组外壳",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "b_ce17_"
+  },
+  {
+   "family": "ce18",
+   "object": "枪机外壳",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "b_ce18_"
+  },
+  {
+   "family": "ce19",
+   "object": "半球摄像机壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "b_ce19_"
+  },
+  {
+   "family": "ce20",
+   "object": "门铃面板壳",
+   "category": "消费品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "b_ce20_"
+  },
+  {
+   "family": "ce21",
+   "object": "烟感探测器底座",
+   "category": "消费品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "b_ce21_"
+  },
+  {
+   "family": "ce22",
+   "object": "温控器面板",
+   "category": "消费品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "b_ce22_"
+  },
+  {
+   "family": "ce23",
+   "object": "开关按键面板",
+   "category": "消费品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "b_ce23_"
+  },
+  {
+   "family": "ce24",
+   "object": "插座底盒",
+   "category": "消费品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "b_ce24_"
+  },
+  {
+   "family": "ce25",
+   "object": "防水接线盒",
+   "category": "消费品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "b_ce25_"
+  },
+  {
+   "family": "ce26",
+   "object": "光伏接线盒",
+   "category": "消费品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "b_ce26_"
+  },
+  {
+   "family": "ce27",
+   "object": "端子护罩",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "inch",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "b_ce27_"
+  },
+  {
+   "family": "ce28",
+   "object": "重载连接器上盖",
+   "category": "消费品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "b_ce28_"
+  },
+  {
+   "family": "ce29",
+   "object": "航空插头壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "b_ce29_"
+  },
+  {
+   "family": "ce30",
+   "object": "圆形连接器壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "b_ce30_"
+  },
+  {
+   "family": "ce31",
+   "object": "矩形连接器壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "b_ce31_"
+  },
+  {
+   "family": "ce32",
+   "object": "排针定位框",
+   "category": "消费品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "b_ce32_"
+  },
+  {
+   "family": "ce33",
+   "object": "芯片测试座",
+   "category": "消费品",
+   "archetype": "支架",
+   "ladder": "inch",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "b_ce33_"
+  },
+  {
+   "family": "ce34",
+   "object": "功率模块散热基座",
+   "category": "消费品",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "b_ce34_"
+  },
+  {
+   "family": "ce35",
+   "object": "电磁屏蔽罩",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "b_ce35_"
+  },
+  {
+   "family": "ce36",
+   "object": "电子镇流器壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "b_ce36_"
+  },
+  {
+   "family": "ce37",
+   "object": "灯头支架",
+   "category": "消费品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "b_ce37_"
+  },
+  {
+   "family": "ce38",
+   "object": "灯具散热罩",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "b_ce38_"
+  },
+  {
+   "family": "ce39",
+   "object": "电源模块壳",
+   "category": "消费品",
+   "archetype": "工装",
+   "ladder": "u",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "b_ce39_"
+  },
+  {
+   "family": "ce40",
+   "object": "直流插座座体",
+   "category": "消费品",
+   "archetype": "支架",
+   "ladder": "inch",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "b_ce40_"
+  },
+  {
+   "family": "ce41",
+   "object": "数据接口护套",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "inch",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "b_ce41_"
+  },
+  {
+   "family": "ce42",
+   "object": "视频接口护套",
+   "category": "消费品",
+   "archetype": "罩壳",
+   "ladder": "inch",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "b_ce42_"
+  },
+  {
+   "family": "ce43",
+   "object": "网口屏蔽壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "b_ce43_"
+  },
+  {
+   "family": "ce44",
+   "object": "键盘面板板",
+   "category": "消费品",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "b_ce44_"
+  },
+  {
+   "family": "ce45",
+   "object": "手持设备上盖",
+   "category": "消费品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "b_ce45_"
+  },
+  {
+   "family": "ce46",
+   "object": "键帽",
+   "category": "消费品",
+   "archetype": "面板",
+   "ladder": "inch",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "b_ce46_"
+  },
+  {
+   "family": "ce47",
+   "object": "手持终端保护框",
+   "category": "消费品",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "b_ce47_"
+  },
+  {
+   "family": "ce48",
+   "object": "平板后盖",
+   "category": "消费品",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "b_ce48_"
+  },
+  {
+   "family": "ce49",
+   "object": "阅读器后壳",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "b_ce49_"
+  },
+  {
+   "family": "ce50",
+   "object": "音箱腔体",
+   "category": "消费品",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "b_ce50_"
   }
  ],
- "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
+ "wave_layout": {
+  "1": [
+   "in01",
+   "in02",
+   "in03",
+   "in04",
+   "in05"
+  ],
+  "2": [
+   "in06",
+   "in07",
+   "in08",
+   "in09",
+   "in10"
+  ],
+  "3": [
+   "in11",
+   "in12",
+   "in13",
+   "in14",
+   "in15"
+  ],
+  "4": [
+   "in16",
+   "in17",
+   "in18",
+   "in19",
+   "in20"
+  ],
+  "5": [
+   "in21",
+   "in22",
+   "in23",
+   "in24",
+   "in25"
+  ],
+  "6": [
+   "in26",
+   "in27",
+   "in28",
+   "in29",
+   "in30"
+  ],
+  "7": [
+   "in31",
+   "in32",
+   "in33",
+   "in34",
+   "in35"
+  ],
+  "8": [
+   "in36",
+   "in37",
+   "in38",
+   "in39",
+   "in40"
+  ],
+  "9": [
+   "in41",
+   "in42",
+   "in43",
+   "in44",
+   "in45"
+  ],
+  "10": [
+   "in46",
+   "in47",
+   "in48",
+   "in49",
+   "in50"
+  ],
+  "11": [
+   "ce01",
+   "ce02",
+   "ce03",
+   "ce04",
+   "ce05"
+  ],
+  "12": [
+   "ce06",
+   "ce07",
+   "ce08",
+   "ce09",
+   "ce10"
+  ],
+  "13": [
+   "ce11",
+   "ce12",
+   "ce13",
+   "ce14",
+   "ce15"
+  ],
+  "14": [
+   "ce16",
+   "ce17",
+   "ce18",
+   "ce19",
+   "ce20"
+  ],
+  "15": [
+   "ce21",
+   "ce22",
+   "ce23",
+   "ce24",
+   "ce25"
+  ],
+  "16": [
+   "ce26",
+   "ce27",
+   "ce28",
+   "ce29",
+   "ce30"
+  ],
+  "17": [
+   "ce31",
+   "ce32",
+   "ce33",
+   "ce34",
+   "ce35"
+  ],
+  "18": [
+   "ce36",
+   "ce37",
+   "ce38",
+   "ce39",
+   "ce40"
+  ],
+  "19": [
+   "ce41",
+   "ce42",
+   "ce43",
+   "ce44",
+   "ce45"
+  ],
+  "20": [
+   "ce46",
+   "ce47",
+   "ce48",
+   "ce49",
+   "ce50"
+  ]
+ },
+ "how_to_materialise": "python3 tools/emit_members.py --machine B --wave N > intake/waves/fleet_b_2026_11_wN.json",
+ "wave_rule": "一次只做一波（2000 件）；上一波全部 ACCEPT 且指纹并入底表才准开下一波",
+ "notes": "成员在 5 条结构轴上取不同组合；禁止等比缩放；关掉的特征组其参数不得留在 params 表。"
 }

@@ -5,119 +5,1159 @@
  "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
  "issued_by": "machine-A dsh-cad-agent",
  "created": "2026-10-31",
- "parts": [
-  "c_turnfx_d3",
-  "c_turnfx_d6",
-  "c_weldfp_a",
-  "c_weldfp_b",
-  "c_pressf_guide4",
-  "c_pressf_collar",
-  "c_airgauge_vblock",
-  "c_airgauge_multi",
-  "c_flip_180",
-  "c_flip_360"
- ],
- "detail": [
+ "quota": {
+  "families": 100,
+  "parts": 40000,
+  "per_family": 400,
+  "per_wave_families": 5,
+  "per_wave_parts": 2000,
+  "waves": 20
+ },
+ "families": [
   {
-   "project_id": "c_turnfx_d3",
-   "title": "三爪车削夹具座",
-   "family": "turn_fixture_base",
+   "family": "fx01",
+   "object": "车削夹具座",
    "category": "工装夹具",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "短爪定位 3+中心螺钉+平衡块槽 4+液压通道 2+排屑槽"
+   "archetype": "工装",
+   "ladder": "frame",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "c_fx01_"
   },
   {
-   "project_id": "c_turnfx_d6",
-   "title": "六爪车削夹具座",
-   "family": "turn_fixture_base",
+   "family": "fx02",
+   "object": "焊接工装板",
    "category": "工装夹具",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "爪位 6+气密腔+快换接口+中心通孔；无液压通道"
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "c_fx02_"
   },
   {
-   "project_id": "c_weldfp_a",
-   "title": "焊接工装板（销阵式）",
-   "family": "weld_facing_plate",
+   "family": "fx03",
+   "object": "压装工装",
    "category": "工装夹具",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "定位销 8+压紧器螺孔阵+让位槽+基准刻线槽+吊装孔 2"
+   "archetype": "工装",
+   "ladder": "t",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "c_fx03_"
   },
   {
-   "project_id": "c_weldfp_b",
-   "title": "焊接工装板（V 块式）",
-   "family": "weld_facing_plate",
+   "family": "fx04",
+   "object": "翻转工装",
    "category": "工装夹具",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "V 块 2+支撑钉 6+异形轮廓让位+气管孔 4；销位 5"
+   "archetype": "工装",
+   "ladder": "t",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "c_fx04_"
   },
   {
-   "project_id": "c_pressf_guide4",
-   "title": "四导柱压装模",
-   "family": "press_fixture",
+   "family": "fx05",
+   "object": "铣削夹具底板",
    "category": "工装夹具",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "上/下模+导套 4+顶出孔+限位垫+起吊螺钉孔 2"
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "c_fx05_"
   },
   {
-   "project_id": "c_pressf_collar",
-   "title": "轴肩压套工装",
-   "family": "press_fixture",
+   "family": "fx06",
+   "object": "拉刀夹持具",
    "category": "工装夹具",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "V 形定位块+可调行程挡块+弹簧顶销 2+深度量表座；无导套"
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "c_fx06_"
   },
   {
-   "project_id": "c_airgauge_vblock",
-   "title": "气动量仪检具（V 块）",
-   "family": "air_gauge_check",
+   "family": "fx07",
+   "object": "去毛刺定位具",
    "category": "工装夹具",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "V 块+测头座 2+标准件收纳腔+防护罩铰座+排屑孔"
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "c_fx07_"
   },
   {
-   "project_id": "c_airgauge_multi",
-   "title": "多孔位多测头检具",
-   "family": "air_gauge_check",
+   "family": "fx08",
+   "object": "胶接固化型架",
    "category": "工装夹具",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "测头位 6+快换定位销 4+分流气道的孔阵+盖板卡槽"
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "c_fx08_"
   },
   {
-   "project_id": "c_flip_180",
-   "title": "翻转工装 180°",
-   "family": "flip_fixture",
+   "family": "fx09",
+   "object": "绕线骨架工装",
    "category": "工装夹具",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "转轴+180°定位齿 12+配重槽 2+手柄+锁销"
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "c_fx09_"
   },
   {
-   "project_id": "c_flip_360",
-   "title": "翻转工装 360° 自锁",
-   "family": "flip_fixture",
+   "family": "fx10",
+   "object": "钻模",
    "category": "工装夹具",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "蜗轮自锁+刻度圈+锁紧手柄+过线滑环腔；无定位齿"
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "c_fx10_"
+  },
+  {
+   "family": "fx11",
+   "object": "珩磨夹具",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "c_fx11_"
+  },
+  {
+   "family": "fx12",
+   "object": "磨削定位座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "c_fx12_"
+  },
+  {
+   "family": "fx13",
+   "object": "装配导向套座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "c_fx13_"
+  },
+  {
+   "family": "fx14",
+   "object": "铆接夹具",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "c_fx14_"
+  },
+  {
+   "family": "fx15",
+   "object": "扩口头定位具",
+   "category": "工装夹具",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "c_fx15_"
+  },
+  {
+   "family": "fx16",
+   "object": "铰刀导向具",
+   "category": "工装夹具",
+   "archetype": "壳体",
+   "ladder": "m",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "c_fx16_"
+  },
+  {
+   "family": "fx17",
+   "object": "攻丝反力架",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "c_fx17_"
+  },
+  {
+   "family": "fx18",
+   "object": "镗模支承架",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "c_fx18_"
+  },
+  {
+   "family": "fx19",
+   "object": "零件翻转盘",
+   "category": "工装夹具",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "c_fx19_"
+  },
+  {
+   "family": "fx20",
+   "object": "工序周转托盘",
+   "category": "工装夹具",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "c_fx20_"
+  },
+  {
+   "family": "fx21",
+   "object": "快速换型底板",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "c_fx21_"
+  },
+  {
+   "family": "fx22",
+   "object": "模块支撑塔",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "c_fx22_"
+  },
+  {
+   "family": "fx23",
+   "object": "定位销阵列板",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "c_fx23_"
+  },
+  {
+   "family": "fx24",
+   "object": "液压压紧座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "c_fx24_"
+  },
+  {
+   "family": "fx25",
+   "object": "气动夹座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "c_fx25_"
+  },
+  {
+   "family": "fx26",
+   "object": "偏心夹紧座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "c_fx26_"
+  },
+  {
+   "family": "fx27",
+   "object": "手动螺旋压板",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "m",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "c_fx27_"
+  },
+  {
+   "family": "fx28",
+   "object": "薄壁件芯轴座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "c_fx28_"
+  },
+  {
+   "family": "fx29",
+   "object": "齿轮磨削心轴具",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "c_fx29_"
+  },
+  {
+   "family": "fx30",
+   "object": "叶片夹具座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "c_fx30_"
+  },
+  {
+   "family": "fx31",
+   "object": "壳体密封测试架",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "c_fx31_"
+  },
+  {
+   "family": "fx32",
+   "object": "气密试验堵头座",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "dn",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "c_fx32_"
+  },
+  {
+   "family": "fx33",
+   "object": "弯曲模定位座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "c_fx33_"
+  },
+  {
+   "family": "fx34",
+   "object": "落料模座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "c_fx34_"
+  },
+  {
+   "family": "fx35",
+   "object": "拉深模座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "c_fx35_"
+  },
+  {
+   "family": "fx36",
+   "object": "冲压模座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "c_fx36_"
+  },
+  {
+   "family": "fx37",
+   "object": "划线工装",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "c_fx37_"
+  },
+  {
+   "family": "fx38",
+   "object": "焊接变位机卡盘座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "c_fx38_"
+  },
+  {
+   "family": "fx39",
+   "object": "夹具平衡块座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "c_fx39_"
+  },
+  {
+   "family": "fx40",
+   "object": "夹具快换销板",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "m",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "c_fx40_"
+  },
+  {
+   "family": "fx41",
+   "object": "柔性夹具基座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "c_fx41_"
+  },
+  {
+   "family": "fx42",
+   "object": "多点夹具柱阵座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "c_fx42_"
+  },
+  {
+   "family": "fx43",
+   "object": "磁力吸盘座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "c_fx43_"
+  },
+  {
+   "family": "fx44",
+   "object": "电火花夹具板",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "c_fx44_"
+  },
+  {
+   "family": "fx45",
+   "object": "线切割夹持座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "c_fx45_"
+  },
+  {
+   "family": "fx46",
+   "object": "抛光夹具柄座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "c_fx46_"
+  },
+  {
+   "family": "fx47",
+   "object": "激光焊接定位座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "c_fx47_"
+  },
+  {
+   "family": "fx48",
+   "object": "拧紧反力支架",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "c_fx48_"
+  },
+  {
+   "family": "fx49",
+   "object": "卡箍装配工装",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "dn",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "c_fx49_"
+  },
+  {
+   "family": "fx50",
+   "object": "装配举助力臂",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "t",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "c_fx50_"
+  },
+  {
+   "family": "ga01",
+   "object": "气动量仪检具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "dn",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "c_ga01_"
+  },
+  {
+   "family": "ga02",
+   "object": "通止规检具架",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "m",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "c_ga02_"
+  },
+  {
+   "family": "ga03",
+   "object": "同轴度检具架",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "c_ga03_"
+  },
+  {
+   "family": "ga04",
+   "object": "轮廓检具板",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "c_ga04_"
+  },
+  {
+   "family": "ga05",
+   "object": "孔径塞规架",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "c_ga05_"
+  },
+  {
+   "family": "ga06",
+   "object": "深度规基座",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "c_ga06_"
+  },
+  {
+   "family": "ga07",
+   "object": "角度样板",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "c_ga07_"
+  },
+  {
+   "family": "ga08",
+   "object": "螺纹综合检具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "m",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "c_ga08_"
+  },
+  {
+   "family": "ga09",
+   "object": "花键综合检具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "c_ga09_"
+  },
+  {
+   "family": "ga10",
+   "object": "齿轮单齿检具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "c_ga10_"
+  },
+  {
+   "family": "ga11",
+   "object": "间隙测量座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "c_ga11_"
+  },
+  {
+   "family": "ga12",
+   "object": "面差间隙检具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "c_ga12_"
+  },
+  {
+   "family": "ga13",
+   "object": "曲面贴合检具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "c_ga13_"
+  },
+  {
+   "family": "ga14",
+   "object": "三坐标夹具底座",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "c_ga14_"
+  },
+  {
+   "family": "ga15",
+   "object": "三坐标测头座",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "inch",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "c_ga15_"
+  },
+  {
+   "family": "ga16",
+   "object": "视觉检测支架",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "c_ga16_"
+  },
+  {
+   "family": "ga17",
+   "object": "相机标定板框",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "c_ga17_"
+  },
+  {
+   "family": "ga18",
+   "object": "光栅尺安装座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "c_ga18_"
+  },
+  {
+   "family": "ga19",
+   "object": "位移传感器支架",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "c_ga19_"
+  },
+  {
+   "family": "ga20",
+   "object": "基准角尺座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "c_ga20_"
+  },
+  {
+   "family": "ga21",
+   "object": "高度规基座",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "c_ga21_"
+  },
+  {
+   "family": "ga22",
+   "object": "平板支撑架",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "c_ga22_"
+  },
+  {
+   "family": "ga23",
+   "object": "量块盒座",
+   "category": "工装夹具",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "c_ga23_"
+  },
+  {
+   "family": "ga24",
+   "object": "卡尺收纳座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "c_ga24_"
+  },
+  {
+   "family": "ga25",
+   "object": "表类检具架",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "c_ga25_"
+  },
+  {
+   "family": "ga26",
+   "object": "半径规基座",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "c_ga26_"
+  },
+  {
+   "family": "ga27",
+   "object": "粗糙度比较块座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "c_ga27_"
+  },
+  {
+   "family": "ga28",
+   "object": "硬度计支撑座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "c_ga28_"
+  },
+  {
+   "family": "ga29",
+   "object": "拉力测试夹具",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "t",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "c_ga29_"
+  },
+  {
+   "family": "ga30",
+   "object": "压力测试夹具",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "t",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "c_ga30_"
+  },
+  {
+   "family": "ga31",
+   "object": "弯曲试验支座",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "c_ga31_"
+  },
+  {
+   "family": "ga32",
+   "object": "扭转试验夹头座",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "m",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "c_ga32_"
+  },
+  {
+   "family": "ga33",
+   "object": "疲劳试样夹具",
+   "category": "工装夹具",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "c_ga33_"
+  },
+  {
+   "family": "ga34",
+   "object": "冲击试验支座",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "c_ga34_"
+  },
+  {
+   "family": "ga35",
+   "object": "密封性检具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "dn",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "c_ga35_"
+  },
+  {
+   "family": "ga36",
+   "object": "流量检测台板",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "c_ga36_"
+  },
+  {
+   "family": "ga37",
+   "object": "泄漏堵头检具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "dn",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "c_ga37_"
+  },
+  {
+   "family": "ga38",
+   "object": "气密检测盖板",
+   "category": "工装夹具",
+   "archetype": "盒盖",
+   "ladder": "dn",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "c_ga38_"
+  },
+  {
+   "family": "ga39",
+   "object": "定位基准柱组座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "c_ga39_"
+  },
+  {
+   "family": "ga40",
+   "object": "校准试块座",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "c_ga40_"
+  },
+  {
+   "family": "ga41",
+   "object": "温度传感器检定套",
+   "category": "工装夹具",
+   "archetype": "壳体",
+   "ladder": "inch",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "c_ga41_"
+  },
+  {
+   "family": "ga42",
+   "object": "压力传感器检定座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "c_ga42_"
+  },
+  {
+   "family": "ga43",
+   "object": "电学测试治具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "c_ga43_"
+  },
+  {
+   "family": "ga44",
+   "object": "板级测试治具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "c_ga44_"
+  },
+  {
+   "family": "ga45",
+   "object": "线束通断治具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "c_ga45_"
+  },
+  {
+   "family": "ga46",
+   "object": "接插件退针治具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "c_ga46_"
+  },
+  {
+   "family": "ga47",
+   "object": "螺钉通止治具",
+   "category": "工装夹具",
+   "archetype": "检具",
+   "ladder": "m",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "c_ga47_"
+  },
+  {
+   "family": "ga48",
+   "object": "装配力检测座",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "c_ga48_"
+  },
+  {
+   "family": "ga49",
+   "object": "测量臂支架",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "c_ga49_"
+  },
+  {
+   "family": "ga50",
+   "object": "量具检定台板",
+   "category": "工装夹具",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "c_ga50_"
   }
  ],
- "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
+ "wave_layout": {
+  "1": [
+   "fx01",
+   "fx02",
+   "fx03",
+   "fx04",
+   "fx05"
+  ],
+  "2": [
+   "fx06",
+   "fx07",
+   "fx08",
+   "fx09",
+   "fx10"
+  ],
+  "3": [
+   "fx11",
+   "fx12",
+   "fx13",
+   "fx14",
+   "fx15"
+  ],
+  "4": [
+   "fx16",
+   "fx17",
+   "fx18",
+   "fx19",
+   "fx20"
+  ],
+  "5": [
+   "fx21",
+   "fx22",
+   "fx23",
+   "fx24",
+   "fx25"
+  ],
+  "6": [
+   "fx26",
+   "fx27",
+   "fx28",
+   "fx29",
+   "fx30"
+  ],
+  "7": [
+   "fx31",
+   "fx32",
+   "fx33",
+   "fx34",
+   "fx35"
+  ],
+  "8": [
+   "fx36",
+   "fx37",
+   "fx38",
+   "fx39",
+   "fx40"
+  ],
+  "9": [
+   "fx41",
+   "fx42",
+   "fx43",
+   "fx44",
+   "fx45"
+  ],
+  "10": [
+   "fx46",
+   "fx47",
+   "fx48",
+   "fx49",
+   "fx50"
+  ],
+  "11": [
+   "ga01",
+   "ga02",
+   "ga03",
+   "ga04",
+   "ga05"
+  ],
+  "12": [
+   "ga06",
+   "ga07",
+   "ga08",
+   "ga09",
+   "ga10"
+  ],
+  "13": [
+   "ga11",
+   "ga12",
+   "ga13",
+   "ga14",
+   "ga15"
+  ],
+  "14": [
+   "ga16",
+   "ga17",
+   "ga18",
+   "ga19",
+   "ga20"
+  ],
+  "15": [
+   "ga21",
+   "ga22",
+   "ga23",
+   "ga24",
+   "ga25"
+  ],
+  "16": [
+   "ga26",
+   "ga27",
+   "ga28",
+   "ga29",
+   "ga30"
+  ],
+  "17": [
+   "ga31",
+   "ga32",
+   "ga33",
+   "ga34",
+   "ga35"
+  ],
+  "18": [
+   "ga36",
+   "ga37",
+   "ga38",
+   "ga39",
+   "ga40"
+  ],
+  "19": [
+   "ga41",
+   "ga42",
+   "ga43",
+   "ga44",
+   "ga45"
+  ],
+  "20": [
+   "ga46",
+   "ga47",
+   "ga48",
+   "ga49",
+   "ga50"
+  ]
+ },
+ "how_to_materialise": "python3 tools/emit_members.py --machine C --wave N > intake/waves/fleet_c_2026_11_wN.json",
+ "wave_rule": "一次只做一波（2000 件）；上一波全部 ACCEPT 且指纹并入底表才准开下一波",
+ "notes": "成员在 5 条结构轴上取不同组合；禁止等比缩放；关掉的特征组其参数不得留在 params 表。"
 }

@@ -16,6 +16,7 @@ Exit 0 = accept, 1 = blocking problems (printed as reasons).
 """
 import argparse
 import json
+import re
 import os
 import struct
 import sys
@@ -29,21 +30,9 @@ def find_plugin_python(explicit=None):
     """Where is cadkit/? A machine has it next to the workspace, B machine has it
     in the pnpm profile dir — and a wrong guess must say so, not silently
     disable the 2.5 gate."""
-    import glob
-    cands = []
-    if explicit:
-        cands.append(explicit)
-    if os.environ.get("CADKIT_PLUGIN_PY"):
-        cands.append(os.environ["CADKIT_PLUGIN_PY"])
-    cands.append(os.path.join(HANDOFF, os.pardir, "dsh-plugin-cad-freecad", "python"))
-    for pat in ("@local/dsh-plugin-cad-freecad/python",
-                "**/@local/dsh-plugin-cad-freecad/python"):
-        cands += sorted(glob.glob(os.path.join(os.path.expanduser("~"), ".dsh", "profiles",
-                                               "*", "node_modules", pat), recursive=True))
-    for c in cands:
-        if c and os.path.exists(os.path.join(c, "cadkit", "fingerprint.py")):
-            return os.path.abspath(c)
-    return None
+    import plugin_source
+    path, _label = plugin_source.discover(explicit)
+    return path
 
 
 sys.path.insert(0, HERE)
@@ -53,7 +42,7 @@ def load_predicates(plugin_py=None):
     """Return (scaled_same, related, mode, path). Never silently None-compare."""
     path = find_plugin_python(plugin_py)
     if path is None:
-        return None, None, "plugin python not found", None
+        return None, None, "plugin python not found (见 tools/plugin_source.py)", None
     try:
         import engine_predicates
         fp, mode = engine_predicates.load(path)
@@ -150,7 +139,30 @@ def main():
         if not os.path.exists(os.path.join(theirs, rel)):
             blocking.append("缺少回传文件: " + rel)
     if blocking:
+        # Nothing else is readable without ledger/delta/versions — stop here,
+        # but only here: a partial report is worse than a full defect list.
         return emit({"ok": False, "batch": batch, "blocking": blocking, "notes": notes}, a.json)
+
+    # lessons must have been READ before generating, not asserted in chat:
+    # tools/recall.py stamps a sha of LESSONS.md and the return echoes it.
+    rep_path = os.path.join(theirs, "REPORT.md")
+    lessons_p = os.path.join(HANDOFF, "LESSONS.md")
+    if os.path.exists(rep_path):
+        rep = open(rep_path, encoding="utf-8").read()
+        m = re.search(r"LESSONS_ACK:\s*([0-9a-f]{6,40})", rep)
+        if os.path.exists(lessons_p):
+            import hashlib
+            want = hashlib.sha256(open(lessons_p, encoding="utf-8").read()
+                                  .encode("utf-8")).hexdigest()[:8]
+            if not m:
+                blocking.append("REPORT.md 缺 LESSONS_ACK —— 生成前必须跑 tools/recall.py（WORKFLOW §7）")
+            elif m.group(1)[:8] != want:
+                blocking.append("LESSONS_ACK 过期: 回传 %s，当前教训 %s（教训已更新，重读后重跑）"
+                                % (m.group(1)[:8], want))
+            else:
+                notes.append("LESSONS_ACK %s 与当前教训一致" % want)
+        else:
+            notes.append("LESSONS.md 不在仓里，跳过 ack 校验（异常状态）")
 
     rows = load_jsonl(os.path.join(theirs, "ledger.jsonl"))
     models = {r.get("project_id"): r for r in rows_of(rows, "model")}
@@ -171,9 +183,25 @@ def main():
                      % (their_v.get("freecad_version_local"), mine_v.get("freecad_version_local")))
 
     # ---- 3. intake vs delivery -------------------------------------------
-    intake_path = a.intake or os.path.join(HANDOFF, "intake", batch + ".json")
-    intake = json.load(open(intake_path))
-    want = list(intake["parts"])
+    intake_path = a.intake
+    want, waves = [], []
+    if intake_path:
+        want = list(json.load(open(intake_path)).get("parts", []))
+    else:
+        # 500-family plan: the batch file carries families, the *wave* files carry
+        # the ordered part ids. Union the waves that exist on disk.
+        batch_doc = json.load(open(os.path.join(HANDOFF, "intake", batch + ".json")))
+        want = list(batch_doc.get("parts", []))
+        wdir = os.path.join(HANDOFF, "intake", "waves")
+        if not want and os.path.isdir(wdir):
+            import glob as _g
+            for f in sorted(_g.glob(os.path.join(wdir, batch + "_w*.json"))):
+                waves.append(os.path.basename(f))
+                want += list(json.load(open(f)).get("parts", []))
+        if not want:
+            blocking.append("没有可核对的 intake（批次文件无 parts，且 intake/waves/%s_w*.json 不存在）"
+                            "—— 没有合同就不收货" % batch)
+    stats["intake_waves"] = waves
     by_model = {m.get("model_id"): m.get("project_id") for m in models.values()}
     delivered = {}
     for d in deliveries:
@@ -263,24 +291,41 @@ def main():
                         "用 --plugin-python <含 cadkit 的 python 目录> 或设 CADKIT_PLUGIN_PY 指定"
                         % (PLUGIN_PY, PREDICATE_MODE))
     else:
-        pool = [("A/" + k, v) for k, v in baseline.items() if isinstance(v, dict)]
-        pool += [("B/" + k, v) for k, v in delta.items() if isinstance(v, dict)]
+        pool = [(k, v) for k, v in baseline.items() if isinstance(v, dict)]
+        pool += [(k, v) for k, v in delta.items() if isinstance(v, dict) and isinstance(v, dict)]
         exact_hits, scaled_hits, related_hits = [], [], []
-        for i in range(len(pool)):
-            for j in range(i + 1, len(pool)):
-                (ka, fa), (kb, fb) = pool[i], pool[j]
-                try:
-                    if abs(fa["volume"] - fb["volume"]) / max(fa["volume"], fb["volume"]) < 1e-6:
-                        exact_hits.append("%s == %s (volume)" % (ka, kb))
-                    elif scaled_same(fa, fb):
-                        scaled_hits.append("%s ~ %s (scaled_same)" % (ka, kb))
-                    elif related(fa, fb):
-                        related_hits.append("%s ~ %s (related)" % (ka, kb))
-                except KeyError as e:
-                    blocking.append("指纹缺字段 %s: %s / %s" % (e, ka, kb))
+        # Planned volume is 200,000 parts, so the naive O(n²) sweep is not an
+        # option. `exact` needs equal volume and `scaled_same` requires identical
+        # solid/face/edge counts, therefore (solids, faces, edges) is a *sound*
+        # blocking key: nothing that could be judged a duplicate is skipped.
+        # (`related` stays advisory and is only reported inside buckets — noted
+        # in stats so the wording of a report never overstates it.)
+        buckets = {}
+        for k, f in pool:
+            try:
+                key = (f["solids"], f["faces"], f["edges"])
+            except KeyError as e:
+                blocking.append("指纹 %s 缺字段 %s" % (k, e))
+                continue
+            buckets.setdefault(key, []).append((k, f))
+        pairs = 0
+        for group in buckets.values():
+            for i in range(len(group)):
+                for j in range(i + 1, len(group)):
+                    pairs += 1
+                    (ka, fa), (kb, fb) = group[i], group[j]
+                    try:
+                        if abs(fa["volume"] - fb["volume"]) / max(fa["volume"], fb["volume"]) < 1e-6:
+                            exact_hits.append("%s == %s (volume)" % (ka, kb))
+                        elif scaled_same(fa, fb):
+                            scaled_hits.append("%s ~ %s (scaled_same)" % (ka, kb))
+                        elif related(fa, fb):
+                            related_hits.append("%s ~ %s (related)" % (ka, kb))
+                    except KeyError as e:
+                        blocking.append("指纹缺字段 %s: %s / %s" % (e, ka, kb))
         for h in exact_hits + scaled_hits:
             blocking.append("跨机重复（2.5 会判不计数）: " + h)
-        stats.update(cross_pairs=len(pool) * (len(pool) - 1) // 2,
+        stats.update(cross_pairs=pairs, cross_pool=len(pool), cross_buckets=len(buckets),
                      exact=len(exact_hits), scaled_same=len(scaled_hits),
                      related=len(related_hits))
         if related_hits:

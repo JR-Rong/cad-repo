@@ -1,44 +1,184 @@
-任务：你是 CAD 流水线的机器 C，本批次 fleet_c_2026_11（10 件，全新族谱）
+任务：你是 CAD 流水线的机器 C，批次 fleet_c_2026_11：100 个族谱 × 400 件 = 40000 件（20 波）
 
-仓库：git clone git@github.com:JR-Rong/cad-repo.git cad-repo（或你已有的本地 clone 先 git pull）
-先读：cad-repo/WORK-ORDER.md（通用规则），再读下面你自己的件清单；规格原文在 cad-repo/shared/spec-extract.txt。
-开工前必须先把全局去重底表同步进来：python3 cad-repo/tools/registry_sync.py --root ~/cad-fleet
+第一步（强制，不许跳）：`cd cad-repo && python3 tools/recall.py --machine C`
+  打印教训全文 + 项目记忆 + 版本握手 + 你的切片，并给出 LESSONS_ACK；
+  回传 REPORT.md 必须带 `LESSONS_ACK: <那 8 位>`，merge_check 核对，缺或过期直接 REJECT。
+第二步：`python3 tools/registry_sync.py --root ~/cad-fleet`（非 0 就停下喊人）
+第三步（开工前）：`python3 tools/emit_members.py --machine C --wave 1 > intake/waves/fleet_c_2026_11_w1.json`
+再读：WORKFLOW.md（流程、所有权、波次）、WORK-ORDER.md（技术口径）。
 
-你的件（project id 一字不差；同族两件之间拓扑必须不同）：
+**本轮只做 wave 1 的 2000 件（5 个族谱）**；回传并被 A 机 ACCEPT、指纹并入底表之后才准开 wave 2。
+wave 1 族谱与件号区间：
+  - `c_fx01_…001–c_fx01_…400`  车削夹具座（工装夹具｜工装 轴族｜400 件）
+  - `c_fx02_…001–c_fx02_…400`  焊接工装板（工装夹具｜工装 轴族｜400 件）
+  - `c_fx03_…001–c_fx03_…400`  压装工装（工装夹具｜工装 轴族｜400 件）
+  - `c_fx04_…001–c_fx04_…400`  翻转工装（工装夹具｜工装 轴族｜400 件）
+  - `c_fx05_…001–c_fx05_…400`  铣削夹具底板（工装夹具｜工装 轴族｜400 件）
 
-族谱 `air_gauge_check`
-  - c_airgauge_vblock  目标 A 级｜气动量仪检具（V 块）｜拓扑差异：V 块+测头座 2+标准件收纳腔+防护罩铰座+排屑孔
-  - c_airgauge_multi  目标 S 级｜多孔位多测头检具｜拓扑差异：测头位 6+快换定位销 4+分流气道的孔阵+盖板卡槽
+成员展开规则：同一族谱的 400 个成员在 5 条结构轴上逐一取不同组合
+（`emit_members.py` 会给每件写出 sig 与尺寸档），design.md 必须把 sig 落成具体特征数。
 
-族谱 `flip_fixture`
-  - c_flip_180  目标 S 级｜翻转工装 180°｜拓扑差异：转轴+180°定位齿 12+配重槽 2+手柄+锁销
-  - c_flip_360  目标 S 级｜翻转工装 360° 自锁｜拓扑差异：蜗轮自锁+刻度圈+锁紧手柄+过线滑环腔；无定位齿
+全部 20 个波次（每波开工前先 emit 该波的 intake）：
 
-族谱 `press_fixture`
-  - c_pressf_guide4  目标 A 级｜四导柱压装模｜拓扑差异：上/下模+导套 4+顶出孔+限位垫+起吊螺钉孔 2
-  - c_pressf_collar  目标 A 级｜轴肩压套工装｜拓扑差异：V 形定位块+可调行程挡块+弹簧顶销 2+深度量表座；无导套
+wave 1 —— `python3 tools/emit_members.py --machine C --wave 1`
+  - `c_fx01_…001–…400`  车削夹具座（工装夹具｜工装）
+  - `c_fx02_…001–…400`  焊接工装板（工装夹具｜工装）
+  - `c_fx03_…001–…400`  压装工装（工装夹具｜工装）
+  - `c_fx04_…001–…400`  翻转工装（工装夹具｜工装）
+  - `c_fx05_…001–…400`  铣削夹具底板（工装夹具｜工装）
 
-族谱 `turn_fixture_base`
-  - c_turnfx_d3  目标 A 级｜三爪车削夹具座｜拓扑差异：短爪定位 3+中心螺钉+平衡块槽 4+液压通道 2+排屑槽
-  - c_turnfx_d6  目标 S 级｜六爪车削夹具座｜拓扑差异：爪位 6+气密腔+快换接口+中心通孔；无液压通道
+wave 2 —— `python3 tools/emit_members.py --machine C --wave 2`
+  - `c_fx06_…001–…400`  拉刀夹持具（工装夹具｜支架）
+  - `c_fx07_…001–…400`  去毛刺定位具（工装夹具｜壳体）
+  - `c_fx08_…001–…400`  胶接固化型架（工装夹具｜工装）
+  - `c_fx09_…001–…400`  绕线骨架工装（工装夹具｜工装）
+  - `c_fx10_…001–…400`  钻模（工装夹具｜工装）
 
-族谱 `weld_facing_plate`
-  - c_weldfp_a  目标 A 级｜焊接工装板（销阵式）｜拓扑差异：定位销 8+压紧器螺孔阵+让位槽+基准刻线槽+吊装孔 2
-  - c_weldfp_b  目标 S 级｜焊接工装板（V 块式）｜拓扑差异：V 块 2+支撑钉 6+异形轮廓让位+气管孔 4；销位 5
+wave 3 —— `python3 tools/emit_members.py --machine C --wave 3`
+  - `c_fx11_…001–…400`  珩磨夹具（工装夹具｜工装）
+  - `c_fx12_…001–…400`  磨削定位座（工装夹具｜支架）
+  - `c_fx13_…001–…400`  装配导向套座（工装夹具｜支架）
+  - `c_fx14_…001–…400`  铆接夹具（工装夹具｜工装）
+  - `c_fx15_…001–…400`  扩口头定位具（工装夹具｜壳体）
 
-以上之外的件都不要做（其他机器在产）。其余规则照通用工单执行：
-通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
-1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
-   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
-2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
-   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
-3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
-4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
-5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
-6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
-   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
-   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
-   ACCEPT 才 commit + push。
-7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+wave 4 —— `python3 tools/emit_members.py --machine C --wave 4`
+  - `c_fx16_…001–…400`  铰刀导向具（工装夹具｜壳体）
+  - `c_fx17_…001–…400`  攻丝反力架（工装夹具｜工装）
+  - `c_fx18_…001–…400`  镗模支承架（工装夹具｜工装）
+  - `c_fx19_…001–…400`  零件翻转盘（工装夹具｜盒盖）
+  - `c_fx20_…001–…400`  工序周转托盘（工装夹具｜盒盖）
+
+wave 5 —— `python3 tools/emit_members.py --machine C --wave 5`
+  - `c_fx21_…001–…400`  快速换型底板（工装夹具｜支架）
+  - `c_fx22_…001–…400`  模块支撑塔（工装夹具｜工装）
+  - `c_fx23_…001–…400`  定位销阵列板（工装夹具｜支架）
+  - `c_fx24_…001–…400`  液压压紧座（工装夹具｜支架）
+  - `c_fx25_…001–…400`  气动夹座（工装夹具｜支架）
+
+wave 6 —— `python3 tools/emit_members.py --machine C --wave 6`
+  - `c_fx26_…001–…400`  偏心夹紧座（工装夹具｜支架）
+  - `c_fx27_…001–…400`  手动螺旋压板（工装夹具｜工装）
+  - `c_fx28_…001–…400`  薄壁件芯轴座（工装夹具｜支架）
+  - `c_fx29_…001–…400`  齿轮磨削心轴具（工装夹具｜工装）
+  - `c_fx30_…001–…400`  叶片夹具座（工装夹具｜工装）
+
+wave 7 —— `python3 tools/emit_members.py --machine C --wave 7`
+  - `c_fx31_…001–…400`  壳体密封测试架（工装夹具｜支架）
+  - `c_fx32_…001–…400`  气密试验堵头座（工装夹具｜检具）
+  - `c_fx33_…001–…400`  弯曲模定位座（工装夹具｜工装）
+  - `c_fx34_…001–…400`  落料模座（工装夹具｜工装）
+  - `c_fx35_…001–…400`  拉深模座（工装夹具｜工装）
+
+wave 8 —— `python3 tools/emit_members.py --machine C --wave 8`
+  - `c_fx36_…001–…400`  冲压模座（工装夹具｜工装）
+  - `c_fx37_…001–…400`  划线工装（工装夹具｜工装）
+  - `c_fx38_…001–…400`  焊接变位机卡盘座（工装夹具｜工装）
+  - `c_fx39_…001–…400`  夹具平衡块座（工装夹具｜工装）
+  - `c_fx40_…001–…400`  夹具快换销板（工装夹具｜工装）
+
+wave 9 —— `python3 tools/emit_members.py --machine C --wave 9`
+  - `c_fx41_…001–…400`  柔性夹具基座（工装夹具｜工装）
+  - `c_fx42_…001–…400`  多点夹具柱阵座（工装夹具｜工装）
+  - `c_fx43_…001–…400`  磁力吸盘座（工装夹具｜工装）
+  - `c_fx44_…001–…400`  电火花夹具板（工装夹具｜工装）
+  - `c_fx45_…001–…400`  线切割夹持座（工装夹具｜支架）
+
+wave 10 —— `python3 tools/emit_members.py --machine C --wave 10`
+  - `c_fx46_…001–…400`  抛光夹具柄座（工装夹具｜工装）
+  - `c_fx47_…001–…400`  激光焊接定位座（工装夹具｜支架）
+  - `c_fx48_…001–…400`  拧紧反力支架（工装夹具｜工装）
+  - `c_fx49_…001–…400`  卡箍装配工装（工装夹具｜工装）
+  - `c_fx50_…001–…400`  装配举助力臂（工装夹具｜支架）
+
+wave 11 —— `python3 tools/emit_members.py --machine C --wave 11`
+  - `c_ga01_…001–…400`  气动量仪检具（工装夹具｜检具）
+  - `c_ga02_…001–…400`  通止规检具架（工装夹具｜检具）
+  - `c_ga03_…001–…400`  同轴度检具架（工装夹具｜检具）
+  - `c_ga04_…001–…400`  轮廓检具板（工装夹具｜检具）
+  - `c_ga05_…001–…400`  孔径塞规架（工装夹具｜检具）
+
+wave 12 —— `python3 tools/emit_members.py --machine C --wave 12`
+  - `c_ga06_…001–…400`  深度规基座（工装夹具｜检具）
+  - `c_ga07_…001–…400`  角度样板（工装夹具｜检具）
+  - `c_ga08_…001–…400`  螺纹综合检具（工装夹具｜检具）
+  - `c_ga09_…001–…400`  花键综合检具（工装夹具｜检具）
+  - `c_ga10_…001–…400`  齿轮单齿检具（工装夹具｜检具）
+
+wave 13 —— `python3 tools/emit_members.py --machine C --wave 13`
+  - `c_ga11_…001–…400`  间隙测量座（工装夹具｜支架）
+  - `c_ga12_…001–…400`  面差间隙检具（工装夹具｜检具）
+  - `c_ga13_…001–…400`  曲面贴合检具（工装夹具｜检具）
+  - `c_ga14_…001–…400`  三坐标夹具底座（工装夹具｜工装）
+  - `c_ga15_…001–…400`  三坐标测头座（工装夹具｜检具）
+
+wave 14 —— `python3 tools/emit_members.py --machine C --wave 14`
+  - `c_ga16_…001–…400`  视觉检测支架（工装夹具｜支架）
+  - `c_ga17_…001–…400`  相机标定板框（工装夹具｜检具）
+  - `c_ga18_…001–…400`  光栅尺安装座（工装夹具｜支架）
+  - `c_ga19_…001–…400`  位移传感器支架（工装夹具｜支架）
+  - `c_ga20_…001–…400`  基准角尺座（工装夹具｜支架）
+
+wave 15 —— `python3 tools/emit_members.py --machine C --wave 15`
+  - `c_ga21_…001–…400`  高度规基座（工装夹具｜检具）
+  - `c_ga22_…001–…400`  平板支撑架（工装夹具｜支架）
+  - `c_ga23_…001–…400`  量块盒座（工装夹具｜盒盖）
+  - `c_ga24_…001–…400`  卡尺收纳座（工装夹具｜支架）
+  - `c_ga25_…001–…400`  表类检具架（工装夹具｜检具）
+
+wave 16 —— `python3 tools/emit_members.py --machine C --wave 16`
+  - `c_ga26_…001–…400`  半径规基座（工装夹具｜检具）
+  - `c_ga27_…001–…400`  粗糙度比较块座（工装夹具｜支架）
+  - `c_ga28_…001–…400`  硬度计支撑座（工装夹具｜支架）
+  - `c_ga29_…001–…400`  拉力测试夹具（工装夹具｜工装）
+  - `c_ga30_…001–…400`  压力测试夹具（工装夹具｜工装）
+
+wave 17 —— `python3 tools/emit_members.py --machine C --wave 17`
+  - `c_ga31_…001–…400`  弯曲试验支座（工装夹具｜检具）
+  - `c_ga32_…001–…400`  扭转试验夹头座（工装夹具｜检具）
+  - `c_ga33_…001–…400`  疲劳试样夹具（工装夹具｜工装）
+  - `c_ga34_…001–…400`  冲击试验支座（工装夹具｜检具）
+  - `c_ga35_…001–…400`  密封性检具（工装夹具｜检具）
+
+wave 18 —— `python3 tools/emit_members.py --machine C --wave 18`
+  - `c_ga36_…001–…400`  流量检测台板（工装夹具｜支架）
+  - `c_ga37_…001–…400`  泄漏堵头检具（工装夹具｜检具）
+  - `c_ga38_…001–…400`  气密检测盖板（工装夹具｜盒盖）
+  - `c_ga39_…001–…400`  定位基准柱组座（工装夹具｜支架）
+  - `c_ga40_…001–…400`  校准试块座（工装夹具｜检具）
+
+wave 19 —— `python3 tools/emit_members.py --machine C --wave 19`
+  - `c_ga41_…001–…400`  温度传感器检定套（工装夹具｜壳体）
+  - `c_ga42_…001–…400`  压力传感器检定座（工装夹具｜支架）
+  - `c_ga43_…001–…400`  电学测试治具（工装夹具｜检具）
+  - `c_ga44_…001–…400`  板级测试治具（工装夹具｜检具）
+  - `c_ga45_…001–…400`  线束通断治具（工装夹具｜检具）
+
+wave 20 —— `python3 tools/emit_members.py --machine C --wave 20`
+  - `c_ga46_…001–…400`  接插件退针治具（工装夹具｜检具）
+  - `c_ga47_…001–…400`  螺钉通止治具（工装夹具｜检具）
+  - `c_ga48_…001–…400`  装配力检测座（工装夹具｜支架）
+  - `c_ga49_…001–…400`  测量臂支架（工装夹具｜支架）
+  - `c_ga50_…001–…400`  量具检定台板（工装夹具｜支架）
+
+以上之外的件一律不做（别的机器在产）。通用规则：
+通用规则（五台机器一样，全文见 cad-repo/WORKFLOW.md 与 cad-repo/WORK-ORDER.md）：
 0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
-   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH（不重启侧栏图标不会出现）；
+   cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。插件源码在 cad-repo/plugin/，与 tgz 同源。
+1. 开工先 `python3 tools/recall.py --machine <你的字母>`：它打印教训全文 + 项目记忆 + 版本握手 + 你的切片。
+   记住它给的 LESSONS_ACK，回传 REPORT.md 必须带这一行，merge_check 缺它或它过期就 REJECT。
+2. 再回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb 与你的 rules_sha；
+   与 shared/versions.json 不一致就停下问人，等 A 机重签版本握手与新 tgz，**不要自己改引擎**。
+3. 每波开工先展开合同：`python3 tools/emit_members.py --machine <字母> --wave N > intake/waves/<批次>_wN.json`，
+   然后 commit 这个文件（它就是你这一波要交付的 2,000 件，交付逐件对上）。
+4. 每件顺序：new -> design.md -> build -> validate -> probe -> dedupe -> export -> package，任一 FAIL 不许往下走；
+   design.md 必须把该件的 topo_signature 落成**具体特征数**（哪个轴存在/不存在、筋几条孔几个），这是判重的正面证据。
+5. 同族成员必须换拓扑；纯缩放 = 2.5 判重复不计数；params 表里不许留已关闭特征的参数（探针逐格扰动）。
+6. dedupe 报 exact / scaled_same 立刻停，不管撞的是谁；跨机判重在 A 机合并点做（分桶比较，无损）。
+7. package 串行、一次一件，绝不并发发布（N43/N44 未修）；台账绝不手工合并 sqlite，只回传 ledger.jsonl 导出。
+8. 渲染与 STEP 全由插件产出，不许手改：8 视图、白底单色灰、长边 >=2000px、STEP AP214 是硬线。
+9. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   versions.json、REPORT.md（含 LESSONS_ACK）、豁免文件；并更新 shared/fingerprints/<你的字母>.json（只这一个文件）。
+   推之前自己跑 `python3 tools/merge_check.py --root ~/cad-fleet --theirs outbox/<批次> --baseline shared/fingerprints`，
+   **把 blocking 一次全清掉**再 push（门禁现在会一次列全部缺陷，不会只告诉你第一个）。
+10. 立刻停下来问人：判重命中 / 探针修不过 / 要把 memCapMb 降到 1536 以下 / 想改清单、族谱或 intake / 插件行为与工单不符。

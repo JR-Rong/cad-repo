@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "CAD (FreeCAD)",
+    "description": "Generates and QA-checks FreeCAD parts: parametric build, machine validation, editability probe, STEP AP214 + render export, and strict delivery packaging."
+  }
+}

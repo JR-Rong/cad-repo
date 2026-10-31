@@ -5,119 +5,1159 @@
  "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
  "issued_by": "machine-A dsh-cad-agent",
  "created": "2026-10-31",
- "parts": [
-  "d_acorner_40",
-  "d_acorner_80",
-  "d_mbracket_l",
-  "d_mbracket_ff",
-  "d_foot_heavy",
-  "d_foot_damp",
-  "d_cant_pipe",
-  "d_cant_tslot",
-  "d_doorframe_400",
-  "d_doorpanel_lock"
- ],
- "detail": [
+ "quota": {
+  "families": 100,
+  "parts": 40000,
+  "per_family": 400,
+  "per_wave_families": 5,
+  "per_wave_parts": 2000,
+  "waves": 20
+ },
+ "families": [
   {
-   "project_id": "d_acorner_40",
-   "title": "4040 型材角件",
-   "family": "alu_corner_bracket",
+   "family": "st01",
+   "object": "型材角件",
    "category": "结构件",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "槽匹配齿 4+沉孔 8+减重切角 2+加强筋 2"
+   "archetype": "支架",
+   "ladder": "alu",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "d_st01_"
   },
   {
-   "project_id": "d_acorner_80",
-   "title": "4080 T 槽角板",
-   "family": "alu_corner_bracket",
+   "family": "st02",
+   "object": "设备底脚",
    "category": "结构件",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "T 槽面 2+铰链孔阵 6+长孔 4+筋 6；无沉孔"
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "d_st02_"
   },
   {
-   "project_id": "d_mbracket_l",
-   "title": "L 型电机支架",
-   "family": "motor_bracket",
+   "family": "st03",
+   "object": "悬臂支架",
    "category": "结构件",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "筋 4+地脚长孔 2+减重窗 3+出线孔+定位销孔 2"
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "d_st03_"
   },
   {
-   "project_id": "d_mbracket_ff",
-   "title": "圆法兰立装支架",
-   "family": "motor_bracket",
+   "family": "st04",
+   "object": "检修门框",
    "category": "结构件",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "止口+周圈 8+中心落料孔+防转平面+背面筋 6；无减重窗"
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "d_st04_"
   },
   {
-   "project_id": "d_foot_heavy",
-   "title": "设备重型底脚",
-   "family": "machine_foot",
+   "family": "st05",
+   "object": "型材滑座",
    "category": "结构件",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "地脚板+调节螺钉座+叉车口+减振柱窝 4+水平泡座"
+   "archetype": "支架",
+   "ladder": "alu",
+   "wave": 1,
+   "members": 400,
+   "id_prefix": "d_st05_"
   },
   {
-   "project_id": "d_foot_damp",
-   "title": "隔振脚",
-   "family": "machine_foot",
+   "family": "st06",
+   "object": "重型铰链座",
    "category": "结构件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "弹簧腔+阻尼孔阵 9+限位柱 3+安装板+防尘罩槽；无叉车口"
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "d_st06_"
   },
   {
-   "project_id": "d_cant_pipe",
-   "title": "管状悬臂支架",
-   "family": "cantilever_arm",
+   "family": "st07",
+   "object": "导轨安装板",
    "category": "结构件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "管体穿线孔 3+端部法兰+三角加强筋 6+端盖卡口"
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "d_st07_"
   },
   {
-   "project_id": "d_cant_tslot",
-   "title": "T 槽悬臂支架",
-   "family": "cantilever_arm",
+   "family": "st08",
+   "object": "带传动张紧支架",
    "category": "结构件",
-   "grade": "S",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "四面 T 槽+端连接板+气路孔 2+走线盖板槽+刚性筋 8"
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "d_st08_"
   },
   {
-   "project_id": "d_doorframe_400",
-   "title": "检修门框 400",
-   "family": "access_door_frame",
+   "family": "st09",
+   "object": "拖链固定端",
    "category": "结构件",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "铰链座 3+密封槽+限位缓冲孔+排水孔 2+折边加强"
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "d_st09_"
   },
   {
-   "project_id": "d_doorpanel_lock",
-   "title": "带锁检修面板",
-   "family": "access_door_frame",
+   "family": "st10",
+   "object": "护栏立柱座",
    "category": "结构件",
-   "grade": "A",
-   "unit": "mm",
-   "type": "part",
-   "topo_signature": "转舌锁孔+观察窗框+加强筋 4+敲落孔 3；无铰链座"
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 2,
+   "members": 400,
+   "id_prefix": "d_st10_"
+  },
+  {
+   "family": "st11",
+   "object": "防护网框",
+   "category": "结构件",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "d_st11_"
+  },
+  {
+   "family": "st12",
+   "object": "调节地脚横梁",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "d_st12_"
+  },
+  {
+   "family": "st13",
+   "object": "槽台面镶块",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "d_st13_"
+  },
+  {
+   "family": "st14",
+   "object": "托盘定位底座",
+   "category": "结构件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "d_st14_"
+  },
+  {
+   "family": "st15",
+   "object": "分度挡块座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 3,
+   "members": 400,
+   "id_prefix": "d_st15_"
+  },
+  {
+   "family": "st16",
+   "object": "隔振垫座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "d_st16_"
+  },
+  {
+   "family": "st17",
+   "object": "龙门端支撑",
+   "category": "结构件",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "d_st17_"
+  },
+  {
+   "family": "st18",
+   "object": "输送线侧板",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "d_st18_"
+  },
+  {
+   "family": "st19",
+   "object": "立柱连接板",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "d_st19_"
+  },
+  {
+   "family": "st20",
+   "object": "斜撑连接座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 4,
+   "members": 400,
+   "id_prefix": "d_st20_"
+  },
+  {
+   "family": "st21",
+   "object": "横梁端接板",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "d_st21_"
+  },
+  {
+   "family": "st22",
+   "object": "框架转角座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "alu",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "d_st22_"
+  },
+  {
+   "family": "st23",
+   "object": "层板托架",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "d_st23_"
+  },
+  {
+   "family": "st24",
+   "object": "抽屉滑轨座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "d_st24_"
+  },
+  {
+   "family": "st25",
+   "object": "门铰链座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 5,
+   "members": 400,
+   "id_prefix": "d_st25_"
+  },
+  {
+   "family": "st26",
+   "object": "门锁安装座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "d_st26_"
+  },
+  {
+   "family": "st27",
+   "object": "观察窗框",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "d_st27_"
+  },
+  {
+   "family": "st28",
+   "object": "显示屏安装板",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "d_st28_"
+  },
+  {
+   "family": "st29",
+   "object": "设备吊装点座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "t",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "d_st29_"
+  },
+  {
+   "family": "st30",
+   "object": "加强筋板座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 6,
+   "members": 400,
+   "id_prefix": "d_st30_"
+  },
+  {
+   "family": "st31",
+   "object": "底座调节支脚",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "d_st31_"
+  },
+  {
+   "family": "st32",
+   "object": "地脚板框",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "d_st32_"
+  },
+  {
+   "family": "st33",
+   "object": "管路支架座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "d_st33_"
+  },
+  {
+   "family": "st34",
+   "object": "线槽盖板",
+   "category": "结构件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "d_st34_"
+  },
+  {
+   "family": "st35",
+   "object": "线夹固定座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 7,
+   "members": 400,
+   "id_prefix": "d_st35_"
+  },
+  {
+   "family": "st36",
+   "object": "圆柱销定位块",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "d_st36_"
+  },
+  {
+   "family": "st37",
+   "object": "快速换型定位座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "d_st37_"
+  },
+  {
+   "family": "st38",
+   "object": "支撑柱接头",
+   "category": "结构件",
+   "archetype": "阀泵体",
+   "ladder": "sz",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "d_st38_"
+  },
+  {
+   "family": "st39",
+   "object": "型材端盖",
+   "category": "结构件",
+   "archetype": "盒盖",
+   "ladder": "alu",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "d_st39_"
+  },
+  {
+   "family": "st40",
+   "object": "型材滑块",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "alu",
+   "wave": 8,
+   "members": 400,
+   "id_prefix": "d_st40_"
+  },
+  {
+   "family": "st41",
+   "object": "悬吊横梁座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "d_st41_"
+  },
+  {
+   "family": "st42",
+   "object": "顶部走线架",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "d_st42_"
+  },
+  {
+   "family": "st43",
+   "object": "防倾倒固定座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "d_st43_"
+  },
+  {
+   "family": "st44",
+   "object": "抗震支架座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "alu",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "d_st44_"
+  },
+  {
+   "family": "st45",
+   "object": "墙板角件",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "alu",
+   "wave": 9,
+   "members": 400,
+   "id_prefix": "d_st45_"
+  },
+  {
+   "family": "st46",
+   "object": "面板卡接座",
+   "category": "结构件",
+   "archetype": "面板",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "d_st46_"
+  },
+  {
+   "family": "st47",
+   "object": "缓冲铰链座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "d_st47_"
+  },
+  {
+   "family": "st48",
+   "object": "气弹簧安装座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "d_st48_"
+  },
+  {
+   "family": "st49",
+   "object": "缓冲挡块座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "d_st49_"
+  },
+  {
+   "family": "st50",
+   "object": "安全开关安装座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 10,
+   "members": 400,
+   "id_prefix": "d_st50_"
+  },
+  {
+   "family": "mh01",
+   "object": "滚筒支架",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "d_mh01_"
+  },
+  {
+   "family": "mh02",
+   "object": "托辊座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "d_mh02_"
+  },
+  {
+   "family": "mh03",
+   "object": "输送机侧板",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "d_mh03_"
+  },
+  {
+   "family": "mh04",
+   "object": "链条导轨座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "d_mh04_"
+  },
+  {
+   "family": "mh05",
+   "object": "链板回转导轨",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 11,
+   "members": 400,
+   "id_prefix": "d_mh05_"
+  },
+  {
+   "family": "mh06",
+   "object": "分道楔块座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "d_mh06_"
+  },
+  {
+   "family": "mh07",
+   "object": "挡停器座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "d_mh07_"
+  },
+  {
+   "family": "mh08",
+   "object": "顶升移栽机构座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "d_mh08_"
+  },
+  {
+   "family": "mh09",
+   "object": "翻转机构座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "t",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "d_mh09_"
+  },
+  {
+   "family": "mh10",
+   "object": "夹抱机构座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 12,
+   "members": 400,
+   "id_prefix": "d_mh10_"
+  },
+  {
+   "family": "mh11",
+   "object": "旋转分度台座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "d_mh11_"
+  },
+  {
+   "family": "mh12",
+   "object": "星轮分度座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "d_mh12_"
+  },
+  {
+   "family": "mh13",
+   "object": "拨轮座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "d_mh13_"
+  },
+  {
+   "family": "mh14",
+   "object": "导向护栏座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "d_mh14_"
+  },
+  {
+   "family": "mh15",
+   "object": "进瓶护栏座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 13,
+   "members": 400,
+   "id_prefix": "d_mh15_"
+  },
+  {
+   "family": "mh16",
+   "object": "出瓶拨轮罩",
+   "category": "结构件",
+   "archetype": "罩壳",
+   "ladder": "dn",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "d_mh16_"
+  },
+  {
+   "family": "mh17",
+   "object": "料斗过渡段",
+   "category": "结构件",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "d_mh17_"
+  },
+  {
+   "family": "mh18",
+   "object": "溜管弯头段",
+   "category": "结构件",
+   "archetype": "壳体",
+   "ladder": "dn",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "d_mh18_"
+  },
+  {
+   "family": "mh19",
+   "object": "管道支撑鞍座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "d_mh19_"
+  },
+  {
+   "family": "mh20",
+   "object": "管夹块",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 14,
+   "members": 400,
+   "id_prefix": "d_mh20_"
+  },
+  {
+   "family": "mh21",
+   "object": "卷扬安装板",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "t",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "d_mh21_"
+  },
+  {
+   "family": "mh22",
+   "object": "提升机头部罩",
+   "category": "结构件",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "d_mh22_"
+  },
+  {
+   "family": "mh23",
+   "object": "提升机尾部轮座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "d_mh23_"
+  },
+  {
+   "family": "mh24",
+   "object": "斗提机壳体段",
+   "category": "结构件",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "d_mh24_"
+  },
+  {
+   "family": "mh25",
+   "object": "振动给料槽座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 15,
+   "members": 400,
+   "id_prefix": "d_mh25_"
+  },
+  {
+   "family": "mh26",
+   "object": "振动料斗座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "d_mh26_"
+  },
+  {
+   "family": "mh27",
+   "object": "送料辊轮座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "d_mh27_"
+  },
+  {
+   "family": "mh28",
+   "object": "压辊支架",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "d_mh28_"
+  },
+  {
+   "family": "mh29",
+   "object": "纠偏传感器支架",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "m",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "d_mh29_"
+  },
+  {
+   "family": "mh30",
+   "object": "卷料支撑座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 16,
+   "members": 400,
+   "id_prefix": "d_mh30_"
+  },
+  {
+   "family": "mh31",
+   "object": "卷筒法兰盘",
+   "category": "结构件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "d_mh31_"
+  },
+  {
+   "family": "mh32",
+   "object": "纸芯定位座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "dn",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "d_mh32_"
+  },
+  {
+   "family": "mh33",
+   "object": "张力辊支座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "d_mh33_"
+  },
+  {
+   "family": "mh34",
+   "object": "堆垛导向架",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "d_mh34_"
+  },
+  {
+   "family": "mh35",
+   "object": "层板分隔条",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 17,
+   "members": 400,
+   "id_prefix": "d_mh35_"
+  },
+  {
+   "family": "mh36",
+   "object": "货架脚座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "d_mh36_"
+  },
+  {
+   "family": "mh37",
+   "object": "货架横梁接头",
+   "category": "结构件",
+   "archetype": "阀泵体",
+   "ladder": "alu",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "d_mh37_"
+  },
+  {
+   "family": "mh38",
+   "object": "仓储笼角件",
+   "category": "结构件",
+   "archetype": "盒盖",
+   "ladder": "alu",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "d_mh38_"
+  },
+  {
+   "family": "mh39",
+   "object": "周转箱堆叠脚",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "d_mh39_"
+  },
+  {
+   "family": "mh40",
+   "object": "工具箱提手座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 18,
+   "members": 400,
+   "id_prefix": "d_mh40_"
+  },
+  {
+   "family": "mh41",
+   "object": "工具箱锁扣座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "d_mh41_"
+  },
+  {
+   "family": "mh42",
+   "object": "零件盒挂板",
+   "category": "结构件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "d_mh42_"
+  },
+  {
+   "family": "mh43",
+   "object": "悬挂线吊具",
+   "category": "结构件",
+   "archetype": "壳体",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "d_mh43_"
+  },
+  {
+   "family": "mh44",
+   "object": "吊具夹持臂",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "d_mh44_"
+  },
+  {
+   "family": "mh45",
+   "object": "平衡吊臂座",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "t",
+   "wave": 19,
+   "members": 400,
+   "id_prefix": "d_mh45_"
+  },
+  {
+   "family": "mh46",
+   "object": "机械手末端法兰",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "d_mh46_"
+  },
+  {
+   "family": "mh47",
+   "object": "快换盘座",
+   "category": "结构件",
+   "archetype": "盒盖",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "d_mh47_"
+  },
+  {
+   "family": "mh48",
+   "object": "吸盘支架",
+   "category": "结构件",
+   "archetype": "工装",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "d_mh48_"
+  },
+  {
+   "family": "mh49",
+   "object": "夹爪安装板",
+   "category": "结构件",
+   "archetype": "支架",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "d_mh49_"
+  },
+  {
+   "family": "mh50",
+   "object": "末端执行器罩壳",
+   "category": "结构件",
+   "archetype": "罩壳",
+   "ladder": "sz",
+   "wave": 20,
+   "members": 400,
+   "id_prefix": "d_mh50_"
   }
  ],
- "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
+ "wave_layout": {
+  "1": [
+   "st01",
+   "st02",
+   "st03",
+   "st04",
+   "st05"
+  ],
+  "2": [
+   "st06",
+   "st07",
+   "st08",
+   "st09",
+   "st10"
+  ],
+  "3": [
+   "st11",
+   "st12",
+   "st13",
+   "st14",
+   "st15"
+  ],
+  "4": [
+   "st16",
+   "st17",
+   "st18",
+   "st19",
+   "st20"
+  ],
+  "5": [
+   "st21",
+   "st22",
+   "st23",
+   "st24",
+   "st25"
+  ],
+  "6": [
+   "st26",
+   "st27",
+   "st28",
+   "st29",
+   "st30"
+  ],
+  "7": [
+   "st31",
+   "st32",
+   "st33",
+   "st34",
+   "st35"
+  ],
+  "8": [
+   "st36",
+   "st37",
+   "st38",
+   "st39",
+   "st40"
+  ],
+  "9": [
+   "st41",
+   "st42",
+   "st43",
+   "st44",
+   "st45"
+  ],
+  "10": [
+   "st46",
+   "st47",
+   "st48",
+   "st49",
+   "st50"
+  ],
+  "11": [
+   "mh01",
+   "mh02",
+   "mh03",
+   "mh04",
+   "mh05"
+  ],
+  "12": [
+   "mh06",
+   "mh07",
+   "mh08",
+   "mh09",
+   "mh10"
+  ],
+  "13": [
+   "mh11",
+   "mh12",
+   "mh13",
+   "mh14",
+   "mh15"
+  ],
+  "14": [
+   "mh16",
+   "mh17",
+   "mh18",
+   "mh19",
+   "mh20"
+  ],
+  "15": [
+   "mh21",
+   "mh22",
+   "mh23",
+   "mh24",
+   "mh25"
+  ],
+  "16": [
+   "mh26",
+   "mh27",
+   "mh28",
+   "mh29",
+   "mh30"
+  ],
+  "17": [
+   "mh31",
+   "mh32",
+   "mh33",
+   "mh34",
+   "mh35"
+  ],
+  "18": [
+   "mh36",
+   "mh37",
+   "mh38",
+   "mh39",
+   "mh40"
+  ],
+  "19": [
+   "mh41",
+   "mh42",
+   "mh43",
+   "mh44",
+   "mh45"
+  ],
+  "20": [
+   "mh46",
+   "mh47",
+   "mh48",
+   "mh49",
+   "mh50"
+  ]
+ },
+ "how_to_materialise": "python3 tools/emit_members.py --machine D --wave N > intake/waves/fleet_d_2026_11_wN.json",
+ "wave_rule": "一次只做一波（2000 件）；上一波全部 ACCEPT 且指纹并入底表才准开下一波",
+ "notes": "成员在 5 条结构轴上取不同组合；禁止等比缩放；关掉的特征组其参数不得留在 params 表。"
 }

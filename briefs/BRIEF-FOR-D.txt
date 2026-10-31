@@ -1,44 +1,184 @@
-任务：你是 CAD 流水线的机器 D，本批次 fleet_d_2026_11（10 件，全新族谱）
+任务：你是 CAD 流水线的机器 D，批次 fleet_d_2026_11：100 个族谱 × 400 件 = 40000 件（20 波）
 
-仓库：git clone git@github.com:JR-Rong/cad-repo.git cad-repo（或你已有的本地 clone 先 git pull）
-先读：cad-repo/WORK-ORDER.md（通用规则），再读下面你自己的件清单；规格原文在 cad-repo/shared/spec-extract.txt。
-开工前必须先把全局去重底表同步进来：python3 cad-repo/tools/registry_sync.py --root ~/cad-fleet
+第一步（强制，不许跳）：`cd cad-repo && python3 tools/recall.py --machine D`
+  打印教训全文 + 项目记忆 + 版本握手 + 你的切片，并给出 LESSONS_ACK；
+  回传 REPORT.md 必须带 `LESSONS_ACK: <那 8 位>`，merge_check 核对，缺或过期直接 REJECT。
+第二步：`python3 tools/registry_sync.py --root ~/cad-fleet`（非 0 就停下喊人）
+第三步（开工前）：`python3 tools/emit_members.py --machine D --wave 1 > intake/waves/fleet_d_2026_11_w1.json`
+再读：WORKFLOW.md（流程、所有权、波次）、WORK-ORDER.md（技术口径）。
 
-你的件（project id 一字不差；同族两件之间拓扑必须不同）：
+**本轮只做 wave 1 的 2000 件（5 个族谱）**；回传并被 A 机 ACCEPT、指纹并入底表之后才准开 wave 2。
+wave 1 族谱与件号区间：
+  - `d_st01_…001–d_st01_…400`  型材角件（结构件｜支架 轴族｜400 件）
+  - `d_st02_…001–d_st02_…400`  设备底脚（结构件｜支架 轴族｜400 件）
+  - `d_st03_…001–d_st03_…400`  悬臂支架（结构件｜支架 轴族｜400 件）
+  - `d_st04_…001–d_st04_…400`  检修门框（结构件｜支架 轴族｜400 件）
+  - `d_st05_…001–d_st05_…400`  型材滑座（结构件｜支架 轴族｜400 件）
 
-族谱 `access_door_frame`
-  - d_doorframe_400  目标 A 级｜检修门框 400｜拓扑差异：铰链座 3+密封槽+限位缓冲孔+排水孔 2+折边加强
-  - d_doorpanel_lock  目标 A 级｜带锁检修面板｜拓扑差异：转舌锁孔+观察窗框+加强筋 4+敲落孔 3；无铰链座
+成员展开规则：同一族谱的 400 个成员在 5 条结构轴上逐一取不同组合
+（`emit_members.py` 会给每件写出 sig 与尺寸档），design.md 必须把 sig 落成具体特征数。
 
-族谱 `alu_corner_bracket`
-  - d_acorner_40  目标 A 级｜4040 型材角件｜拓扑差异：槽匹配齿 4+沉孔 8+减重切角 2+加强筋 2
-  - d_acorner_80  目标 A 级｜4080 T 槽角板｜拓扑差异：T 槽面 2+铰链孔阵 6+长孔 4+筋 6；无沉孔
+全部 20 个波次（每波开工前先 emit 该波的 intake）：
 
-族谱 `cantilever_arm`
-  - d_cant_pipe  目标 S 级｜管状悬臂支架｜拓扑差异：管体穿线孔 3+端部法兰+三角加强筋 6+端盖卡口
-  - d_cant_tslot  目标 S 级｜T 槽悬臂支架｜拓扑差异：四面 T 槽+端连接板+气路孔 2+走线盖板槽+刚性筋 8
+wave 1 —— `python3 tools/emit_members.py --machine D --wave 1`
+  - `d_st01_…001–…400`  型材角件（结构件｜支架）
+  - `d_st02_…001–…400`  设备底脚（结构件｜支架）
+  - `d_st03_…001–…400`  悬臂支架（结构件｜支架）
+  - `d_st04_…001–…400`  检修门框（结构件｜支架）
+  - `d_st05_…001–…400`  型材滑座（结构件｜支架）
 
-族谱 `machine_foot`
-  - d_foot_heavy  目标 A 级｜设备重型底脚｜拓扑差异：地脚板+调节螺钉座+叉车口+减振柱窝 4+水平泡座
-  - d_foot_damp  目标 S 级｜隔振脚｜拓扑差异：弹簧腔+阻尼孔阵 9+限位柱 3+安装板+防尘罩槽；无叉车口
+wave 2 —— `python3 tools/emit_members.py --machine D --wave 2`
+  - `d_st06_…001–…400`  重型铰链座（结构件｜支架）
+  - `d_st07_…001–…400`  导轨安装板（结构件｜支架）
+  - `d_st08_…001–…400`  带传动张紧支架（结构件｜支架）
+  - `d_st09_…001–…400`  拖链固定端（结构件｜壳体）
+  - `d_st10_…001–…400`  护栏立柱座（结构件｜支架）
 
-族谱 `motor_bracket`
-  - d_mbracket_l  目标 A 级｜L 型电机支架｜拓扑差异：筋 4+地脚长孔 2+减重窗 3+出线孔+定位销孔 2
-  - d_mbracket_ff  目标 A 级｜圆法兰立装支架｜拓扑差异：止口+周圈 8+中心落料孔+防转平面+背面筋 6；无减重窗
+wave 3 —— `python3 tools/emit_members.py --machine D --wave 3`
+  - `d_st11_…001–…400`  防护网框（结构件｜面板）
+  - `d_st12_…001–…400`  调节地脚横梁（结构件｜支架）
+  - `d_st13_…001–…400`  槽台面镶块（结构件｜支架）
+  - `d_st14_…001–…400`  托盘定位底座（结构件｜盒盖）
+  - `d_st15_…001–…400`  分度挡块座（结构件｜支架）
 
-以上之外的件都不要做（其他机器在产）。其余规则照通用工单执行：
-通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
-1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
-   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
-2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
-   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
-3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
-4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
-5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
-6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
-   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
-   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
-   ACCEPT 才 commit + push。
-7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+wave 4 —— `python3 tools/emit_members.py --machine D --wave 4`
+  - `d_st16_…001–…400`  隔振垫座（结构件｜支架）
+  - `d_st17_…001–…400`  龙门端支撑（结构件｜壳体）
+  - `d_st18_…001–…400`  输送线侧板（结构件｜支架）
+  - `d_st19_…001–…400`  立柱连接板（结构件｜支架）
+  - `d_st20_…001–…400`  斜撑连接座（结构件｜支架）
+
+wave 5 —— `python3 tools/emit_members.py --machine D --wave 5`
+  - `d_st21_…001–…400`  横梁端接板（结构件｜支架）
+  - `d_st22_…001–…400`  框架转角座（结构件｜支架）
+  - `d_st23_…001–…400`  层板托架（结构件｜支架）
+  - `d_st24_…001–…400`  抽屉滑轨座（结构件｜支架）
+  - `d_st25_…001–…400`  门铰链座（结构件｜支架）
+
+wave 6 —— `python3 tools/emit_members.py --machine D --wave 6`
+  - `d_st26_…001–…400`  门锁安装座（结构件｜支架）
+  - `d_st27_…001–…400`  观察窗框（结构件｜支架）
+  - `d_st28_…001–…400`  显示屏安装板（结构件｜支架）
+  - `d_st29_…001–…400`  设备吊装点座（结构件｜支架）
+  - `d_st30_…001–…400`  加强筋板座（结构件｜支架）
+
+wave 7 —— `python3 tools/emit_members.py --machine D --wave 7`
+  - `d_st31_…001–…400`  底座调节支脚（结构件｜支架）
+  - `d_st32_…001–…400`  地脚板框（结构件｜支架）
+  - `d_st33_…001–…400`  管路支架座（结构件｜支架）
+  - `d_st34_…001–…400`  线槽盖板（结构件｜盒盖）
+  - `d_st35_…001–…400`  线夹固定座（结构件｜支架）
+
+wave 8 —— `python3 tools/emit_members.py --machine D --wave 8`
+  - `d_st36_…001–…400`  圆柱销定位块（结构件｜支架）
+  - `d_st37_…001–…400`  快速换型定位座（结构件｜支架）
+  - `d_st38_…001–…400`  支撑柱接头（结构件｜阀泵体）
+  - `d_st39_…001–…400`  型材端盖（结构件｜盒盖）
+  - `d_st40_…001–…400`  型材滑块（结构件｜支架）
+
+wave 9 —— `python3 tools/emit_members.py --machine D --wave 9`
+  - `d_st41_…001–…400`  悬吊横梁座（结构件｜支架）
+  - `d_st42_…001–…400`  顶部走线架（结构件｜支架）
+  - `d_st43_…001–…400`  防倾倒固定座（结构件｜支架）
+  - `d_st44_…001–…400`  抗震支架座（结构件｜支架）
+  - `d_st45_…001–…400`  墙板角件（结构件｜支架）
+
+wave 10 —— `python3 tools/emit_members.py --machine D --wave 10`
+  - `d_st46_…001–…400`  面板卡接座（结构件｜面板）
+  - `d_st47_…001–…400`  缓冲铰链座（结构件｜支架）
+  - `d_st48_…001–…400`  气弹簧安装座（结构件｜支架）
+  - `d_st49_…001–…400`  缓冲挡块座（结构件｜支架）
+  - `d_st50_…001–…400`  安全开关安装座（结构件｜支架）
+
+wave 11 —— `python3 tools/emit_members.py --machine D --wave 11`
+  - `d_mh01_…001–…400`  滚筒支架（结构件｜支架）
+  - `d_mh02_…001–…400`  托辊座（结构件｜支架）
+  - `d_mh03_…001–…400`  输送机侧板（结构件｜支架）
+  - `d_mh04_…001–…400`  链条导轨座（结构件｜支架）
+  - `d_mh05_…001–…400`  链板回转导轨（结构件｜支架）
+
+wave 12 —— `python3 tools/emit_members.py --machine D --wave 12`
+  - `d_mh06_…001–…400`  分道楔块座（结构件｜支架）
+  - `d_mh07_…001–…400`  挡停器座（结构件｜支架）
+  - `d_mh08_…001–…400`  顶升移栽机构座（结构件｜支架）
+  - `d_mh09_…001–…400`  翻转机构座（结构件｜支架）
+  - `d_mh10_…001–…400`  夹抱机构座（结构件｜支架）
+
+wave 13 —— `python3 tools/emit_members.py --machine D --wave 13`
+  - `d_mh11_…001–…400`  旋转分度台座（结构件｜支架）
+  - `d_mh12_…001–…400`  星轮分度座（结构件｜支架）
+  - `d_mh13_…001–…400`  拨轮座（结构件｜支架）
+  - `d_mh14_…001–…400`  导向护栏座（结构件｜支架）
+  - `d_mh15_…001–…400`  进瓶护栏座（结构件｜支架）
+
+wave 14 —— `python3 tools/emit_members.py --machine D --wave 14`
+  - `d_mh16_…001–…400`  出瓶拨轮罩（结构件｜罩壳）
+  - `d_mh17_…001–…400`  料斗过渡段（结构件｜壳体）
+  - `d_mh18_…001–…400`  溜管弯头段（结构件｜壳体）
+  - `d_mh19_…001–…400`  管道支撑鞍座（结构件｜支架）
+  - `d_mh20_…001–…400`  管夹块（结构件｜支架）
+
+wave 15 —— `python3 tools/emit_members.py --machine D --wave 15`
+  - `d_mh21_…001–…400`  卷扬安装板（结构件｜支架）
+  - `d_mh22_…001–…400`  提升机头部罩（结构件｜罩壳）
+  - `d_mh23_…001–…400`  提升机尾部轮座（结构件｜支架）
+  - `d_mh24_…001–…400`  斗提机壳体段（结构件｜壳体）
+  - `d_mh25_…001–…400`  振动给料槽座（结构件｜支架）
+
+wave 16 —— `python3 tools/emit_members.py --machine D --wave 16`
+  - `d_mh26_…001–…400`  振动料斗座（结构件｜支架）
+  - `d_mh27_…001–…400`  送料辊轮座（结构件｜支架）
+  - `d_mh28_…001–…400`  压辊支架（结构件｜支架）
+  - `d_mh29_…001–…400`  纠偏传感器支架（结构件｜支架）
+  - `d_mh30_…001–…400`  卷料支撑座（结构件｜支架）
+
+wave 17 —— `python3 tools/emit_members.py --machine D --wave 17`
+  - `d_mh31_…001–…400`  卷筒法兰盘（结构件｜盒盖）
+  - `d_mh32_…001–…400`  纸芯定位座（结构件｜支架）
+  - `d_mh33_…001–…400`  张力辊支座（结构件｜支架）
+  - `d_mh34_…001–…400`  堆垛导向架（结构件｜支架）
+  - `d_mh35_…001–…400`  层板分隔条（结构件｜支架）
+
+wave 18 —— `python3 tools/emit_members.py --machine D --wave 18`
+  - `d_mh36_…001–…400`  货架脚座（结构件｜支架）
+  - `d_mh37_…001–…400`  货架横梁接头（结构件｜阀泵体）
+  - `d_mh38_…001–…400`  仓储笼角件（结构件｜盒盖）
+  - `d_mh39_…001–…400`  周转箱堆叠脚（结构件｜支架）
+  - `d_mh40_…001–…400`  工具箱提手座（结构件｜支架）
+
+wave 19 —— `python3 tools/emit_members.py --machine D --wave 19`
+  - `d_mh41_…001–…400`  工具箱锁扣座（结构件｜支架）
+  - `d_mh42_…001–…400`  零件盒挂板（结构件｜盒盖）
+  - `d_mh43_…001–…400`  悬挂线吊具（结构件｜壳体）
+  - `d_mh44_…001–…400`  吊具夹持臂（结构件｜支架）
+  - `d_mh45_…001–…400`  平衡吊臂座（结构件｜支架）
+
+wave 20 —— `python3 tools/emit_members.py --machine D --wave 20`
+  - `d_mh46_…001–…400`  机械手末端法兰（结构件｜支架）
+  - `d_mh47_…001–…400`  快换盘座（结构件｜盒盖）
+  - `d_mh48_…001–…400`  吸盘支架（结构件｜工装）
+  - `d_mh49_…001–…400`  夹爪安装板（结构件｜支架）
+  - `d_mh50_…001–…400`  末端执行器罩壳（结构件｜罩壳）
+
+以上之外的件一律不做（别的机器在产）。通用规则：
+通用规则（五台机器一样，全文见 cad-repo/WORKFLOW.md 与 cad-repo/WORK-ORDER.md）：
 0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
-   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH（不重启侧栏图标不会出现）；
+   cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。插件源码在 cad-repo/plugin/，与 tgz 同源。
+1. 开工先 `python3 tools/recall.py --machine <你的字母>`：它打印教训全文 + 项目记忆 + 版本握手 + 你的切片。
+   记住它给的 LESSONS_ACK，回传 REPORT.md 必须带这一行，merge_check 缺它或它过期就 REJECT。
+2. 再回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb 与你的 rules_sha；
+   与 shared/versions.json 不一致就停下问人，等 A 机重签版本握手与新 tgz，**不要自己改引擎**。
+3. 每波开工先展开合同：`python3 tools/emit_members.py --machine <字母> --wave N > intake/waves/<批次>_wN.json`，
+   然后 commit 这个文件（它就是你这一波要交付的 2,000 件，交付逐件对上）。
+4. 每件顺序：new -> design.md -> build -> validate -> probe -> dedupe -> export -> package，任一 FAIL 不许往下走；
+   design.md 必须把该件的 topo_signature 落成**具体特征数**（哪个轴存在/不存在、筋几条孔几个），这是判重的正面证据。
+5. 同族成员必须换拓扑；纯缩放 = 2.5 判重复不计数；params 表里不许留已关闭特征的参数（探针逐格扰动）。
+6. dedupe 报 exact / scaled_same 立刻停，不管撞的是谁；跨机判重在 A 机合并点做（分桶比较，无损）。
+7. package 串行、一次一件，绝不并发发布（N43/N44 未修）；台账绝不手工合并 sqlite，只回传 ledger.jsonl 导出。
+8. 渲染与 STEP 全由插件产出，不许手改：8 视图、白底单色灰、长边 >=2000px、STEP AP214 是硬线。
+9. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   versions.json、REPORT.md（含 LESSONS_ACK）、豁免文件；并更新 shared/fingerprints/<你的字母>.json（只这一个文件）。
+   推之前自己跑 `python3 tools/merge_check.py --root ~/cad-fleet --theirs outbox/<批次> --baseline shared/fingerprints`，
+   **把 blocking 一次全清掉**再 push（门禁现在会一次列全部缺陷，不会只告诉你第一个）。
+10. 立刻停下来问人：判重命中 / 探针修不过 / 要把 memCapMb 降到 1536 以下 / 想改清单、族谱或 intake / 插件行为与工单不符。
