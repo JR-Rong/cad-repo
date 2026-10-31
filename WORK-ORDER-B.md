@@ -99,8 +99,8 @@ outbox/fleet_b_2026_11/versions.json                 # 你实际用的 rules_sha
 
 ```sh
 python3 - <<'PY'
-import json, sqlite3
-c = sqlite3.connect("/Users/$USER/cad-fleet/ledger.sqlite3")
+import json, os, sqlite3
+c = sqlite3.connect(os.path.expanduser("~/cad-fleet/ledger.sqlite3"))
 out = open("outbox/fleet_b_2026_11/ledger.jsonl", "w")
 for table in ("model", "revision", "job", "evidence", "delivery", "fingerprint", "artifact"):
     cols = [r[1] for r in c.execute("PRAGMA table_info(%s)" % table)]
