@@ -113,8 +113,13 @@ python3 tools/fingerprint_merge.py --machine B      # 增量并进 shared/finger
 3. **ACK 轮换** —— 每次摄入都改 `LESSONS.md` ⇒ `LESSONS_ACK` 变 ⇒ 各机 REPORT.md 里的旧 ACK 失效，
    必须重跑 `recall.py` 重读才能再交付。这是设计，不是副作用。
 
-实测（本机跑过）：摄入 round-10 审计 + 一次真实挡单 ⇒ 17 条教训、15 条已升级为门禁；
-同一条重放三次不再计数；改一条 origin 模拟别机再犯 ⇒ 立刻进"需立刻做进门禁"清单。
+**数据卫生（第四条，也是踩过之后加的）**：测试/演练产生的发现必须
+`lesson_ingest.py --synthetic <文件>` 摄入 —— 留档为 `status=synthetic`，**不计复发、不升门禁、
+不计入未关闭数**；任何机器不得伪造别机的 `lessons/inbox/<字母>.jsonl`，不得手改 `index.json`。
+错题本里的"复发"必须是真发生过两次的事，否则升级就是编出来的。
+
+实测（本机跑过）：摄入 round-10 审计（真）+ 自测挡单（标 synthetic）⇒ 22 条中真实 15 条
+（11 条已升级为「必须做进门禁」）、留档 7 条、复发计数最大为 1；同一份文件重放三次不再计数。
 
 ## 8. 完成的定义
 
