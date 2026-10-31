@@ -1,0 +1,73 @@
+{
+  "batch": "fleet_b_2026_11",
+  "machine": "B",
+  "buyer": "internal",
+  "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
+  "issued_by": "machine-A dsh-cad-agent",
+  "created": "2026-10-31",
+  "parts": [
+    "b_snapenc120_r3",
+    "b_snapenc120_r4w",
+    "b_termblk_4p",
+    "b_termblk_6p_s",
+    "b_drilljig_4b",
+    "b_drilljig_6b"
+  ],
+  "detail": [
+    {
+      "project_id": "b_snapenc120_r3",
+      "title": "Snap enclosure 120x80x40 (base)",
+      "family": "snap_enclosure",
+      "grade": "A",
+      "unit": "mm",
+      "type": "part",
+      "topo_signature": "ribs=3, snaps=6, window=none, cable_ports=2, bosses=4"
+    },
+    {
+      "project_id": "b_snapenc120_r4w",
+      "title": "Snap enclosure 120x80x40 (lid, display window)",
+      "family": "snap_enclosure",
+      "grade": "A",
+      "unit": "mm",
+      "type": "part",
+      "topo_signature": "ribs=4, snaps=8, window=yes, keyways=3, ground_stud=1"
+    },
+    {
+      "project_id": "b_termblk_4p",
+      "title": "Screw terminal block 4P (DIN rail)",
+      "family": "terminal_block",
+      "grade": "A",
+      "unit": "mm",
+      "type": "part",
+      "topo_signature": "poles=4, divider_slots=none, marker_pocket=1, rail_clip=1"
+    },
+    {
+      "project_id": "b_termblk_6p_s",
+      "title": "Screw terminal block 6P with partitions",
+      "family": "terminal_block",
+      "grade": "A",
+      "unit": "mm",
+      "type": "part",
+      "topo_signature": "poles=6, divider_slots=5, end_plate=1, marker_pocket=2"
+    },
+    {
+      "project_id": "b_drilljig_4b",
+      "title": "Drill jig plate, 4 bushings",
+      "family": "drill_jig",
+      "grade": "A",
+      "unit": "mm",
+      "type": "part",
+      "topo_signature": "bushings=4, diamond_pins=2, rest_pads=3, quick_clamp=none"
+    },
+    {
+      "project_id": "b_drilljig_6b",
+      "title": "Drill jig plate, 6 bushings, quick clamp",
+      "family": "drill_jig",
+      "grade": "A",
+      "unit": "mm",
+      "type": "part",
+      "topo_signature": "bushings=6, diamond_pins=3, chip_slots=through, quick_clamp=2, tool_setting_block=1"
+    }
+  ],
+  "notes": "两两拓扑必须不同（2.5）；关闭的特征组其参数不得留在 params 表（探针逐格验证）。"
+}

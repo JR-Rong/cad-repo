@@ -1,0 +1,16 @@
+{
+  "id": "internal_sourcing_fleet_b_fleet_b_2026_11",
+  "title": "内部来源豁免（B 机批次，无外部采购/下载来源）",
+  "granted": "2026-10-31",
+  "granted_by": "数据采购方（会话指令 2026-10-29：不需要来源许可，都是我们自己内部的）",
+  "waives": "spec 2.2 external source URL / third-party license check",
+  "text": "本批次全部模型由本团队在 FreeCAD 中自主参数化生成，不存在外部来源；source_url 固定为 internal。",
+  "scope": {
+    "buyer": "internal",
+    "batches": [
+      "fleet_b_2026_11"
+    ],
+    "machine": "B"
+  },
+  "revoked": false
+}

@@ -1,0 +1,276 @@
+{
+ "_comment": "全局去重底表（A 机产出）。B 机开工前复制到自己 cadRoot 的 registry/fingerprints.json；B 机自己的新增指纹不要写回这个文件，放 outbox/fingerprints.delta.json。",
+ "_source": "machine-A cad/registry/fingerprints.json + ledger model rows",
+ "entries": {
+  "pilot_ec100": {
+   "bbox": [
+    226.0,
+    226.0,
+    47.0
+   ],
+   "cells": 43,
+   "compactness": 55.804885011861764,
+   "edges": 335,
+   "faces": 141,
+   "ratios": [
+    1.0,
+    1.0,
+    0.207965
+   ],
+   "solids": 1,
+   "steps": 145,
+   "structure_sha": "145|1|141",
+   "version": 2,
+   "volume": 809255.0287731809,
+   "volume_scale": 0.41233800287552547
+  },
+  "pilot_ec112": {
+   "bbox": [
+    256.0,
+    256.0,
+    49.0
+   ],
+   "cells": 40,
+   "compactness": 56.2596182059446,
+   "edges": 316,
+   "faces": 132,
+   "ratios": [
+    1.0,
+    1.0,
+    0.191406
+   ],
+   "solids": 1,
+   "steps": 145,
+   "structure_sha": "145|1|132",
+   "version": 2,
+   "volume": 1115221.9985137992,
+   "volume_scale": 0.40508591596381704
+  },
+  "pilot_ec132": {
+   "bbox": [
+    314.0,
+    314.0,
+    54.0
+   ],
+   "cells": 43,
+   "compactness": 59.8033282903977,
+   "edges": 313,
+   "faces": 132,
+   "ratios": [
+    1.0,
+    1.0,
+    0.171975
+   ],
+   "solids": 1,
+   "steps": 151,
+   "structure_sha": "151|1|132",
+   "version": 2,
+   "volume": 1798560.625293238,
+   "volume_scale": 0.3872981112739751
+  },
+  "pilot_ec132x": {
+   "bbox": [
+    300.0,
+    300.0,
+    47.0
+   ],
+   "cells": 30,
+   "compactness": 49.19924678681055,
+   "edges": 218,
+   "faces": 100,
+   "ratios": [
+    1.0,
+    1.0,
+    0.156667
+   ],
+   "solids": 1,
+   "steps": 117,
+   "structure_sha": "117|1|100",
+   "version": 2,
+   "volume": 1575806.5715204917,
+   "volume_scale": 0.38789398729931424
+  },
+  "pilot_ec160": {
+   "volume_scale": 0.3845816970815734,
+   "compactness": 61.91958061365399,
+   "ratios": [
+    1.0,
+    1.0,
+    0.163934
+   ],
+   "bbox": [
+    366.0,
+    366.0,
+    60.0
+   ],
+   "solids": 1,
+   "faces": 156,
+   "edges": 398,
+   "steps": 169,
+   "cells": 43,
+   "volume": 2788746.8378971033
+  },
+  "pilot_ec63": {
+   "bbox": [
+    128.0,
+    128.0,
+    26.0
+   ],
+   "cells": 23,
+   "compactness": 51.26616786461879,
+   "edges": 221,
+   "faces": 91,
+   "ratios": [
+    1.0,
+    1.0,
+    0.203125
+   ],
+   "solids": 1,
+   "steps": 87,
+   "structure_sha": "87|1|91",
+   "version": 2,
+   "volume": 153527.78373238718,
+   "volume_scale": 0.41833001284502586
+  },
+  "pilot_ec71": {
+   "bbox": [
+    148.0,
+    148.0,
+    31.0
+   ],
+   "cells": 29,
+   "compactness": 48.490700295469956,
+   "edges": 243,
+   "faces": 96,
+   "ratios": [
+    1.0,
+    1.0,
+    0.209459
+   ],
+   "solids": 1,
+   "steps": 99,
+   "structure_sha": "99|1|96",
+   "version": 2,
+   "volume": 255484.80743688546,
+   "volume_scale": 0.4287393163955515
+  },
+  "pilot_ec80b": {
+   "bbox": [
+    192.0,
+    192.0,
+    42.0
+   ],
+   "cells": 43,
+   "compactness": 56.090550095408595,
+   "edges": 366,
+   "faces": 141,
+   "ratios": [
+    1.0,
+    1.0,
+    0.21875
+   ],
+   "solids": 1,
+   "steps": 151,
+   "structure_sha": "151|1|141",
+   "version": 2,
+   "volume": 493559.1052264067,
+   "volume_scale": 0.411602964504371
+  },
+  "pilot_ec90": {
+   "bbox": [
+    194.0,
+    194.0,
+    37.0
+   ],
+   "cells": 39,
+   "compactness": 52.06140514745306,
+   "edges": 334,
+   "faces": 135,
+   "ratios": [
+    1.0,
+    1.0,
+    0.190722
+   ],
+   "solids": 1,
+   "steps": 144,
+   "structure_sha": "144|1|135",
+   "version": 2,
+   "volume": 546061.8094656948,
+   "volume_scale": 0.42132012531757446
+  },
+  "pilot_ec90s": {
+   "bbox": [
+    194.0,
+    194.0,
+    37.0
+   ],
+   "cells": 26,
+   "compactness": 48.944556203736475,
+   "edges": 184,
+   "faces": 82,
+   "ratios": [
+    1.0,
+    1.0,
+    0.190722
+   ],
+   "solids": 1,
+   "steps": 93,
+   "structure_sha": "93|1|82",
+   "version": 2,
+   "volume": 540777.6746396063,
+   "volume_scale": 0.4199567067668952
+  }
+ },
+ "provenance": {
+  "pilot_ec63": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 87
+  },
+  "pilot_ec71": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 99
+  },
+  "pilot_ec80b": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 151
+  },
+  "pilot_ec90": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 144
+  },
+  "pilot_ec90s": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 93
+  },
+  "pilot_ec100": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 145
+  },
+  "pilot_ec112": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 145
+  },
+  "pilot_ec132": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 151
+  },
+  "pilot_ec132x": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 117
+  },
+  "pilot_ec160": {
+   "family": "iec_endcap",
+   "series": "IEC B5 法兰端盖",
+   "steps": 169
+  }
+ }
+}
