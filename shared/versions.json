@@ -6,15 +6,6 @@
   "family_iec_endcap_sha256": "687e6cebde82d3e0d2665a6761dfeed129c352d9c52fa43e71c5750a169fa303",
   "spec_pdf_sha256": "9f7333e75d83b2b4e4b7e22300dd4dee439aca0bfca0a3e4396bd0a3e6d2ae4a",
   "freecad_version_local": "FreeCAD 1.1.1 Revision: 20260414 (Git shallow)",
-  "batches_done_local": {
-    "pilot_2026_10": "10/10 delivered, reconcile ok (9 counted unique, pilot_ec132 counts as pilot_ec80b)",
-    "demo_2026_10": "1 delivered (motor_end_cap_80; rebuild pending under new family rules)"
-  },
-  "known_plugin_defects": {
-    "N43": "P1 unfixed: ownership hash-read exception can let locked CAS cleanup destroy a newer delivery",
-    "N44": "P2 unfixed: cross-window merge lets a later PASS erase a valid earlier FAIL",
-    "rule": "package serially, never concurrently; never hand-merge ledger sqlite across machines"
-  },
   "handoff_batch": "fleet_b_2026_11",
-  "generated_local": "2026-10-31T09:23:51Z"
+  "role": "machine-A issues this; machine B echoes the same keys into its return"
 }
