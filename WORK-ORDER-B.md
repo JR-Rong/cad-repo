@@ -121,7 +121,10 @@ python3 handoff/tools/merge_check.py --mine ~/cad-fleet --theirs handoff/outbox/
 台账五阶段没走全、以及与 A 机底表或你自己件之间构成 `exact`/`scaled_same`。
 判定函数直接 import 插件里的 `cadkit.fingerprint`（`tools/engine_predicates.py` 注入 FreeCAD 桩，
 所以 host python3 就能跑，不需要 FreeCAD 环境）—— 不是把规则抄一遍，抄的那份会漂。
-工具自身有夹具自测：`tmp` 之外不写任何东西，跑 `python3 handoff/tools/merge_check.py --help` 看用法。
+门禁会自己找 cadkit：本仓旁边的 `dsh-plugin-cad-freecad/python`，找不到就扫
+`~/.dsh/profiles/*/node_modules/@local/dsh-plugin-cad-freecad/python`（你装插件后的实际位置）；
+都没有就 **fail closed**（报"拿不到 cadkit.fingerprint，跨机去重未执行"），这时用
+`--plugin-python <含 cadkit 的目录>` 或 `export CADKIT_PLUGIN_PY=…` 指过去。它绝不会在拿不到判定函数时放行为 ACCEPT。
 
 ## 7. 立刻停下来问人的条件
 

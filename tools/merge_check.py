@@ -25,17 +25,46 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 HANDOFF = os.path.dirname(HERE)
 
 # reuse the engine's own predicates when the plugin is importable
-PLUGIN_PY = os.path.join(HANDOFF, os.pardir, "dsh-plugin-cad-freecad", "python")
+def find_plugin_python(explicit=None):
+    """Where is cadkit/? A machine has it next to the workspace, B machine has it
+    in the pnpm profile dir — and a wrong guess must say so, not silently
+    disable the 2.5 gate."""
+    import glob
+    cands = []
+    if explicit:
+        cands.append(explicit)
+    if os.environ.get("CADKIT_PLUGIN_PY"):
+        cands.append(os.environ["CADKIT_PLUGIN_PY"])
+    cands.append(os.path.join(HANDOFF, os.pardir, "dsh-plugin-cad-freecad", "python"))
+    for pat in ("@local/dsh-plugin-cad-freecad/python",
+                "**/@local/dsh-plugin-cad-freecad/python"):
+        cands += sorted(glob.glob(os.path.join(os.path.expanduser("~"), ".dsh", "profiles",
+                                               "*", "node_modules", pat), recursive=True))
+    for c in cands:
+        if c and os.path.exists(os.path.join(c, "cadkit", "fingerprint.py")):
+            return os.path.abspath(c)
+    return None
+
+
 sys.path.insert(0, HERE)
-try:
-    import engine_predicates
-    _fp, PREDICATE_MODE = engine_predicates.load(PLUGIN_PY)
-    scaled_same, related = _fp.scaled_same, _fp.related
-    HAVE_ENGINE = True
-except Exception as exc:
-    HAVE_ENGINE = False
-    PREDICATE_MODE = "unavailable"
-    scaled_same = related = None
+
+
+def load_predicates(plugin_py=None):
+    """Return (scaled_same, related, mode, path). Never silently None-compare."""
+    path = find_plugin_python(plugin_py)
+    if path is None:
+        return None, None, "plugin python not found", None
+    try:
+        import engine_predicates
+        fp, mode = engine_predicates.load(path)
+        return fp.scaled_same, fp.related, mode, path
+    except Exception as exc:                          # noqa: BLE001
+        return None, None, "unavailable: %s" % exc, path
+
+
+scaled_same = related = None
+PREDICATE_MODE = "not loaded yet"
+HAVE_ENGINE = False
 
 
 def load_jsonl(path):
@@ -81,7 +110,12 @@ def main():
     ap.add_argument("--intake", default=None)
     ap.add_argument("--baseline", default=os.path.join(HANDOFF, "shared", "fingerprints.json"))
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--plugin-python", default=None,
+                    help="含 cadkit/ 的 python 目录（默认自动找 profile 的 node_modules）")
     a = ap.parse_args()
+    global scaled_same, related, PREDICATE_MODE, HAVE_ENGINE
+    scaled_same, related, PREDICATE_MODE, PLUGIN_PY = load_predicates(a.plugin_python)
+    HAVE_ENGINE = scaled_same is not None
 
     blocking, notes, stats = [], [], {}
     theirs = a.theirs
@@ -203,7 +237,9 @@ def main():
     delta = delta_raw.get("entries", delta_raw) if isinstance(delta_raw, dict) else {}
     stats["predicates"] = PREDICATE_MODE
     if not HAVE_ENGINE:
-        blocking.append("无法导入 cadkit.fingerprint，跨机去重未执行（fail closed）: " + PLUGIN_PY)
+        blocking.append("拿不到 cadkit.fingerprint，跨机去重未执行（fail closed）: %s (%s)。"
+                        "用 --plugin-python <含 cadkit 的 python 目录> 或设 CADKIT_PLUGIN_PY 指定"
+                        % (PLUGIN_PY, PREDICATE_MODE))
     else:
         pool = [("A/" + k, v) for k, v in baseline.items() if isinstance(v, dict)]
         pool += [("B/" + k, v) for k, v in delta.items() if isinstance(v, dict)]
