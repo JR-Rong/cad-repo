@@ -57,6 +57,7 @@ shared/spec-extract.txt    采购说明全文（两边读同一份字）
 shared/waiver-template.json     内部来源豁免模板（scope 写自己的批次）
 releases/                  插件离线包 + 安装说明（新机器用）
 outbox/<批次>/              回传区（交付目录 + 台账导出 + 指纹增量 + REPORT + 版本）
+status/PROGRESS.md         进度流水（append-only，各机器末尾追加一行）
 tools/build_catalog.py     清单源表 → parts.json / CATALOG.md / intake / briefs（改清单后重跑）
 tools/catalog_lint.py      计划自洽性门禁（同族多机、id 前缀、拓扑重复、合同漂移）
 tools/registry_sync.py     底表 → 本机 registry，并做跨机判重预检
