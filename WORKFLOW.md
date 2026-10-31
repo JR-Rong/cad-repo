@@ -91,12 +91,30 @@ python3 tools/fingerprint_merge.py --machine B      # 增量并进 shared/finger
 门禁**一次列出全部缺陷**（Round-10 之后修过一条：早退只报第一个错，导致"修一个再看一个"）。
 生产会话必须把整份 blocking 清单清零再重跑，不许逐条试。
 
-## 7. 教训闭环（本条是流程的心脏）
+## 7. 错题本闭环（本条是流程的心脏）
 
-1. 每轮审计/收货暴露的问题，**当天**写进 `LESSONS.md`（带编号 + 强制方式：门禁 / 自检）。
-2. `MEMORY.md` 的"现状"段随之更新，决策只追加不改写。
-3. 下次生产由 `recall.py` 强制读取；回传带 `LESSONS_ACK`，`merge_check` 核对 sha。
-4. 同一类问题第二次出现 → 必须升级为门禁（写代码挡），不许第三条"下次注意"。
+发现问题只有四个出口，全都汇到 `lessons/inbox/<机器>.jsonl`：
+
+| 来源 | 谁产生 | 怎么进错题本 |
+|---|---|---|
+| `audit` | 本机审查 agent（codex 类对抗审查）的 findings JSON | A 机 `python3 tools/lesson_ingest.py --audit cad/audit/findings_round11_*.json` |
+| `gate` | 收货门禁 `merge_check` 的 blocking | A 机 `--gate /tmp/mc.json`（先 `merge_check … --json > /tmp/mc.json`） |
+| `review_scan` | 旧件机械复检通道 | `python3 tools/review_scan.py --root <cadRoot> --batch <旧批次> --to-lessons` |
+| `self` / `buyer` | 人踩的坑、买方退单 | `python3 tools/lesson_add.py --machine X --source self --severity P1 --title "症状" --where "file:line 或件号" --detail "证据"` |
+
+**所有权**：各机只写 `lessons/inbox/<自己>.jsonl`（append-only，永不冲突）；
+`LESSONS.md` 与 `lessons/index.json` **只有 A 机的 `lesson_ingest.py` 能写**。
+
+三条硬规则写在代码里，不是写在文档里：
+1. **同因合并** —— key = (`where`, 标题前 120 字) 的哈希，五台撞同一个坑只有一条教训；
+2. **复发即升级** —— `复发` 只算**不同来源**再犯（同一份文件重放不计数）；`count ≥ 2`、`P0/P1`、
+   或审计里标"部分通过" ⇒ 强制方式自动变 **「必须做进门禁」**，A 机必须把它变成 merge_check 的
+   blocking 或插件校验，不许留成"下次注意"；
+3. **ACK 轮换** —— 每次摄入都改 `LESSONS.md` ⇒ `LESSONS_ACK` 变 ⇒ 各机 REPORT.md 里的旧 ACK 失效，
+   必须重跑 `recall.py` 重读才能再交付。这是设计，不是副作用。
+
+实测（本机跑过）：摄入 round-10 审计 + 一次真实挡单 ⇒ 17 条教训、15 条已升级为门禁；
+同一条重放三次不再计数；改一条 origin 模拟别机再犯 ⇒ 立刻进"需立刻做进门禁"清单。
 
 ## 8. 完成的定义
 
@@ -104,3 +122,39 @@ python3 tools/fingerprint_merge.py --machine B      # 增量并进 shared/finger
 - **一波**：20 件全部达到"一件"标准，且抽件复建通过。
 - **一台**：批次 `reconcile` 无缺件/无多余/无重复 id，`counts_as_unique` 与买方判定差值有解释。
 - **项目**：五台批次合并后总 unique 计数达到目标，且没有任何一对 `exact`/`scaled_same` 跨机重复。
+
+## 9. 并行编排：新件生产与旧件审查同时跑
+
+**为什么能并行**：五台机器天然不相交（族谱按机器切、`shared/fingerprints/<X>.json` 各写各的）；
+单机内 `build/validate/probe/export` 是互相无共享状态的独立进程；旧件复检只读交付目录，很轻。
+
+**为什么不能一味拉满**（三条约束已写进调度器）：
+1. 单件峰值 RSS 430–530 MB，插件每进程 cap 2048 MB、**进程组 cap 6144 MB** ⇒
+   并发 = `min(--workers, --mem-budget-mb / --per-part-mb)`，默认取 3 路；
+2. **N43(P1)/N44(P2) 未修** ⇒ `package` 只能**一个槽位、一次一件**（单消费者队列实现，
+   不靠"记得串行"）；同一件也不许跨窗口重复跑（后到的 PASS 会抹掉先到的 FAIL）；
+3. `--package` 必须与 `build,validate,probe,export` 同时给出，否则调度器直接拒绝 ——
+   跳过阶段直接包装等于用调度器绕过 §3 的顺序约束（这条是调度器自己踩出来的，见错题本）。
+
+```
+python3 tools/fleet_runner.py --root <cadRoot> --batch fleet_b_2026_11 \
+    --intake intake/waves/fleet_b_2026_11_w1.json \
+    --stages build,validate,probe,export --package \
+    --workers 3 --mem-budget-mb 6144 \
+    --review-batch fleet_b_2026_11 --review-root <上一波 cadRoot> --review-every 6 --review-sample 20
+```
+
+- **调用契约**：`freecadcmd <插件>/python/entry.py` + `CADKIT_ACTION/CADKIT_ROOT/CADKIT_PROJECT/CADKIT_OPTS`
+  环境变量（`entry.py` 顶部 docstring 里那种 `--action` 命令行写法会被 FreeCAD 吃掉，别照抄）；
+- **判定只看 JSON**：引擎失败时**退出码仍是 0**，只有 `CADKIT>> {"ok": …, "checks": […]}` 是真的，
+  调度器因此解析 JSON 并把 `checks[]` 里任何 FAIL 记为不过（曾把 8 条"通过"记在零交付物上）；
+- **握手前置自检**：启动时用即将执行的引擎算一次 `rules_sha` 与 `shared/versions.json` 比对，
+  不一致直接 exit 2 —— 用错引擎生产的那一波整波返工；
+- **断点续跑**靠台账幂等键：调度器先读 `ledger.sqlite3`，只排 `state != OK` 的阶段，崩了重跑同一条命令；
+- **复检采样**：每完成 `--review-every` 件插一次旧件 `review_scan`（发现即写自己的 inbox）；
+  全量复检留给每班一次，别和生产抢窗口；
+- 日志 `status/runner_<batch>_<ts>.jsonl` 每行 `{lane,pid,stage,ok,seconds,degraded}`，
+  随 REPORT 回传；A 机看 `lane` 是否交错判断"真并行"。
+
+**禁止并行**：`package`（全局单槽）、同一件重复跑、`git push`（`pull --rebase` 后立刻 push）、
+以及 `ledger.sqlite3`（不可手工合并、不可两个进程写同一 project）。

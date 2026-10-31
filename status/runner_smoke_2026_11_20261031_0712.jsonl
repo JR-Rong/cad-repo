@@ -1,0 +1,5 @@
+{"pid": "rt01", "stage": "build", "ok": true, "rc": 0, "seconds": 0.4, "peak_mb": 82.8, "degraded": false, "error": null, "lane": "produce", "worker": 0}
+{"pid": "rt02", "stage": "build", "ok": true, "rc": 0, "seconds": 0.5, "peak_mb": 82.9, "degraded": false, "error": null, "lane": "produce", "worker": 1}
+{"pid": "rt01", "stage": "validate", "ok": false, "rc": 0, "seconds": 0.4, "peak_mb": 83.7, "degraded": false, "error": "checks FAIL: step_floor(contributing nodes=5 (sketches=2, features=3) -> grade C; ta); real_object(P0 design review + L2 vision + P7 human checklist confirm th)", "lane": "produce", "worker": 0}
+{"pid": "rt02", "stage": "validate", "ok": false, "rc": 0, "seconds": 0.4, "peak_mb": 83.5, "degraded": false, "error": "checks FAIL: step_floor(contributing nodes=5 (sketches=2, features=3) -> grade C; ta); real_object(P0 design review + L2 vision + P7 human checklist confirm th)", "lane": "produce", "worker": 1}
+{"lane": "review", "after_parts": "heartbeat", "rc": 0, "root": "/Users/rongjianrui/Documents/deepseek-harness/default-workspace/cad", "tail": ["复检 pilot_2026_10：0 条发现（0.0s）"], "at": "07:12:29"}

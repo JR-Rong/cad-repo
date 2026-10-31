@@ -70,6 +70,10 @@ tools/merge_check.py       收货门禁（缺件/缺 STEP/AP214/渲染 2000px/�
 tools/recall.py              开工前强制读教训 + 项目记忆，盖 LESSONS_ACK 戳
 tools/emit_members.py         把族谱设计空间展开成某波的 intake（件号确定性重算）
 tools/fingerprint_merge.py    A 机收货后把指纹增量并进该机器底表（判重冲突拒绝合并）
+tools/lesson_add.py             各机错题本收件箱（只写 lessons/inbox/<自己>.jsonl）
+tools/lesson_ingest.py          A 机合并教训：同因合并、复发自动升级为门禁、LESSONS_ACK 轮换
+tools/review_scan.py            旧件复检通道（交付物/台账/input_hash 过期），发现即入错题本
+tools/fleet_runner.py           双通道调度：生产 ‖ 旧件复检，package 单槽串行，断点靠台账
 tools/catalog_lint.py         计划自洽性门禁（全量展开 20 万件校验唯一性）
 LESSONS.md                   教训（Round-10 不通过的根因 + 生产长期教训），带强制方式
 MEMORY.md                    项目记忆（现状 + 决策只追加）

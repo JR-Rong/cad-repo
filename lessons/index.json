@@ -1,0 +1,603 @@
+{
+ "07a3a69bd7": {
+  "_fresh": true,
+  "count": 1,
+  "detail": "交付被收货门禁挡下（batch fleet_b_2026_11）",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:15:21",
+  "force": "留档（测试/演练数据，不计复发、不升门禁）",
+  "hash": "07a3a69bd7",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "gate",
+  "machines": [
+   "gate"
+  ],
+  "origin": "b38453ca18",
+  "origins": [
+   "b38453ca18"
+  ],
+  "severity": "P1",
+  "source": "merge_check",
+  "sources": [
+   "merge_check"
+  ],
+  "status": "synthetic",
+  "title": "b_in01_004 渲染长边不足 2000px: view_back.png=1600x1600, view_bottom.png=1600x1600, view_front.png=1600x1600, view_iso_down.png=1600x1600, view_iso_up.png=1600x1600, ",
+  "ts": "2026-10-31T07:15:21",
+  "verdict": null,
+  "where": "b_in01_004"
+ },
+ "0ec98e6087": {
+  "count": 1,
+  "detail": "entry.py 顶部 docstring 写的 `freecadcmd entry.py --action build` 实测报 'unrecognised option --action'；参数必须走 CADKIT_ACTION/CADKIT_ROOT/CADKIT_PROJECT/CADKIT_OPTS 环境",
+  "evidence": "freecadcmd <entry.py> --action status → 'unrecognised option'；改用 env 后 rc=0 且出 CADKIT JSON",
+  "first_seen": "2026-10-31T07:13:32-0700",
+  "force": "必须做进门禁",
+  "hash": "0ec98e6087",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "A",
+  "machines": [
+   "A"
+  ],
+  "origin": "033ad3ca72",
+  "origins": [
+   "033ad3ca72"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "无头调用不能用命令行选项：freecadcmd 会吃掉 --action",
+  "ts": "2026-10-31T07:13:32-0700",
+  "verdict": null,
+  "where": "handoff/plugin/dsh-plugin-cad-freecad/python/entry.py:4"
+ },
+ "0f9f1cfc17": {
+  "_fresh": true,
+  "count": 1,
+  "detail": "交付被收货门禁挡下（batch fleet_b_2026_11）",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:15:21",
+  "force": "留档（测试/演练数据，不计复发、不升门禁）",
+  "hash": "0f9f1cfc17",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "gate",
+  "machines": [
+   "gate"
+  ],
+  "origin": "a5918357a9",
+  "origins": [
+   "a5918357a9"
+  ],
+  "severity": "P1",
+  "source": "merge_check",
+  "sources": [
+   "merge_check"
+  ],
+  "status": "synthetic",
+  "title": "b_in01_006 缺 STEP（2.3）",
+  "ts": "2026-10-31T07:15:21",
+  "verdict": null,
+  "where": "b_in01_006"
+ },
+ "1009890910": {
+  "count": 1,
+  "detail": "Original regression plus executed round-10 extensions; linked residuals are counted only under new_findings.",
+  "evidence": "",
+  "first_seen": "2026-10-31T09:01:23.839357+00:00",
+  "force": "必须做进门禁",
+  "hash": "1009890910",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "audit",
+  "machines": [
+   "audit"
+  ],
+  "origin": "fdd6fbef16",
+  "origins": [
+   "fdd6fbef16"
+  ],
+  "severity": "P1",
+  "source": "audit:findings_round10_2026_10_31/recheck",
+  "sources": [
+   "audit:findings_round10_2026_10_31/recheck"
+  ],
+  "status": "partial",
+  "title": "部分通过 N1：Ordering and recovery pass; ownership-read failure remains",
+  "ts": "2026-10-31T09:01:23.839357+00:00",
+  "verdict": "REJECTED",
+  "where": "dsh-plugin-cad-freecad/python/cadkit/ledger.py"
+ },
+ "1c96665346": {
+  "count": 1,
+  "detail": "Original regression plus executed round-10 extensions; linked residuals are counted only under new_findings.",
+  "evidence": "",
+  "first_seen": "2026-10-31T09:01:23.839357+00:00",
+  "force": "必须做进门禁",
+  "hash": "1c96665346",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "audit",
+  "machines": [
+   "audit"
+  ],
+  "origin": "b8a50bc67b",
+  "origins": [
+   "b8a50bc67b"
+  ],
+  "severity": "P2",
+  "source": "audit:findings_round10_2026_10_31/recheck",
+  "sources": [
+   "audit:findings_round10_2026_10_31/recheck"
+  ],
+  "status": "partial",
+  "title": "部分通过 N23：Local duplicate precedence holds; cross-window merge is last-write-wins",
+  "ts": "2026-10-31T09:01:23.839357+00:00",
+  "verdict": "REJECTED",
+  "where": "dsh-plugin-cad-freecad/python/cadkit/probe.py"
+ },
+ "4217d932cc": {
+  "_fresh": true,
+  "count": 1,
+  "detail": "交付被收货门禁挡下（batch fleet_b_2026_11）",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:15:21",
+  "force": "留档（测试/演练数据，不计复发、不升门禁）",
+  "hash": "4217d932cc",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "gate",
+  "machines": [
+   "gate"
+  ],
+  "origin": "d7793816b8",
+  "origins": [
+   "d7793816b8"
+  ],
+  "severity": "P1",
+  "source": "merge_check",
+  "sources": [
+   "merge_check"
+  ],
+  "status": "synthetic",
+  "title": "LESSONS_ACK 过期: 回传 deadbeef，当前教训 f9e9205c（教训已更新，重读后重跑）",
+  "ts": "2026-10-31T07:15:21",
+  "verdict": null,
+  "where": "fleet_b_2026_11"
+ },
+ "426ed4c25e": {
+  "count": 1,
+  "detail": "splice 只替换 BEGIN..END，标题在 BEGIN 前 ⇒ 逐次累积",
+  "evidence": "diff 两次摄入：新增一行 '## 四、错题本'",
+  "first_seen": "2026-10-31T06:59:23-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "426ed4c25e",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "A",
+  "machines": [
+   "A"
+  ],
+  "origin": "000a4b9ef1",
+  "origins": [
+   "000a4b9ef1"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "摄入器标题写在标记外，每跑一次 LESSONS.md 多一行标题",
+  "ts": "2026-10-31T06:59:23-0700",
+  "verdict": null,
+  "where": "tools/lesson_ingest.py:render"
+ },
+ "52346020dd": {
+  "count": 1,
+  "detail": "Original regression plus executed round-10 extensions; linked residuals are counted only under new_findings.",
+  "evidence": "",
+  "first_seen": "2026-10-31T09:01:23.839357+00:00",
+  "force": "必须做进门禁",
+  "hash": "52346020dd",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "audit",
+  "machines": [
+   "audit"
+  ],
+  "origin": "fdd6fbef16",
+  "origins": [
+   "fdd6fbef16"
+  ],
+  "severity": "P1",
+  "source": "audit:findings_round10_2026_10_31/recheck",
+  "sources": [
+   "audit:findings_round10_2026_10_31/recheck"
+  ],
+  "status": "partial",
+  "title": "部分通过 N20：Normal ownership races pass; exceptional owner read remains unsafe",
+  "ts": "2026-10-31T09:01:23.839357+00:00",
+  "verdict": "REJECTED",
+  "where": "dsh-plugin-cad-freecad/python/cadkit/ledger.py"
+ },
+ "61cffbcb8e": {
+  "count": 1,
+  "detail": "Original regression plus executed round-10 extensions; linked residuals are counted only under new_findings.",
+  "evidence": "",
+  "first_seen": "2026-10-31T09:01:23.839357+00:00",
+  "force": "必须做进门禁",
+  "hash": "61cffbcb8e",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "audit",
+  "machines": [
+   "audit"
+  ],
+  "origin": "b8a50bc67b",
+  "origins": [
+   "b8a50bc67b"
+  ],
+  "severity": "P2",
+  "source": "audit:findings_round10_2026_10_31/recheck",
+  "sources": [
+   "audit:findings_round10_2026_10_31/recheck"
+  ],
+  "status": "partial",
+  "title": "部分通过 N18：Abnormal exits stay honest; cross-window FAIL overwrite remains",
+  "ts": "2026-10-31T09:01:23.839357+00:00",
+  "verdict": "REJECTED",
+  "where": "dsh-plugin-cad-freecad/python/cadkit/probe.py"
+ },
+ "66d7392513": {
+  "_fresh": true,
+  "count": 1,
+  "detail": "交付被收货门禁挡下（batch fleet_b_2026_11）",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:15:21",
+  "force": "留档（测试/演练数据，不计复发、不升门禁）",
+  "hash": "66d7392513",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "gate",
+  "machines": [
+   "gate"
+  ],
+  "origin": "e3badc73e4",
+  "origins": [
+   "e3badc73e4"
+  ],
+  "severity": "P1",
+  "source": "merge_check",
+  "sources": [
+   "merge_check"
+  ],
+  "status": "synthetic",
+  "title": "跨机重复（2.5 会判不计数）: b_in01_001 ~ b_in01_002 (scaled_same)",
+  "ts": "2026-10-31T07:15:21",
+  "verdict": null,
+  "where": "b_in01_001, b_in01_002"
+ },
+ "781ebe0c50": {
+  "count": 1,
+  "detail": "Bootstrap records A1@0 FAIL. A later window re-reports A1@0 PASS through STEP or DONE. Global index agreement accepts the same pair, but results.update(res_part) overwrites the earlier FAIL: both reports return ok=true, failed=0, protocol_violations=0, and 5/5 coverage. Local same-window FAIL/PASS permutations with CRASH-ish note strings remain correct. This is a false editability/coverage contrac",
+  "evidence": "bash cad/audit/recheck10_scratch/work/run_freecad.sh protocol_sweep10.py",
+  "first_seen": "2026-10-31T09:01:23.839357+00:00",
+  "force": "自检（首次，待升级）",
+  "hash": "781ebe0c50",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "audit",
+  "machines": [
+   "audit"
+  ],
+  "origin": "f713aa2454",
+  "origins": [
+   "f713aa2454"
+  ],
+  "severity": "P2",
+  "source": "audit:findings_round10_2026_10_31",
+  "sources": [
+   "audit:findings_round10_2026_10_31"
+  ],
+  "status": "open",
+  "title": "Cross-window merge lets a later PASS erase a valid earlier FAIL",
+  "ts": "2026-10-31T09:01:23.839357+00:00",
+  "verdict": "REJECTED",
+  "where": "dsh-plugin-cad-freecad/python/cadkit/probe.py:713"
+ },
+ "7b943c6dbf": {
+  "count": 1,
+  "detail": "冒烟测试 2 件只包装 1 件：生产线程 join 后立即 stop.set()",
+  "evidence": "runner_smoke 日志 lane=package 仅 1 条",
+  "first_seen": "2026-10-31T06:59:23-0700",
+  "force": "必须做进门禁",
+  "hash": "7b943c6dbf",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "A",
+  "machines": [
+   "A"
+  ],
+  "origin": "e1185371eb",
+  "origins": [
+   "e1185371eb"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "调度器包装队列未排空就停线程，静默丢交付",
+  "ts": "2026-10-31T06:59:23-0700",
+  "verdict": null,
+  "where": "tools/fleet_runner.py:main"
+ },
+ "802713fe3e": {
+  "_fresh": true,
+  "count": 1,
+  "detail": "交付被收货门禁挡下（batch fleet_b_2026_11）",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:15:21",
+  "force": "留档（测试/演练数据，不计复发、不升门禁）",
+  "hash": "802713fe3e",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "gate",
+  "machines": [
+   "gate"
+  ],
+  "origin": "a180d171d6",
+  "origins": [
+   "a180d171d6"
+  ],
+  "severity": "P1",
+  "source": "merge_check",
+  "sources": [
+   "merge_check"
+  ],
+  "status": "synthetic",
+  "title": "b_in01_003 STEP 不是 AP214/AP242: unknown-profile",
+  "ts": "2026-10-31T07:15:21",
+  "verdict": null,
+  "where": "b_in01_003"
+ },
+ "8b8b3d3725": {
+  "count": 1,
+  "detail": "entry.py 失败时打印 {\"ok\": false} 但 rc=0；两件套件全阶段 0.1s '通过'，盘上没有 FCStd。修法：解析 CADKIT>> JSON 且必须 ok=true，checks[] 有 FAIL 即不过",
+  "evidence": "tmp/runner_smoke.py 首轮：8 条 ok、交付目录为空",
+  "first_seen": "2026-10-31T07:13:32-0700",
+  "force": "必须做进门禁",
+  "hash": "8b8b3d3725",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "A",
+  "machines": [
+   "A"
+  ],
+  "origin": "6a83213c93",
+  "origins": [
+   "6a83213c93"
+  ],
+  "severity": "P0",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "调度器把退出码 0 当阶段通过，而引擎失败也返回 0",
+  "ts": "2026-10-31T07:13:32-0700",
+  "verdict": null,
+  "where": "tools/fleet_runner.py:run_stage"
+ },
+ "8bbd20876b": {
+  "count": 1,
+  "detail": "自测门禁时把 planted-defect 的 blocking 一并摄入，7 条从未发生的错题进账；还手改 index.json 模拟复发，在台账里留下假事实",
+  "evidence": "已删除伪造的 inbox/B.jsonl、inbox/C.jsonl 与 index.json，重建为真实来源 + --synthetic 留档",
+  "first_seen": "2026-10-31T07:15:21-0700",
+  "force": "必须做进门禁",
+  "hash": "8bbd20876b",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "A",
+  "machines": [
+   "A"
+  ],
+  "origin": "36b5deca34",
+  "origins": [
+   "36b5deca34"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "错题本会把测试/演练数据当成真错题并计入复发升级",
+  "ts": "2026-10-31T07:15:21-0700",
+  "verdict": null,
+  "where": "tools/lesson_ingest.py:main"
+ },
+ "91e447e114": {
+  "count": 1,
+  "detail": "Original regression plus executed round-10 extensions; linked residuals are counted only under new_findings.",
+  "evidence": "",
+  "first_seen": "2026-10-31T09:01:23.839357+00:00",
+  "force": "必须做进门禁",
+  "hash": "91e447e114",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "audit",
+  "machines": [
+   "audit"
+  ],
+  "origin": "fdd6fbef16",
+  "origins": [
+   "fdd6fbef16"
+  ],
+  "severity": "P1",
+  "source": "audit:findings_round10_2026_10_31/recheck",
+  "sources": [
+   "audit:findings_round10_2026_10_31/recheck"
+  ],
+  "status": "partial",
+  "title": "部分通过 N2：Repair and rollback pass; ownership-read failure can restore over winner",
+  "ts": "2026-10-31T09:01:23.839357+00:00",
+  "verdict": "REJECTED",
+  "where": "dsh-plugin-cad-freecad/python/cadkit/ledger.py"
+ },
+ "a41b596880": {
+  "_fresh": true,
+  "count": 1,
+  "detail": "交付被收货门禁挡下（batch fleet_b_2026_11）",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:15:21",
+  "force": "留档（测试/演练数据，不计复发、不升门禁）",
+  "hash": "a41b596880",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "gate",
+  "machines": [
+   "gate"
+  ],
+  "origin": "045d2918fd",
+  "origins": [
+   "045d2918fd"
+  ],
+  "severity": "P1",
+  "source": "merge_check",
+  "sources": [
+   "merge_check"
+  ],
+  "status": "synthetic",
+  "title": "intake 有但未交付: b_in01_005",
+  "ts": "2026-10-31T07:15:21",
+  "verdict": null,
+  "where": "b_in01_005"
+ },
+ "bed04100f6": {
+  "count": 1,
+  "detail": "A valid independent publisher B completes in the legal post-mark/pre-cleanup-lock window. One OSError from sha256_file while A holds the cleanup lock is caught as kept_newer=False. A then removes B entirely in first-publication mode (19/19 artifact mismatches), or restores old bytes over B (6/19 mismatches). B remains the sole delivered+published row. Both cases release the flock and the next publ",
+  "evidence": "bash cad/audit/recheck10_scratch/work/run_freecad.sh cas_sweep10.py",
+  "first_seen": "2026-10-31T09:01:23.839357+00:00",
+  "force": "必须做进门禁",
+  "hash": "bed04100f6",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "audit",
+  "machines": [
+   "audit"
+  ],
+  "origin": "23b5c29368",
+  "origins": [
+   "23b5c29368"
+  ],
+  "severity": "P1",
+  "source": "audit:findings_round10_2026_10_31",
+  "sources": [
+   "audit:findings_round10_2026_10_31"
+  ],
+  "status": "open",
+  "title": "Ownership hash-read exception lets locked CAS cleanup destroy a newer delivery",
+  "ts": "2026-10-31T09:01:23.839357+00:00",
+  "verdict": "REJECTED",
+  "where": "dsh-plugin-cad-freecad/python/cadkit/packager.py:1095"
+ },
+ "c4648f54c7": {
+  "count": 1,
+  "detail": "Original regression plus executed round-10 extensions; linked residuals are counted only under new_findings.",
+  "evidence": "",
+  "first_seen": "2026-10-31T09:01:23.839357+00:00",
+  "force": "必须做进门禁",
+  "hash": "c4648f54c7",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "audit",
+  "machines": [
+   "audit"
+  ],
+  "origin": "b8a50bc67b",
+  "origins": [
+   "b8a50bc67b"
+  ],
+  "severity": "P2",
+  "source": "audit:findings_round10_2026_10_31/recheck",
+  "sources": [
+   "audit:findings_round10_2026_10_31/recheck"
+  ],
+  "status": "partial",
+  "title": "部分通过 N16：Resume works; aggregate merge can discard earlier FAIL",
+  "ts": "2026-10-31T09:01:23.839357+00:00",
+  "verdict": "REJECTED",
+  "where": "dsh-plugin-cad-freecad/python/cadkit/probe.py"
+ },
+ "d0f632a241": {
+  "_fresh": true,
+  "count": 1,
+  "detail": "交付被收货门禁挡下（batch fleet_b_2026_11）",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:15:21",
+  "force": "留档（测试/演练数据，不计复发、不升门禁）",
+  "hash": "d0f632a241",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "gate",
+  "machines": [
+   "gate"
+  ],
+  "origin": "a180d171d6",
+  "origins": [
+   "a180d171d6"
+  ],
+  "severity": "P1",
+  "source": "merge_check",
+  "sources": [
+   "merge_check"
+  ],
+  "status": "synthetic",
+  "title": "b_in01_003 台账缺少 OK 阶段: package",
+  "ts": "2026-10-31T07:15:21",
+  "verdict": null,
+  "where": "b_in01_003"
+ },
+ "e2d255323b": {
+  "count": 1,
+  "detail": "复发应只算不同 origin；改为 origins 幂等后同文件重放不计数",
+  "evidence": "连摄三次 16→16→16，修复后 16→0→0",
+  "first_seen": "2026-10-31T06:59:23-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "e2d255323b",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "A",
+  "machines": [
+   "A"
+  ],
+  "origin": "34d2356d5c",
+  "origins": [
+   "34d2356d5c"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "门禁把重放当复发，同因复发计数被自己刷高",
+  "ts": "2026-10-31T06:59:23-0700",
+  "verdict": null,
+  "where": "tools/lesson_ingest.py:merge"
+ },
+ "e52eb603b1": {
+  "count": 1,
+  "detail": "复检触发写在 '件全部阶段成功' 分支里；改为同时受 --review-interval-secs 心跳驱动",
+  "evidence": "冒烟：validate 全 FAIL 时 review lane 记录数 0；加心跳后 1 条",
+  "first_seen": "2026-10-31T07:13:32-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "e52eb603b1",
+  "last_seen": "2026-10-31T07:15:21",
+  "machine": "A",
+  "machines": [
+   "A"
+  ],
+  "origin": "39a1f5ead4",
+  "origins": [
+   "39a1f5ead4"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "旧件复检只在有件完成时触发，卡住或全失败时永不复检",
+  "ts": "2026-10-31T07:13:32-0700",
+  "verdict": null,
+  "where": "tools/fleet_runner.py:worker"
+ }
+}

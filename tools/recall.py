@@ -51,7 +51,16 @@ def main():
         tag = os.path.splitext(os.path.basename(f))[0]
         baseline[tag] = len(json.load(open(f, encoding="utf-8")).get("entries", {}))
 
+    lidx = {}
+    lp = os.path.join(REPO, "lessons", "index.json")
+    if os.path.exists(lp):
+        lidx = json.load(open(lp, encoding="utf-8"))
+    lopen = [v for v in lidx.values() if v.get("status") in ("open", "partial")]
+    lopen.sort(key=lambda v: (v.get("force") != "必须做进门禁", v.get("severity", "P9"),
+                             -v.get("count", 1)))
     out = {"lessons_ack": sha8(lessons),
+           "lessons_open": len(lopen),
+           "lessons_needs_gate": sum(1 for v in lopen if v.get("force") == "必须做进门禁"),
            "rules_sha_expected": versions.get("rules_sha"),
            "plugin": versions.get("engine_plugin_version"),
            "machine": a.machine, "batch": B.BATCH[a.machine],
@@ -75,6 +84,14 @@ def main():
     print("去重底表: %s（合计 %d 件几何已被占用 + 已交付登记 %d 件）"
           % (", ".join("%s=%d" % kv for kv in sorted(baseline.items())),
              sum(baseline.values()), out["delivered_registered"]))
+    if lopen:
+        print("错题本: %d 条未关闭（其中 %d 条已升级为「必须做进门禁」）。最要命的 %d 条："
+              % (len(lopen), out["lessons_needs_gate"], min(6, len(lopen))))
+        for v in lopen[:6]:
+            print("  - [%s%s] %s%s" % (v.get("severity"),
+                                       " ×%d" % v["count"] if v.get("count", 1) > 1 else "",
+                                       v.get("title", "")[:78],
+                                       "  ← " + v["where"] if v.get("where") else ""))
     print("\n未修缺陷（生产时必须规避，见 WORKFLOW §3/§6）:")
     for k, v in out["open_defects"].items():
         print("  - %s：%s" % (k, v))
@@ -98,6 +115,13 @@ def main():
     print("\n--- 单件顺序 ---")
     print("  new → design.md（把拓扑签名落成特征数）→ build → validate → probe → dedupe → export → package")
     print("  package 串行一次一件；push 前 git pull --rebase；merge_check 必须 ACCEPT")
+    print("\n发现新问题（自己踩的、审查抓的、买方退的）：")
+    print("  python3 tools/lesson_add.py --machine %s --source self --severity P1 \\"
+          " --title \"症状\" --where \"file:line 或件号\" --detail \"证据\"" % a.machine)
+    print("  只写自己的 lessons/inbox/%s.jsonl；A 机 lesson_ingest 合并去重后 LESSONS_ACK 会变，"
+          "必须重跑本命令" % a.machine)
+    print("  旧件复检（与新件生产并行，别空等）：python3 tools/review_scan.py --root <cadRoot> "
+          "--batch <旧批次> --to-lessons")
     return 0
 
 

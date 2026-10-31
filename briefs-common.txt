@@ -18,4 +18,13 @@
    versions.json、REPORT.md（含 LESSONS_ACK）、豁免文件；并更新 shared/fingerprints/<你的字母>.json（只这一个文件）。
    推之前自己跑 `python3 tools/merge_check.py --root ~/cad-fleet --theirs outbox/<批次> --baseline shared/fingerprints`，
    **把 blocking 一次全清掉**再 push（门禁现在会一次列全部缺陷，不会只告诉你第一个）。
-10. 立刻停下来问人：判重命中 / 探针修不过 / 要把 memCapMb 降到 1536 以下 / 想改清单、族谱或 intake / 插件行为与工单不符。
+10. 错题本是共享资产：当天发现当天记 —— `python3 tools/lesson_add.py --machine <你> --source
+    self|audit|review_scan --severity P1 --title "症状" --where "file:line 或件号" --detail "证据"`。
+    只写自己的 lessons/inbox/<你>.jsonl，**别改 LESSONS.md**（A 机 lesson_ingest 合并去重；复发自动升级为门禁；
+    摄入后 LESSONS_ACK 会变，你必须重跑 recall 才有资格再交付）。
+11. 新件在跑，旧件就得审：用 `tools/fleet_runner.py`（生产 N 路 ‖ 旧件复检心跳，package 单槽，
+    断点靠台账续跑），不要手写 shell 循环；命令与并发口径见 WORKFLOW.md §9。
+    特别注意：**别自己拼 freecadcmd 命令行** —— freecadcmd 会把 --action 当成它自己的选项吃掉，
+    参数得走 CADKIT_ACTION/CADKIT_ROOT/CADKIT_PROJECT/CADKIT_OPTS 环境变量（调度器已处理）。
+    还有：引擎失败时退出码仍是 0，只打印 {"ok": false}，所以判断通过与否必须看 JSON，不能看 rc。
+12. 立刻停下来问人：判重命中 / 探针修不过 / 要把 memCapMb 降到 1536 以下 / 想改清单、族谱或 intake / 插件行为与工单不符。
