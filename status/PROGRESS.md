@@ -43,3 +43,4 @@ rules_sha=1d835a8f3d2ef4f1
 - 错题本新增 3 条（inbox/B.jsonl，共 14 条）。
 - 待办：in03_002/138 两件 S 重载组合布尔幽灵；修完后 in03/04 端到端演练+带宽复核，然后继续 driver 至 2000。
 - 11:55 面板盒核心终定稿: 基型盒体沉入面板 0.6(消贴面 fuse); 卡扣 4=外壁 T 臂(pair 三体单次 fuse×4 轮, hook 全埋臂体); 嵌入式=serial pad_fuse 翼板+盲孔沉台; 开窗 S 加筋=壁面双槽阵 144(gv/gw 切真壁带), 废除面板贴条/穿线孔阵(开窗后板面布尔地雷系)。002/138 build+validate(强制重算+signed volume+isValid) 全绿; 002 五连 determinism solids=1。15 件三判据(分体/开壳/负体积)终验进行中。driver 64 成员 0 FAIL。
+- 12:55 面板盒战役收束: 生产路径(entry.py 独立进程) 15 件套 build 15/15、validate 14/14+1 已知(b_in03_400 型 sz200×周圈密封槽 rightx BOPAlgo_InvalidCurveOnSurface,错题本 open,候选 fuzzy 布尔)。三判据 QA(分体/反演/体积量级)入错题本 P1;贴面 fuse 根修(盒体沉面板 0.6)入错题本 P1。snap4=serial pad_fuse;嵌入式=serial 翼板+盲孔 pocket;S 级加筋=壁面双槽阵 72(内嵌 0.6 深)。driver 85/2000 五步全 OK 0 FAIL,panelbox 定稿冻结,in03 量产由 driver 自动开跑。
