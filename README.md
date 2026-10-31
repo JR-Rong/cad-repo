@@ -25,11 +25,16 @@
 
 ## 各机器开工（三条命令）
 
+派发细节（前置检查、怎么复核它干得对）见 [DISPATCH.md](DISPATCH.md)。
+
 ```sh
 git clone git@github.com:JR-Rong/cad-repo.git cad-repo && cd cad-repo
-cat briefs/BRIEF-FOR-B.txt            # 换成你的字母；这段直接粘进你那台机器的 DSH 会话
 python3 tools/registry_sync.py --root ~/cad-fleet     # 同步全局去重底表（非 0 就停下喊人）
+cat briefs/BRIEF-FOR-B.txt            # 换成你的字母；这段直接粘进那台机器的 DSH 会话
 ```
+
+A 线由本机另一个会话独占执行，粘 `briefs/BRIEF-FOR-A-LOCAL.txt`（用本机既有 cadRoot，不是 `~/cad-fleet`）；
+`briefs/BRIEF-FOR-A.txt` 是"A 跑在另一台机器上"时才用的版本。
 
 没装插件的机器：`releases/local-dsh-plugin-cad-freecad-0.5.0.tgz`（sha256 见 `shared/versions.json`），
 安装三步见 `releases/INSTALL.md`；装完**必须完全退出并重启** DSH，侧栏图标才会出现。
