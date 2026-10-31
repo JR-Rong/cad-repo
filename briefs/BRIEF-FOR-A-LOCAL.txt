@@ -1,31 +1,44 @@
-任务：只执行机器 A 的批次 fleet_a_2026_11（10 件），别的批次一律不要碰
+任务：执行机器 A 的批次 fleet_a_2026_11 —— 100 个族谱 × 400 成员 = 40,000 件（20 波），本轮只做 wave 1（2,000 件）
 
-仓库：本仓已在远端，单独 clone 一份给你自己用（不要复用别的会话的 clone，两个进程共用一个 .git 会抢 index）：
+仓库：本机另建一份你自己的 clone（不要复用协调会话的目录，两个进程共用一个 .git 会抢 index）：
   git clone git@github.com:JR-Rong/cad-repo.git ~/cad-fleet-a && cd ~/cad-fleet-a
 
-你是机器 A。这台机器上已经有一个 DSH 会话在做协调与引擎，它不再生产 A 的件，生产归你，独占：
-- 你的 cadRoot 就是本机既有的那个（**不要**改成 ~/cad-fleet，那是外来机器的目录）：
-  跑 `cad_freecad memcheck`，回报里的 `cad_root` 应当是 `…/default-workspace/cad`、`cad_root_source` 是 config。
-  如果它指到别处，停下喊人，不要自己新建一套 CAD 根目录（那会造出第二个台账，五机合并就废了）。
-- 你只准做 project id 以 `a_` 开头的这 10 件（合同在 intake/fleet_a_2026_11.json，清单在 catalog/CATALOG.md）：
-  a_endcap_enc  a_endcap_fan  a_srvcover_52  a_srvcover_80  a_drvenc_din  a_drvenc_wall
-  a_invpanel_louvre  a_invpanel_filter  a_motmount_ff  a_motmount_b5
-- `b_` `c_` `d_` `e_` 的件是另外四台机器的，你做了就是 2.5 的重复件；`pilot_*` 与 `motor_end_cap_80` 是已交付历史，不要重建。
+你是机器 A，独占 A 线生产。协调会话不再生产，只做签发/收货/合并。
+- 你的 cadRoot 用本机既有那个（**不要**改成 ~/cad-fleet，那是外来机器的目录）：
+  `cad_freecad memcheck` 回报里的 `cad_root` 应是 `…/default-workspace/cad`、`cad_root_source=config`。
+  指到别处就停下喊人，不要自己新建 CAD 根目录（那会造出第二个台账，五机合并就废了）。
+- 你只做 project id 以 `a_` 开头的件，且**必须是本波 intake 里逐条列出的 id**（合同由 `tools/emit_members.py` 展开）。
 
-规则全文见 ~/cad-fleet-a/WORK-ORDER.md，规格原文 ~/cad-fleet-a/shared/spec-extract.txt。摘要：
-1. 每件顺序 new → design.md（先把特征清单数到目标步数）→ build → validate → probe → dedupe → export → package，任一 FAIL 不许往下走。
-2. params 工作表是唯一驱动源；关掉的特征组其参数不得留在 params 表（探针逐格 +1% 扰动，惰性单元格必 FAIL）。
-3. 同族两件必须换拓扑（清单最后一列就是你该怎么变），纯缩放会被判重复；倒角/圆角紧跟目标边创建点；切平面/布尔草图面外移 ≥1mm。
-4. 不要改引擎、不要改插件、不要改 cad/family/iec_endcap.py（已交付的 10 件靠它的 sha 保可复现性）。
-   新拓扑请开新族谱模块，例如 cad/family/iec_endcap_ext.py；project.yml 里 family 写新名 + bundle_extra 指过去。
-5. `package` 串行、一次一件，绝不并发发布（N43 P1 / N44 P2 未修，都靠并发触发）；台账 cad/ledger.sqlite3 不外发、不手工合并。
-6. 内存默认 2048MB 上限别抬；结果里出现 degraded 是允许的，但渲染长边被降到 2000px 以下就不许打包。
+开工三步（顺序固定）：
+  1. `python3 tools/recall.py --machine A` —— 打印教训全文 + 项目记忆 + 版本握手 + 本波切片，并给出 `LESSONS_ACK`；
+     回传的 REPORT.md 必须带这一行，merge_check 缺它或它过期直接 REJECT。
+  2. `python3 tools/registry_sync.py --root <你的 cadRoot>` —— 非 0 就停下喊人（找不到判重函数现在会失败关闭）。
+  3. `mkdir -p intake/waves && python3 tools/emit_members.py --machine A --wave 1 > intake/waves/fleet_a_2026_11_w1.json`
+     这就是本波 2,000 件的合同（wave 1 = 族谱 md01…md05：端盖、接线盒、外风罩、编码器安装座、制动器壳，各 400 件）。
 
-已经替你做掉的一步：`a_endcap_enc` 已立项，design.md 已写完（特征 83 项、步数预算 ≈170，A 级；与 a_endcap_fan 的拓扑差异已量化），
-在 <cadRoot>/projects/a_endcap_enc/ 下，直接从这个件开始写族谱，不要重复立项。
+规则全文见 WORKFLOW.md（角色/路径所有权/波次门槛）与 WORK-ORDER.md（技术口径）；教训见 LESSONS.md（recall 会全文打印）。摘要：
+1. 每件顺序 new → design.md → build → validate → probe → dedupe → export → package，任一 FAIL 不许往下走。
+   design.md 必须把该件的 `topo_signature`（5 条结构轴的取值）**落成具体特征数**：哪个特征存在/不存在、筋几条、孔几个。
+   这是 2.5 判重的正面证据 —— "同族不同尺寸"不算差异，等比缩放会被判 `scaled_same` 不计数。
+2. params 表是唯一驱动源；关掉的特征组其参数不得留在表里（探针逐格 +1% 扰动，惰性单元格必 FAIL）。
+3. 倒角/圆角紧跟目标边创建点；切平面与布尔草图面外移 ≥1mm；每草图 ≥1 约束。
+4. 不改引擎、不改插件、不改 `cad/family/iec_endcap.py`（已交付 10 件的可复现性挂在它的 sha 上）。
+   新拓扑开新族谱模块（如 `cad/family/family_md01.py`），project.yml 里 `family` 写新名 + `bundle_extra` 指过去。
+5. `package` 串行、一次一件（N43 P1 / N44 P2 未修，都靠并发/交错触发）；台账 `ledger.sqlite3` 不外发、不手工合并。
+6. 内存默认 2048MB 上限别抬；结果里 `degraded` 允许存在，但渲染长边降到 2000px 以下就不许打包。
 
-每件交付后的动作（一次一件，别攒）：
-  python3 tools/merge_check.py --root <你的 cadRoot> --theirs outbox/fleet_a_2026_11 --baseline shared/fingerprints
-  显示 ACCEPT 再：把 shared/fingerprints/A.json 更新成含你新件的指纹，git pull --rebase && git commit && git push，
-  并在 status/PROGRESS.md 末尾追加一行（时间 | A | project id | 状态 | 一句实况）。
-遇到判重命中、探针修不过、需要把 memCapMb 降到 1536 以下、想改清单或 intake —— 立刻停下来喊人，不要绕。
+已存在的旧合同残留（重要）：`<cadRoot>/projects/a_endcap_enc`（旧 id，来自 61 件版清单）已**退役**，
+不在新 intake 里。它的 design.md（83 项特征、≈170 步预算、与旧兄弟件的拓扑差异表）可当方法参考，
+但交付必须用 `a_md01_*` 重新 `new`；把 `a_endcap_enc` 当合同外的件交上来，会被 merge_check 判"交付了 intake 之外的件"。
+
+本波 2,000 件全部 package 完成之后：
+  `python3 tools/merge_check.py --mine <你的 cadRoot> --theirs outbox/fleet_a_2026_11 --baseline shared/fingerprints`
+  —— 它会**一次列出全部缺陷**，把清单清零再 push（不要修一个看一眼）。
+  然后：更新 `shared/fingerprints/A.json`（只这一个文件）、`git pull --rebase && git commit && git push`、
+  在 `status/PROGRESS.md` 末尾追加一行（时间 | A | 批次/件 | 状态 | 一句实况）。
+
+立刻停下来喊人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单、族谱或 intake / 插件行为与工单不符。
+
+量级提醒：A 线 40,000 件按 3–6 分钟/件 ≈ 60–100 天**连续运行**，必须无人值守
+（循环调 `<插件>/python/entry.py --action build|validate|… --root … --project …`，断点靠台账幂等键续跑），
+不要一件一件经会话；磁盘预算约 1.95 MB/件 ≈ 78 GB。
