@@ -28,3 +28,4 @@
 - 2026-10-31 07:12 | A | (all) | 设计 | **LESSONS_ACK → 23f687ad**（教训已更新）：各机必须重跑 `python3 tools/recall.py --machine <你>` 才能再交付
 
 - 2026-10-31 07:30 | A | (dispatch) | 设计 | 开场指令改为现生成：`tools/kickoff.py --machine X --wave N --write` → `briefs/KICKOFF-X.txt`（握手值/LESSONS_ACK/本波 5 族谱/前缀全部从仓库现算，杜绝手写开场白过期）；DISPATCH/WORKFLOW §5.5 指向它
+- 2026-10-31 08:05 B：kickoff.py 对表完成（任务范围不变：wave 1 = 2000 件）。三点换轨：①LESSONS_ACK 更新为 3fe1b57f（recall 现签）；②弃自写循环，改用 tools/fleet_runner.py 双通道调度（workers 3/6144MB；package 单槽；dedupe 登记两遍之间专线补——调度器不覆盖该阶段，N44 单件不跨窗口重复上报）；③错题本义务履行：lesson_add 已入 7 条本机实战坑（rect 角点绑定/params 前缀/through 切穿/共面悬浮/dressup 扰动/inert 参数/单字母别名）。b_in01 基型+23 槽模块矩阵全过（单实体），001 全链绿（validate 128 步 A / probe 14/14）；2000 件 scaffold+design.md+waiver 预置完成；试点 001–010 已进 fleet_runner。
