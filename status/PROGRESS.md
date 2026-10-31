@@ -34,3 +34,11 @@
 - 2026-10-31 09:05 B：in03 面板安装盒族核心完成（panelbox_core.py：面板轴基型 + 19 槽模块全实现，A/B 单槽全验证、最坏组合 105 节点 ≥A 门槛、solids=1；b_in03_001 经无头管线 build+validate 双绿灯；400 件 shim 已路由新核）。平面映射事实定桩：rect/circle 带 *_expr 时三平面均 corner 语义；XZ invert ⇒ 法线 +Y 且 +v→−z；YZ invert ⇒ 法线 −X（pad/pocket 随法线）。in04 防护罩核心排下一班。波次：in01 已 11 件五阶全 OK，registry 并集回写机制运转正常（A 基线 10 + B 10 条在册）。
 - [b_in04] 仪器防护罩核心 hood_core.py 完成:基型 108 节点(pad全高−腔块cut 开底构造),20 槽模块全 A/B 单实体验证,矩阵 module_matrix_in04.json 落盘,400 design.md band 全绿,400 shim 已路由 hood_core。b_in04_001 真实管线 build/validate/probe(5/5 full) 全绿。in02/in05 词表 23/23 覆盖复核无雷。
 - 驱动:23/2000,touched 0 fails,~1.3min/件稳态。五族核心(enclosure/panelbox/hood)全部就绪,等波次生产推进。
+
+## B 2026-10-31 11:20 进度（wave1 生产中段·核心修复战役）
+rules_sha=1d835a8f3d2ef4f1
+- driver 生产中：51/2000 成员完成，0 FAIL；b_in01_034（前期修崩件）已全绿（build/validate/probe/dedupe/export）。
+- 跨尺寸抽测战役：in03/in04 十五件跨档抽查，AGG 迭代到 14 轮；in04 6/6 全绿；in03 13/15 绿。
+- 修复类别（面板安装盒/仪器防护罩核心）：贴面共面 fuse、0.4 薄咬合、开口缘悬空装配、分数量纲 expr、开窗成员背面筋孤岛、卡扣 MultiFuse 崩溃（改外壁卡扣+延迟批量 fuse）。
+- 错题本新增 3 条（inbox/B.jsonl，共 14 条）。
+- 待办：in03_002/138 两件 S 重载组合布尔幽灵；修完后 in03/04 端到端演练+带宽复核，然后继续 driver 至 2000。
