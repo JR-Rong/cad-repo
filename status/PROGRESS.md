@@ -42,3 +42,4 @@ rules_sha=1d835a8f3d2ef4f1
 - 修复类别（面板安装盒/仪器防护罩核心）：贴面共面 fuse、0.4 薄咬合、开口缘悬空装配、分数量纲 expr、开窗成员背面筋孤岛、卡扣 MultiFuse 崩溃（改外壁卡扣+延迟批量 fuse）。
 - 错题本新增 3 条（inbox/B.jsonl，共 14 条）。
 - 待办：in03_002/138 两件 S 重载组合布尔幽灵；修完后 in03/04 端到端演练+带宽复核，然后继续 driver 至 2000。
+- 11:55 面板盒核心终定稿: 基型盒体沉入面板 0.6(消贴面 fuse); 卡扣 4=外壁 T 臂(pair 三体单次 fuse×4 轮, hook 全埋臂体); 嵌入式=serial pad_fuse 翼板+盲孔沉台; 开窗 S 加筋=壁面双槽阵 144(gv/gw 切真壁带), 废除面板贴条/穿线孔阵(开窗后板面布尔地雷系)。002/138 build+validate(强制重算+signed volume+isValid) 全绿; 002 五连 determinism solids=1。15 件三判据(分体/开壳/负体积)终验进行中。driver 64 成员 0 FAIL。
