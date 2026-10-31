@@ -54,15 +54,16 @@ cp handoff/shared/fingerprints.json ~/cad-fleet/registry/fingerprints.json
 
 ```sh
 # 立项（注意 opts 是 id + title，不是 template）
-cad_freecad new  opts {"id":"b_snapenc120_r3","title":"Snap enclosure 120x80x40 (base)","grade":"A","unit":"mm","type":"part","series":"snap_enclosure","source_url":"internal","license":"Author-granted commercial redistribution"}
+cad_freecad new  opts {"id":"b_snapenc120_r3","name":"Snap enclosure 120x80x40 (base)","desc":"卡扣式仪器外壳下壳：薄壁抽壳、周边卡扣 6、PCB 铜柱 4、散热筋 3、线缆出口 2","grade":"A","unit":"mm","type":"part","series":"snap_enclosure","author":"internal:dsh-cad-agent-B","source_url":"internal","license":"Author-granted commercial redistribution"}
 # 1) 先写 design.md：功能、关键尺寸来由、接口、特征清单（草图×特征数到目标步数）
 # 2) 写族谱/参数 + build.py：params 工作表是唯一驱动源
 cad_freecad build     project b_snapenc120_r3
 cad_freecad validate  project b_snapenc120_r3     # 任一 FAIL 就回建模，别往下走
 cad_freecad probe     project b_snapenc120_r3     # 逐参数 +1% 扰动，必须全 PASS
 cad_freecad dedupe    project b_snapenc120_r3     # exact / scaled_same = 阻断，立刻停下报告
+                                                 # （默认只查不登记；确认是新物件后才 opts {"register":true}）
 cad_freecad export    project b_snapenc120_r3     # STEP AP214 + 8 张 ≥2000px + 一致性自检
-cad_freecad package   batch fleet_b_2026_11 project b_snapenc120_r3
+cad_freecad package   project b_snapenc120_r3 opts {"batch":"fleet_b_2026_11"}
 python3 cad/tools/pilotctl.py record b_snapenc120_r3 package ok   # 台账阶段记录（若你复用了 pilotctl）
 ```
 
