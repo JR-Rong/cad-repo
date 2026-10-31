@@ -105,13 +105,13 @@ A 机用**自己的工作树**算 `rules_sha` 签 `shared/versions.json`（64a95
 | `7b943c6dbf` | P1 | open | 1 | 调度器包装队列未排空就停线程，静默丢交付 | tools/fleet_runner.py:main | 必须做进门禁 | self |
 | `0ec98e6087` | P1 | open | 1 | 无头调用不能用命令行选项：freecadcmd 会吃掉 --action | lugin/dsh-plugin-cad-freecad/python/entry.py:4 | 必须做进门禁 | self |
 | `8bbd20876b` | P1 | open | 1 | 错题本会把测试/演练数据当成真错题并计入复发升级 | tools/lesson_ingest.py:main | 必须做进门禁 | self |
-| `bed04100f6` | P1 | open | 1 | Ownership hash-read exception lets locked CAS cleanup destroy a newer delivery | gin-cad-freecad/python/cadkit/packager.py:1095 | 必须做进门禁 | audit:findings_round10_2026_10_31 |
 | `1009890910` | P1 | partial | 1 | 部分通过 N1：Ordering and recovery pass; ownership-read failure remains | dsh-plugin-cad-freecad/python/cadkit/ledger.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
-| `91e447e114` | P1 | partial | 1 | 部分通过 N2：Repair and rollback pass; ownership-read failure can restore over winner | dsh-plugin-cad-freecad/python/cadkit/ledger.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
 | `52346020dd` | P1 | partial | 1 | 部分通过 N20：Normal ownership races pass; exceptional owner read remains unsafe | dsh-plugin-cad-freecad/python/cadkit/ledger.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
-| `c4648f54c7` | P2 | partial | 1 | 部分通过 N16：Resume works; aggregate merge can discard earlier FAIL | dsh-plugin-cad-freecad/python/cadkit/probe.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
-| `61cffbcb8e` | P2 | partial | 1 | 部分通过 N18：Abnormal exits stay honest; cross-window FAIL overwrite remains | dsh-plugin-cad-freecad/python/cadkit/probe.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
+| `91e447e114` | P1 | partial | 1 | 部分通过 N2：Repair and rollback pass; ownership-read failure can restore over winner | dsh-plugin-cad-freecad/python/cadkit/ledger.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
+| `bed04100f6` | P1 | open | 1 | Ownership hash-read exception lets locked CAS cleanup destroy a newer delivery | gin-cad-freecad/python/cadkit/packager.py:1095 | 必须做进门禁 | audit:findings_round10_2026_10_31 |
 | `1c96665346` | P2 | partial | 1 | 部分通过 N23：Local duplicate precedence holds; cross-window merge is last-write-wins | dsh-plugin-cad-freecad/python/cadkit/probe.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
+| `61cffbcb8e` | P2 | partial | 1 | 部分通过 N18：Abnormal exits stay honest; cross-window FAIL overwrite remains | dsh-plugin-cad-freecad/python/cadkit/probe.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
+| `c4648f54c7` | P2 | partial | 1 | 部分通过 N16：Resume works; aggregate merge can discard earlier FAIL | dsh-plugin-cad-freecad/python/cadkit/probe.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
 | `426ed4c25e` | P2 | open | 1 | 摄入器标题写在标记外，每跑一次 LESSONS.md 多一行标题 | tools/lesson_ingest.py:render | 自检（首次，待升级） | self |
 | `e2d255323b` | P2 | open | 1 | 门禁把重放当复发，同因复发计数被自己刷高 | tools/lesson_ingest.py:merge | 自检（首次，待升级） | self |
 | `e52eb603b1` | P2 | open | 1 | 旧件复检只在有件完成时触发，卡住或全失败时永不复检 | tools/fleet_runner.py:worker | 自检（首次，待升级） | self |
@@ -119,13 +119,13 @@ A 机用**自己的工作树**算 `rules_sha` 签 `shared/versions.json`（64a95
 
 <details><summary>已关闭 / wontfix（保留可查）</summary>
 
-- `4217d932cc` synthetic ｜ P1 ｜ LESSONS_ACK 过期: 回传 deadbeef，当前教训 f9e9205c（教训已更新，重读后重跑）
-- `a41b596880` synthetic ｜ P1 ｜ intake 有但未交付: b_in01_005
-- `d0f632a241` synthetic ｜ P1 ｜ b_in01_003 台账缺少 OK 阶段: package
-- `802713fe3e` synthetic ｜ P1 ｜ b_in01_003 STEP 不是 AP214/AP242: unknown-profile
 - `07a3a69bd7` synthetic ｜ P1 ｜ b_in01_004 渲染长边不足 2000px: view_back.png=1600x1600, view_bottom.png=1600x1600, vi
 - `0f9f1cfc17` synthetic ｜ P1 ｜ b_in01_006 缺 STEP（2.3）
+- `4217d932cc` synthetic ｜ P1 ｜ LESSONS_ACK 过期: 回传 deadbeef，当前教训 f9e9205c（教训已更新，重读后重跑）
 - `66d7392513` synthetic ｜ P1 ｜ 跨机重复（2.5 会判不计数）: b_in01_001 ~ b_in01_002 (scaled_same)
+- `802713fe3e` synthetic ｜ P1 ｜ b_in01_003 STEP 不是 AP214/AP242: unknown-profile
+- `a41b596880` synthetic ｜ P1 ｜ intake 有但未交付: b_in01_005
+- `d0f632a241` synthetic ｜ P1 ｜ b_in01_003 台账缺少 OK 阶段: package
 
 </details>
 <!-- AUTO-INGEST:END -->
