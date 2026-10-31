@@ -1,0 +1,84 @@
+任务：你是机器 D，执行批次 fleet_d_2026_11 的第 1 波 —— 5 个族谱 × 400 成员 = 2000 件
+（你的总量：100 个族谱 / 40000 件 / 20 波。其它机器的批次一律不要碰。）（外来机：cadRoot 用 ~/cad-fleet）
+
+批次全貌：500 个族谱 × 400 成员 = 200,000 件，A–E 各 100 族谱、各 20 波。
+5 个族谱的构成（本波就是这 5 个，别的波次别自作主张往前跑）：
+     d_st01_…001–…400  型材角件（支架 轴族 / 结构件，400 件，结构轴组合 1600 种）
+     d_st02_…001–…400  设备底脚（支架 轴族 / 结构件，400 件，结构轴组合 1600 种）
+     d_st03_…001–…400  悬臂支架（支架 轴族 / 结构件，400 件，结构轴组合 1600 种）
+     d_st04_…001–…400  检修门框（支架 轴族 / 结构件，400 件，结构轴组合 1600 种）
+     d_st05_…001–…400  型材滑座（支架 轴族 / 结构件，400 件，结构轴组合 1600 种）
+
+━━━━━━━━━━ 版本握手（有一项对不上就停工上报，别自己找引擎）━━━━━━━━━━
+  rules_sha        1d835a8f3d2ef4f1
+  插件版本         0.5.0   tarball local-dsh-plugin-cad-freecad-0.5.0.tgz
+  tarball sha256   2c20ed9df517259616d3b22e…
+  LESSONS_ACK      3fe1b57f      ← 你回传的 REPORT.md 必须带这一行，缺它或它过期 = 直接 REJECT
+  校验：`cad_freecad memcheck` 与 `python3 tools/refresh_versions.py` 不该由你跑（A 机动作），
+        但 memcheck 回报里的 rules_sha 必须等于上面这个值。
+  未修的插件缺陷（生产时必须规避）：
+     - N43 (P1, 未修)：packager.py 所有权读失败被当作“无更新者”，会删除/覆盖别人更新的交付 —— package 必须串行、一次一件
+     - N44 (P2, 未修)：probe.py 跨窗口 results.update() 让后到 PASS 抹掉先前 FAIL —— 同一件不要跨窗口重复上报，重跑整件
+     - N1/N2/N16/N18/N20/N23：部分通过：异常路径与合并语义未收敛（与上面两条同源）
+
+━━━━━━━━━━ 开工前（顺序固定，三条）━━━━━━━━━━
+  0. git clone git@github.com:JR-Rong/cad-repo.git ~/cad-fleet-repo && cd ~/cad-fleet-repo
+     安装插件包 handoff/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（装完必须重启 DSH，插件是加载期读配置的），
+     确认 freecadcmd 可用（默认 /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd）。
+  1. python3 tools/recall.py --machine D
+       —— 打印教训全文 + 项目记忆 + 错题本未关闭项 + 本波切片；把里面的 LESSONS_ACK 抄进 REPORT.md。
+  2. python3 tools/registry_sync.py --root ~/cad-fleet
+       —— 非 0 就停下喊人（它找不到判重函数现在会失败关闭，不会假装检查过）。
+  3. mkdir -p intake/waves && python3 tools/emit_members.py --machine D --wave 1 \
+         > intake/waves/fleet_d_2026_11_w1.json
+       —— 这就是本波 2000 件的合同；此后任何一件都不能偏离它（件号 = 机器_族谱_三位序号，
+          由清单确定性重算，别自己编号）。
+
+━━━━━━━━━━ 生产（双通道并行，不要手写 shell 循环）━━━━━━━━━━
+  python3 tools/fleet_runner.py --root ~/cad-fleet --batch fleet_d_2026_11 \
+      --intake intake/waves/fleet_d_2026_11_w1.json \
+      --stages build,validate,probe,export --package \
+      --workers 3 --mem-budget-mb 6144 --per-part-mb 600 \
+      --review-every 6 --review-interval-secs 900 --machine D
+  · 第 1 波你还没有旧件，所以不加 --review-batch；从第 2 波起加上它（同一批次号即可，台账里已 delivered 的那些就是你要审的旧件）。
+  · 它启动时会用**即将执行的引擎**自校 rules_sha，不一致直接 exit 2 —— 那是它在救你整波。
+  · 断点续跑靠台账幂等键：崩了重跑同一条命令，已 OK 的阶段自动跳过。
+  · `package` 只有一个槽位（N43/N44 未修，并发发布会毁掉别人的交付），必须与四个阶段一起给。
+  · 别自己拼 freecadcmd 命令行：freecadcmd 会把 `--action` 吃掉，参数得走 CADKIT_* 环境（调度器已处理）。
+  · 判断阶段是否通过只看 `CADKIT>> {"ok": true, "checks": [...]}`：**引擎失败时退出码仍然是 0**。
+
+单件顺序（任一 FAIL 不许进下一步，也不许跳步）：
+  new → design.md → build → validate → probe → dedupe → export → package
+  design.md 必须把该件 `topo_signature`（5 条结构轴取值）落成**具体特征数**：
+  哪个特征存在/不存在、筋几条、孔几个、倒角几处 —— "同族只是尺寸不同"不算差异，
+  等比缩放会被判 scaled_same 不计数（采购需求 2.5）。params 表是唯一驱动源，
+  关掉其特征组的参数必须从表里删掉（探针逐格 +1% 扰动，惰性单元格必 FAIL）。
+
+━━━━━━━━━━ 错题本（这是共享资产，不是可选项）━━━━━━━━━━
+  当天发现当天记，一行命令：
+    python3 tools/lesson_add.py --machine D --source self|audit|review_scan --severity P1 \
+        --title "症状" --where "file:line 或件号" --detail "证据（期望 vs 实测）"
+  · 只写你自己的 lessons/inbox/D.jsonl，**不要改 LESSONS.md**，更不要伪造别机的 inbox；
+  · A 机合并去重后 LESSONS_ACK 会轮换，你必须重跑 recall 才能继续交付；
+  · 旧件也要被审：tools/review_scan.py --root ~/cad-fleet --batch <你已交付的批次> --to-lessons
+
+━━━━━━━━━━ 本波收尾（2000 件全部 package 之后）━━━━━━━━━━
+  1. python3 tools/merge_check.py --mine ~/cad-fleet --theirs outbox/fleet_d_2026_11 \
+         --baseline shared/fingerprints --intake intake/waves/fleet_d_2026_11_w1.json
+     —— 它会**一次列出全部 blocking**，把清单清零再 push，别修一个看一眼。
+  2. 回传：outbox/fleet_d_2026_11/（delivery 批次目录、ledger.jsonl、fingerprints.delta.json、versions.json、
+     REPORT.md 含 LESSONS_ACK）、更新 shared/fingerprints/D.json（只这一个文件）、
+     status/PROGRESS.md 末尾追加一行、intake/waves/fleet_d_2026_11_w1.json 一起 push。
+  3. push 前 git pull --rebase；`git push` 被拒就 rebase 后重推，冲突通常只在 PROGRESS.md（追加式，两边都留）。
+  4. **上一波被 A 机 ACCEPT 且指纹并入底表之前，不许开下一波。**
+
+立刻停下来喊人（别自己绕）：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 /
+想改清单、族谱或 intake / 插件行为与工单不符 / 磁盘剩余不足 100 GB / 渲染长边掉到 2000px 以下。
+
+全局事实（用来判断自己是不是跑偏）：已交付基线 11 件（不重复计数），
+你的机器分界是 project id 前缀 `d_`，全量清单与自洽性见 catalog/FAMILIES.md、
+`python3 tools/catalog_lint.py`（A 机会天天跑它，你 pull 后跑一次也行）。
+长版规则：WORKFLOW.md（角色/所有权/波次/收货）、WORK-ORDER.md（技术口径）、
+briefs/BRIEF-FOR-D.txt（全 20 波族谱清单）、briefs-common.txt（规则全文）。
+
+生成时间 2026-10-31 07:26（由 tools/kickoff.py 现算；换波次就重新生成一份，别复用旧文本）

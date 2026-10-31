@@ -76,6 +76,13 @@ python3 tools/fingerprint_merge.py --machine B      # 增量并进 shared/finger
 抽件复建（防"台账说过了、盘上不是那回事"）：随机抽 ≥10% 的件，
 用交付的原生文件重建并与 STEP 比体积（≤1e-4）与外形（≤1e-3）。
 
+## 5.5 派发（开场指令）
+
+派发一律现生成：`python3 tools/kickoff.py --machine <字母> --wave <当前波次> --write`，
+把 `briefs/KICKOFF-<字母>.txt` 全文贴进那台机器的会话。理由：开场白带著 `rules_sha`、
+`LESSONS_ACK` 和本波族谱，手写版本必然与仓库不一致（B 机第一次开工就是被这个坑住的）。
+长版规则 `briefs/BRIEF-FOR-<字母>.txt` 仍然有效（全 20 波清单 + 规则全文）。
+
 ## 6. 异常与升级
 
 | 情况 | 生产会话该做 | 不许做 |

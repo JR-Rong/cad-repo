@@ -26,3 +26,5 @@
 - 2026-10-31 07:12 | A | (tools) | 校验 | **`fleet_runner` 双通道并行**：生产 N 路（内存准入 `min(workers, mem_budget/per_part)`）‖ 旧件复检心跳，`package` 单槽串行且必须带全阶段链，断点靠台账幂等键续跑；启动前用**即将执行的引擎**自校 rules_sha，不一致 exit 2
 - 2026-10-31 07:12 | A | (self) | 校验 | 冒烟（2 件真 FreeCAD）自曝三个坑并当场修掉+入错题本：**rc=0 被当通过**（引擎失败也返回 0，曾把 8 条"通过"记在零交付物上，P0）、`freecadcmd` 吞 `--action`（参数须走 `CADKIT_*` 环境，P1）、复检只由完成件触发（改心跳，P2）；最终证据：produce/review 两条 lane 交错、validate FAIL 阻断 probe/export/package、握手负例 exit 2
 - 2026-10-31 07:12 | A | (all) | 设计 | **LESSONS_ACK → 23f687ad**（教训已更新）：各机必须重跑 `python3 tools/recall.py --machine <你>` 才能再交付
+
+- 2026-10-31 07:30 | A | (dispatch) | 设计 | 开场指令改为现生成：`tools/kickoff.py --machine X --wave N --write` → `briefs/KICKOFF-X.txt`（握手值/LESSONS_ACK/本波 5 族谱/前缀全部从仓库现算，杜绝手写开场白过期）；DISPATCH/WORKFLOW §5.5 指向它
