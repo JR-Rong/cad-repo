@@ -1,6 +1,7 @@
 {
- "_comment": "全局去重底表（A 机产出）。B 机开工前复制到自己 cadRoot 的 registry/fingerprints.json；B 机自己的新增指纹不要写回这个文件，放 outbox/fingerprints.delta.json。",
- "_source": "machine-A cad/registry/fingerprints.json + ledger model rows",
+ "_comment": "机器 A 的几何指纹底表（自己维护这一个文件；别人的文件只读）",
+ "machine": "A",
+ "updated": "2026-10-31",
  "entries": {
   "pilot_ec100": {
    "bbox": [

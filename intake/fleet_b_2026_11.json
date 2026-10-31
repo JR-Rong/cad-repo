@@ -1,73 +1,123 @@
 {
-  "batch": "fleet_b_2026_11",
-  "machine": "B",
-  "buyer": "internal",
-  "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
-  "issued_by": "machine-A dsh-cad-agent",
-  "created": "2026-10-31",
-  "parts": [
-    "b_snapenc120_r3",
-    "b_snapenc120_r4w",
-    "b_termblk_4p",
-    "b_termblk_6p_s",
-    "b_drilljig_4b",
-    "b_drilljig_6b"
-  ],
-  "detail": [
-    {
-      "project_id": "b_snapenc120_r3",
-      "title": "Snap enclosure 120x80x40 (base)",
-      "family": "snap_enclosure",
-      "grade": "A",
-      "unit": "mm",
-      "type": "part",
-      "topo_signature": "ribs=3, snaps=6, window=none, cable_ports=2, bosses=4"
-    },
-    {
-      "project_id": "b_snapenc120_r4w",
-      "title": "Snap enclosure 120x80x40 (lid, display window)",
-      "family": "snap_enclosure",
-      "grade": "A",
-      "unit": "mm",
-      "type": "part",
-      "topo_signature": "ribs=4, snaps=8, window=yes, keyways=3, ground_stud=1"
-    },
-    {
-      "project_id": "b_termblk_4p",
-      "title": "Screw terminal block 4P (DIN rail)",
-      "family": "terminal_block",
-      "grade": "A",
-      "unit": "mm",
-      "type": "part",
-      "topo_signature": "poles=4, divider_slots=none, marker_pocket=1, rail_clip=1"
-    },
-    {
-      "project_id": "b_termblk_6p_s",
-      "title": "Screw terminal block 6P with partitions",
-      "family": "terminal_block",
-      "grade": "A",
-      "unit": "mm",
-      "type": "part",
-      "topo_signature": "poles=6, divider_slots=5, end_plate=1, marker_pocket=2"
-    },
-    {
-      "project_id": "b_drilljig_4b",
-      "title": "Drill jig plate, 4 bushings",
-      "family": "drill_jig",
-      "grade": "A",
-      "unit": "mm",
-      "type": "part",
-      "topo_signature": "bushings=4, diamond_pins=2, rest_pads=3, quick_clamp=none"
-    },
-    {
-      "project_id": "b_drilljig_6b",
-      "title": "Drill jig plate, 6 bushings, quick clamp",
-      "family": "drill_jig",
-      "grade": "A",
-      "unit": "mm",
-      "type": "part",
-      "topo_signature": "bushings=6, diamond_pins=3, chip_slots=through, quick_clamp=2, tool_setting_block=1"
-    }
-  ],
-  "notes": "两两拓扑必须不同（2.5）；关闭的特征组其参数不得留在 params 表（探针逐格验证）。"
+ "batch": "fleet_b_2026_11",
+ "machine": "B",
+ "buyer": "internal",
+ "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
+ "issued_by": "machine-A dsh-cad-agent",
+ "created": "2026-10-31",
+ "parts": [
+  "b_snapenc120_r3",
+  "b_snapenc120_r4w",
+  "b_termblk_4p",
+  "b_termblk_6p_s",
+  "b_meter_hh45",
+  "b_meter_hh60",
+  "b_panelbox_hm",
+  "b_panelbox_jb",
+  "b_hood_top",
+  "b_hood_side"
+ ],
+ "detail": [
+  {
+   "project_id": "b_snapenc120_r3",
+   "title": "卡扣仪器外壳·下壳",
+   "family": "snap_enclosure",
+   "category": "消费品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "筋 3+卡扣 6+PCB 铜柱 4+线缆出口 2；无数显窗"
+  },
+  {
+   "project_id": "b_snapenc120_r4w",
+   "title": "卡扣仪器外壳·带窗上壳",
+   "family": "snap_enclosure",
+   "category": "机电产品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "筋 4+数显透光窗+按键孔 3+卡扣 8+接地螺柱"
+  },
+  {
+   "project_id": "b_termblk_4p",
+   "title": "螺钉式接线端子 4P",
+   "family": "terminal_block",
+   "category": "电子元器件封装",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "极腔 4+导体压板腔+导轨卡扣+防手指绝缘壁+标记牌槽；无可拆分隔板"
+  },
+  {
+   "project_id": "b_termblk_6p_s",
+   "title": "螺钉式接线端子 6P 带分隔板",
+   "family": "terminal_block",
+   "category": "电子元器件封装",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "极腔 6+分隔板槽 5+端挡板+标记槽 2+螺钉 6"
+  },
+  {
+   "project_id": "b_meter_hh45",
+   "title": "手持表壳 45 框",
+   "family": "handheld_meter_case",
+   "category": "消费品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "电池仓+表笔插座 2+表头窗+胶套槽+背部磁吸板"
+  },
+  {
+   "project_id": "b_meter_hh60",
+   "title": "手持表壳 60 框（翻盖支架）",
+   "family": "handheld_meter_case",
+   "category": "消费品",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "翻盖+支架腿槽+探头收纳腔+硅胶护套筋 6+防护圈"
+  },
+  {
+   "project_id": "b_panelbox_hm",
+   "title": "膜键面板盒",
+   "family": "panel_box",
+   "category": "机电产品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "膜键窗+铰链座 2+密封槽+电缆入口 3+PCB 铜柱 6"
+  },
+  {
+   "project_id": "b_panelbox_jb",
+   "title": "接线盒（卡扣盖）",
+   "family": "panel_box",
+   "category": "机电产品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "隔筋 2+端子导轨+敲落孔 4+接地螺柱 2；无铰链"
+  },
+  {
+   "project_id": "b_hood_top",
+   "title": "桌面仪器罩·顶置提手",
+   "family": "instrument_hood",
+   "category": "机电产品",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "提手+散热风道 2+观察窗+底部减震柱窝 4+内隔板卡槽"
+  },
+  {
+   "project_id": "b_hood_side",
+   "title": "仪器罩·侧开门",
+   "family": "instrument_hood",
+   "category": "机电产品",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "侧门铰链 3+气弹簧座 2+散热格栅+背面线缆切口；无提手"
+  }
+ ],
+ "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
 }

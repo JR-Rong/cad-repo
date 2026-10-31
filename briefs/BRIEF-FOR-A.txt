@@ -1,0 +1,44 @@
+任务：你是 CAD 流水线的机器 A，本批次 fleet_a_2026_11（10 件，全新族谱）
+
+仓库：git clone git@github.com:JR-Rong/cad-repo.git cad-repo（或你已有的本地 clone 先 git pull）
+先读：cad-repo/WORK-ORDER.md（通用规则），再读下面你自己的件清单；规格原文在 cad-repo/shared/spec-extract.txt。
+开工前必须先把全局去重底表同步进来：python3 cad-repo/tools/registry_sync.py --root ~/cad-fleet
+
+你的件（project id 一字不差；同族两件之间拓扑必须不同）：
+
+族谱 `drive_enclosure`
+  - a_drvenc_din  目标 A 级｜小型驱动器外壳·DIN 导轨卡装｜拓扑差异：DIN35 卡扣+散热齿 12+端子开窗+LED 导光柱孔 4+接地螺柱
+  - a_drvenc_wall  目标 S 级｜驱动器外壳·壁挂式｜拓扑差异：安装耳 4+散热齿 20+内盖板卡槽+电缆密封孔 3+铭牌凹台；无导光柱
+
+族谱 `iec_endcap_ext`
+  - a_endcap_enc  目标 A 级｜IEC 端盖·编码器法兰端｜拓扑差异：中心通孔+编码器止口+编码器螺柱圆阵 6+穿线孔 2；无风扇座（与 sibling 反向拓扑）
+  - a_endcap_fan  目标 S 级｜IEC 端盖·风罩端｜拓扑差异：径向通风筋 8+风扇凸缘+轴穿透槽+风罩卡爪 4；无编码器孔
+
+族谱 `inverter_panel`
+  - a_invpanel_louvre  目标 A 级｜变频器通风面板｜拓扑差异：百叶 18+过滤棉导槽+风机电窗口+铭牌凹台+周圈螺栓 12
+  - a_invpanel_filter  目标 A 级｜变频器快换滤网框｜拓扑差异：快换卡扣 4+滤网筋阵 24+排水槽+密封唇；无百叶
+
+族谱 `motor_mount`
+  - a_motmount_ff  目标 S 级｜电机立装 FF 机座｜拓扑差异：法兰止口+凸台筋 6+减重槽 4+穿线孔+地脚长孔 4
+  - a_motmount_b5  目标 A 级｜电机 B5 法兰盘｜拓扑差异：大止口+螺柱圆阵 8+定位销 2+中心通孔+背面筋 8；无地脚长孔
+
+族谱 `servo_rear_cover`
+  - a_srvcover_52  目标 A 级｜52 框伺服电机后盖｜拓扑差异：编码器舱+航空插头座 1+制动释放孔+密封沟槽+周圈螺柱 4
+  - a_srvcover_80  目标 S 级｜80 框伺服电机后盖（带传感器）｜拓扑差异：插头座 2+温度传感器孔 2+周圈筋 6+接地螺柱；螺柱 6
+
+以上之外的件都不要做（其他机器在产）。其余规则照通用工单执行：
+通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
+1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
+   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
+2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
+   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
+3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
+4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
+5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
+6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
+   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
+   ACCEPT 才 commit + push。
+7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。

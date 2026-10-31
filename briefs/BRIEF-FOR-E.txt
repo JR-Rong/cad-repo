@@ -1,0 +1,44 @@
+任务：你是 CAD 流水线的机器 E，本批次 fleet_e_2026_11（10 件，全新族谱）
+
+仓库：git clone git@github.com:JR-Rong/cad-repo.git cad-repo（或你已有的本地 clone 先 git pull）
+先读：cad-repo/WORK-ORDER.md（通用规则），再读下面你自己的件清单；规格原文在 cad-repo/shared/spec-extract.txt。
+开工前必须先把全局去重底表同步进来：python3 cad-repo/tools/registry_sync.py --root ~/cad-fleet
+
+你的件（project id 一字不差；同族两件之间拓扑必须不同）：
+
+族谱 `filter_housing`
+  - e_filter_cup  目标 A 级｜杯式过滤器壳体｜拓扑差异：滤芯腔+排污阀口+压差表座+卡箍槽+支架耳 2+密封唇
+  - e_filter_hv  目标 S 级｜高压过滤器壳体｜拓扑差异：法兰口+滤芯端盖+安全销孔+排气螺钉座+铭牌凹台；卡箍改螺栓 6
+
+族谱 `gear_pump_housing`
+  - e_gpump_25  目标 S 级｜外啮合齿轮泵壳体 25｜拓扑差异：主/侧齿轮腔+卸荷槽 2+进出油口+O 形圈槽+轴封腔+紧固螺孔 8
+  - e_gpump_63  目标 S 级｜大排量齿轮泵壳体 63｜拓扑差异：溢流阀孔道+端盖止口+测压口 2+法兰油口；卸荷槽 4
+
+族谱 `metering_pump_head`
+  - e_mpspd_single  目标 S 级｜单缸隔膜计量泵液力端｜拓扑差异：隔膜腔+进/出口单向阀座+补液阀+排气孔+卡箍法兰
+  - e_mpspd_triple  目标 S 级｜三缸计量泵液力端｜拓扑差异：三腔+脉动阻尼器接口+安全膜片腔+冲洗口；阀座 6
+
+族谱 `pneumatic_manifold`
+  - e_manifold_5  目标 A 级｜5 位气动歧管块｜拓扑差异：串接槽式密封+排气汇流道+进气道+工作口 5+标识槽 5
+  - e_manifold_8  目标 S 级｜8 位高压歧管块｜拓扑差异：独立排气孔 8+高压进气道+导轨卡槽+堵板位 2；工作口 8
+
+族谱 `solenoid_valve_body`
+  - e_solbody_nc  目标 S 级｜常闭先导式电磁阀体｜拓扑差异：膜片腔+弹簧座+进/出/泄三口+线圈定位环+指示灯窗
+  - e_solbody_22  目标 S 级｜2/2 通电磁阀体（手动应急）｜拓扑差异：手动按钮腔+滤网腔+DIN 插座座+先导孔阵 6；无指示窗
+
+以上之外的件都不要做（其他机器在产）。其余规则照通用工单执行：
+通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
+1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
+   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
+2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
+   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
+3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
+4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
+5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
+6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
+   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
+   ACCEPT 才 commit + push。
+7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。

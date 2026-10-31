@@ -1,0 +1,44 @@
+任务：你是 CAD 流水线的机器 C，本批次 fleet_c_2026_11（10 件，全新族谱）
+
+仓库：git clone git@github.com:JR-Rong/cad-repo.git cad-repo（或你已有的本地 clone 先 git pull）
+先读：cad-repo/WORK-ORDER.md（通用规则），再读下面你自己的件清单；规格原文在 cad-repo/shared/spec-extract.txt。
+开工前必须先把全局去重底表同步进来：python3 cad-repo/tools/registry_sync.py --root ~/cad-fleet
+
+你的件（project id 一字不差；同族两件之间拓扑必须不同）：
+
+族谱 `air_gauge_check`
+  - c_airgauge_vblock  目标 A 级｜气动量仪检具（V 块）｜拓扑差异：V 块+测头座 2+标准件收纳腔+防护罩铰座+排屑孔
+  - c_airgauge_multi  目标 S 级｜多孔位多测头检具｜拓扑差异：测头位 6+快换定位销 4+分流气道的孔阵+盖板卡槽
+
+族谱 `flip_fixture`
+  - c_flip_180  目标 S 级｜翻转工装 180°｜拓扑差异：转轴+180°定位齿 12+配重槽 2+手柄+锁销
+  - c_flip_360  目标 S 级｜翻转工装 360° 自锁｜拓扑差异：蜗轮自锁+刻度圈+锁紧手柄+过线滑环腔；无定位齿
+
+族谱 `press_fixture`
+  - c_pressf_guide4  目标 A 级｜四导柱压装模｜拓扑差异：上/下模+导套 4+顶出孔+限位垫+起吊螺钉孔 2
+  - c_pressf_collar  目标 A 级｜轴肩压套工装｜拓扑差异：V 形定位块+可调行程挡块+弹簧顶销 2+深度量表座；无导套
+
+族谱 `turn_fixture_base`
+  - c_turnfx_d3  目标 A 级｜三爪车削夹具座｜拓扑差异：短爪定位 3+中心螺钉+平衡块槽 4+液压通道 2+排屑槽
+  - c_turnfx_d6  目标 S 级｜六爪车削夹具座｜拓扑差异：爪位 6+气密腔+快换接口+中心通孔；无液压通道
+
+族谱 `weld_facing_plate`
+  - c_weldfp_a  目标 A 级｜焊接工装板（销阵式）｜拓扑差异：定位销 8+压紧器螺孔阵+让位槽+基准刻线槽+吊装孔 2
+  - c_weldfp_b  目标 S 级｜焊接工装板（V 块式）｜拓扑差异：V 块 2+支撑钉 6+异形轮廓让位+气管孔 4；销位 5
+
+以上之外的件都不要做（其他机器在产）。其余规则照通用工单执行：
+通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
+1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
+   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
+2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
+   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
+3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
+4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
+5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
+6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
+   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
+   ACCEPT 才 commit + push。
+7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。

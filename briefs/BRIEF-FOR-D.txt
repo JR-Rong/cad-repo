@@ -1,0 +1,44 @@
+任务：你是 CAD 流水线的机器 D，本批次 fleet_d_2026_11（10 件，全新族谱）
+
+仓库：git clone git@github.com:JR-Rong/cad-repo.git cad-repo（或你已有的本地 clone 先 git pull）
+先读：cad-repo/WORK-ORDER.md（通用规则），再读下面你自己的件清单；规格原文在 cad-repo/shared/spec-extract.txt。
+开工前必须先把全局去重底表同步进来：python3 cad-repo/tools/registry_sync.py --root ~/cad-fleet
+
+你的件（project id 一字不差；同族两件之间拓扑必须不同）：
+
+族谱 `access_door_frame`
+  - d_doorframe_400  目标 A 级｜检修门框 400｜拓扑差异：铰链座 3+密封槽+限位缓冲孔+排水孔 2+折边加强
+  - d_doorpanel_lock  目标 A 级｜带锁检修面板｜拓扑差异：转舌锁孔+观察窗框+加强筋 4+敲落孔 3；无铰链座
+
+族谱 `alu_corner_bracket`
+  - d_acorner_40  目标 A 级｜4040 型材角件｜拓扑差异：槽匹配齿 4+沉孔 8+减重切角 2+加强筋 2
+  - d_acorner_80  目标 A 级｜4080 T 槽角板｜拓扑差异：T 槽面 2+铰链孔阵 6+长孔 4+筋 6；无沉孔
+
+族谱 `cantilever_arm`
+  - d_cant_pipe  目标 S 级｜管状悬臂支架｜拓扑差异：管体穿线孔 3+端部法兰+三角加强筋 6+端盖卡口
+  - d_cant_tslot  目标 S 级｜T 槽悬臂支架｜拓扑差异：四面 T 槽+端连接板+气路孔 2+走线盖板槽+刚性筋 8
+
+族谱 `machine_foot`
+  - d_foot_heavy  目标 A 级｜设备重型底脚｜拓扑差异：地脚板+调节螺钉座+叉车口+减振柱窝 4+水平泡座
+  - d_foot_damp  目标 S 级｜隔振脚｜拓扑差异：弹簧腔+阻尼孔阵 9+限位柱 3+安装板+防尘罩槽；无叉车口
+
+族谱 `motor_bracket`
+  - d_mbracket_l  目标 A 级｜L 型电机支架｜拓扑差异：筋 4+地脚长孔 2+减重窗 3+出线孔+定位销孔 2
+  - d_mbracket_ff  目标 A 级｜圆法兰立装支架｜拓扑差异：止口+周圈 8+中心落料孔+防转平面+背面筋 6；无减重窗
+
+以上之外的件都不要做（其他机器在产）。其余规则照通用工单执行：
+通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
+1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
+   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
+2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
+   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
+3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
+4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
+5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
+6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
+   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
+   ACCEPT 才 commit + push。
+7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。

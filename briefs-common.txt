@@ -1,0 +1,15 @@
+通用规则（五台机器一样，全文见 cad-repo/WORK-ORDER.md）：
+1. 开工先回报 cad_freecad memcheck 的 cad_root / freecad_bin / mem.cap_mb，以及你的 rules_sha；
+   与 cad-repo/shared/versions.json 不一致就停下问人，等 A 机打新 tarball，不要自己改引擎。
+2. 每件顺序：new -> design.md（先把特征清单数到目标步数）-> build -> validate -> probe -> dedupe -> export -> package，
+   任一 FAIL 不许往下走；dedupe 报 exact / scaled_same 立刻停（不管撞的是谁）。
+3. 同族两件必须换拓扑（孔/筋/槽/隔板数量或有无），纯缩放 = 判重复不计数；params 表里不许留已关闭特征的参数。
+4. package 串行、一次一件，绝不并发发布；两边/五边台账绝不手工合并 sqlite，只回传导出，合并只在 A 机做。
+5. 渲染与 STEP 全由插件产出，不许手改；8 视图、白底单色灰、长边 >=2000px、AP214 是硬线。
+6. 回传到 cad-repo/outbox/<你的批次>/：delivery 批次目录、ledger.jsonl、fingerprints.delta.json、
+   shared/fingerprints/<你的机器>.json（覆盖自己那一个文件）、versions.json、REPORT.md；
+   推之前自己先跑 python3 cad-repo/tools/merge_check.py --root ~/cad-fleet --theirs <你的 outbox 目录>，
+   ACCEPT 才 commit + push。
+7. 立刻停下来问人：判重命中 / 探针修不过 / 需要把 memCapMb 降到 1536 以下 / 想改清单或 intake 合同 / 插件行为与工单不符。
+0. 没装插件的机器先装：cad-repo/releases/local-dsh-plugin-cad-freecad-0.5.0.tgz（sha256 见 shared/versions.json），
+   `dsh plugin --profile desktop add <tgz>` 之后**完全退出并重启** DSH；cadRoot 用 CADKIT_ROOT=~/cad-fleet 固定。

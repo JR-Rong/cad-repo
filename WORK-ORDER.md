@@ -1,21 +1,21 @@
-# 工单 B — 新品类族谱扩量（6 件）
+# CAD 流水线通用工单（机器 A–E）
 
-批次 `fleet_b_2026_11` · 派工：A 机（本机，IEC 端盖族谱归属方） · 适用：B 机 macOS + FreeCAD 1.1 + 插件 0.5.0
+派工方：A 机 · 适用：macOS/Linux + FreeCAD 1.1 + 插件 0.5.0 ·
+**你的件清单在 `catalog/CATALOG.md`（人读）与 `intake/fleet_<你的机器>_2026_11.json`（合同）**
 
 ## 0. 你的边界（越界就是白做）
-
-- **只做**本工单三个族谱的 6 件；**不碰** `iec_endcap`、电机端盖、轴承座（pillow block）、油路块（port plate）、衬套 —— 那些是 A 机在产或已产，撞 2.5 判定谁都没好处。
-- 全部**单件实体零件**（2.1 允许零件或装配体）。装配体的"引用完整"（2.3）另开批次，第一批不做。
-- `cadRoot` 固定 `~/cad-fleet`，`source_url=internal`，批次名 `fleet_b_2026_11`（写进豁免文件的 scope）。
-- 台账（`cad/ledger.sqlite3`）**只在你机器上**，不要往 git 里塞 sqlite；回传只走 `outbox/`（导出件 + 交付目录）。
-
-## 1. 开工自检（三条都要回报给 A 机，不要闷头开工）
+- **只做**清单里分给你那台机器的前缀件（A=`a_`、B=`b_`…），别的机器在产同表别的族谱，你碰就是重复劳动 + 判重风险。
+- 全部**单件实体零件**（2.1 允许零件或装配体）；装配体的"引用完整"（2.3）另开批次。
+- `cadRoot` 固定 `~/cad-fleet`；`source_url=internal`；批次名 `fleet_<你的机器>_2026_11`（写进你自己的豁免文件 scope）。
+- 台账 `<cadRoot>/ledger.sqlite3` **只在你机器上**：不进 git、不手工合并；回传只走 `outbox/` + `shared/fingerprints/<你的机器>.json`。
+- **整族归一台**：族谱生成器脚本随交付走（bundle_extra），不要复制别人的族谱改两行交上来 —— 那是 2.5 的"同一来源/同一段代码改参数"。
+## 1.## 1. 开工自检（三条都要回报给 A 机，不要闷头开工）
 
 ```sh
 cad_freecad memcheck
 ```
 
-回报里必须有：`cad_root`（应为 `/Users/<you>/cad-fleet`，来源 `env`/`config`）、`freecad_bin`、
+回报里必须有：`cad_root`（应为 `<HOME>/cad-fleet`，来源 `env`/`config`）、`freecad_bin`、
 `mem.cap_mb`（应为 2048）。然后对齐版本：
 
 ```sh
@@ -27,44 +27,41 @@ cad_freecad status project <任一>      # 结果里的 rules_sha 必须与 shar
 A 机会打新的 tarball（`shared/versions.json` 同步更新），你装完再开工。已经做了一半的件不用重做：
 台账的阶段键含 rules_sha，规则一变那些阶段会自动变成待重跑。
 
-导入去重底表（B 机第一次必做）：
+导入去重底表（每台机器第一次必做）：
 
 ```sh
-mkdir -p ~/cad-fleet/registry
-cp handoff/shared/fingerprints.json ~/cad-fleet/registry/fingerprints.json
+python3 tools/registry_sync.py --root ~/cad-fleet   # 合并五台机器的底表 + 内部判重预检
 ```
 
-## 2. 任务清单
+## 2. 你的件与开工三步
 
-每件都是"一个族谱生成器 + 一个 variant 开关表"，两两之间**拓扑必须不同**（孔/筋/槽/隔板的数量或有无），
-纯缩放会被 2.5 判重复。目标分级 **A（100–199 步）为下限，能到 S（≥200 步）更好**。
+一句话：**`python3 tools/catalog_lint.py` 保证 50 件里没有任何两件同拓扑意图、没有一族被分给两台机器**；
+你那 10 件的两两拓扑差异就写在清单最后一列，那是你的"怎么才算不重复"的答案，建模前照它设计特征清单。
 
-| # | project id | 物件 | 必须出现的功能结构（写进 design.md 的特征清单，先数到目标步数再动手） | 与兄弟件的拓扑差异 |
-|---|---|---|---|---|
-| 1 | `b_snapenc120_r3` | 卡扣式仪器外壳 120×80×40（下壳） | 薄壁抽壳、周边卡扣 6、PCB 铜柱 4、底部散热筋 3、M3 法兰螺柱、线缆出口 2、定位销孔 2、沉台与止口 | 筋 3、**无**透光窗、卡扣 6 |
-| 2 | `b_snapenc120_r4w` | 同族谱上壳（带数显窗） | 同上 + 数显透光窗（含窗框台阶与卡爪 4）、按键孔 3、加强筋 4、接地螺柱 1 | 筋 4、**有**窗与按键孔、卡扣 8、多接地螺柱 |
-| 3 | `b_termblk_4p` | 螺钉式接线端子 4P（导轨卡装） | 壳体隔腔 4、螺钉孔 4 + 导体压板腔、进线喇叭口、导轨卡扣与导向斜面、标记牌槽、防手指绝缘壁、灭弧/散热槽 | 极数 4、**无**可拆分隔板 |
-| 4 | `b_termblk_6p_s` | 同族谱 6P（带分隔板） | 极数 6 + 可拆分隔板槽 5 + 标记槽 + 侧端挡板 + 螺钉 6 | 极数 6、**有**分隔板与挡板 |
-| 5 | `b_drilljig_4b` | 钻孔钻模（4 孔） | 底板 + 钻套 4（过盈台阶 + 衬套肩）+ 菱形定位销 2 + 支承钉 3 + 压板槽 + 排屑缺口 + 紧固螺塞 | 钻套 4、销 2、**无**快换夹紧 |
-| 6 | `b_drilljig_6b` | 同族谱（6 孔，带快换夹紧） | 钻套 6 + 定位销 3 + 快换夹紧螺钉 2 + 排屑槽贯通 + 对刀块槽 | 钻套 6、销 3、**有**快换夹紧与对刀块槽 |
+开工三步：
 
-建议顺序：`1→3→5` 先把三个族谱各打通一件（族谱生成器可复用），再回来出 `2→4→6`。
+```sh
+git pull
+python3 tools/catalog_lint.py                       # 计划本身是否自洽（A 机改清单后你才需要跑）
+python3 tools/registry_sync.py --root ~/cad-fleet   # 把五台机器的全局去重底表同步进本机 registry
+```
 
+`registry_sync` 会在底表内部已经存在 `exact`/`scaled_same` 时**返回非 0 并拒绝静默通过** —— 那一刻别开工，先喊人。
 ## 3. 每件的动作序列（就是这个顺序，别自创）
 
 ```sh
 # 立项（注意 opts 是 id + title，不是 template）
-cad_freecad new  opts {"id":"b_snapenc120_r3","name":"Snap enclosure 120x80x40 (base)","desc":"卡扣式仪器外壳下壳：薄壁抽壳、周边卡扣 6、PCB 铜柱 4、散热筋 3、线缆出口 2","grade":"A","unit":"mm","type":"part","series":"snap_enclosure","author":"internal:dsh-cad-agent-B","source_url":"internal","license":"Author-granted commercial redistribution"}
+cad_freecad new  opts {"id":"<你的 project id>","name":"Snap enclosure 120x80x40 (base)","desc":"卡扣式仪器外壳下壳：薄壁抽壳、周边卡扣 6、PCB 铜柱 4、散热筋 3、线缆出口 2","grade":"A","unit":"mm","type":"part","series":"snap_enclosure","author":"internal:dsh-cad-agent-B","source_url":"internal","license":"Author-granted commercial redistribution"}
 # 1) 先写 design.md：功能、关键尺寸来由、接口、特征清单（草图×特征数到目标步数）
 # 2) 写族谱/参数 + build.py：params 工作表是唯一驱动源
-cad_freecad build     project b_snapenc120_r3
-cad_freecad validate  project b_snapenc120_r3     # 任一 FAIL 就回建模，别往下走
-cad_freecad probe     project b_snapenc120_r3     # 逐参数 +1% 扰动，必须全 PASS
-cad_freecad dedupe    project b_snapenc120_r3     # exact / scaled_same = 阻断，立刻停下报告
+cad_freecad build     project <你的 project id>
+cad_freecad validate  project <你的 project id>     # 任一 FAIL 就回建模，别往下走
+cad_freecad probe     project <你的 project id>     # 逐参数 +1% 扰动，必须全 PASS
+cad_freecad dedupe    project <你的 project id>     # exact / scaled_same = 阻断，立刻停下报告
                                                  # （默认只查不登记；确认是新物件后才 opts {"register":true}）
-cad_freecad export    project b_snapenc120_r3     # STEP AP214 + 8 张 ≥2000px + 一致性自检
-cad_freecad package   project b_snapenc120_r3 opts {"batch":"fleet_b_2026_11"}
-python3 cad/tools/pilotctl.py record b_snapenc120_r3 package ok   # 台账阶段记录（若你复用了 pilotctl）
+cad_freecad export    project <你的 project id>     # STEP AP214 + 8 张 ≥2000px + 一致性自检
+cad_freecad package   project <你的 project id> opts {"batch":"fleet_<x>_2026_11"}
+python3 cad/tools/pilotctl.py record <你的 project id> package ok   # 台账阶段记录（若你复用了 pilotctl）
 ```
 
 `package` 是逐项硬校验的：交付清单缺任一项就不出件（这是设计如此，不是 bug）。
@@ -85,15 +82,16 @@ python3 cad/tools/pilotctl.py record b_snapenc120_r3 package ok   # 台账阶段
 6. 每个草图至少 1 个尺寸/几何约束（2.4 硬项，validator 会查）。
 7. 渲染与 STEP 都由插件产出，**不要手改**：8 视图 / 白底 / 单色灰 / 无坐标轴 / 同比例是硬要求；STEP 必须由交付的原生文件直接导出（AP214）。
 
-## 6. 回传（`outbox/fleet_b_2026_11/`，一次交付一个 commit）
+## 6. 回传（`outbox/fleet_<x>_2026_11/`，一次交付一个 commit）
 
 ```
-outbox/fleet_b_2026_11/delivery/fleet_b_2026_11/     # 交付批次目录原样（含 info.csv + 每件文件夹）
-outbox/fleet_b_2026_11/ledger.jsonl                  # 你的台账导出：见下方 SQL
-outbox/fleet_b_2026_11/fingerprints.delta.json       # 本批次新增的指纹条目（B 机 project_id 那些）
-outbox/fleet_b_2026_11/waivers/fleet_b_internal.json # 你的内部来源豁免（scope 写 fleet_b_2026_11）
-outbox/fleet_b_2026_11/REPORT.md                     # 每条命令的 ok / 降级 / 探针通过率 / 遇到的插件报错
-outbox/fleet_b_2026_11/versions.json                 # 你实际用的 rules_sha、插件版本、FreeCAD 版本、memcheck 输出
+outbox/fleet_<x>_2026_11/delivery/fleet_<x>_2026_11/  # 交付批次目录原样（含 info.csv + 每件文件夹）
+outbox/fleet_<x>_2026_11/ledger.jsonl                  # 你的台账导出：见下方 SQL
+outbox/fleet_<x>_2026_11/fingerprints.delta.json       # 本批次新增指纹（自己前缀那些）
+outbox/fleet_<x>_2026_11/shared-fingerprints.json      # 同一个增量的底表形态，A 机收货后并入 shared/fingerprints/<X>.json
+outbox/fleet_<x>_2026_11/waivers/fleet_<x>_internal.json # 你的内部来源豁免（scope 写你自己的批次）
+outbox/fleet_<x>_2026_11/REPORT.md                     # 每条命令的 ok / 降级 / 探针通过率 / 遇到的插件报错
+outbox/fleet_<x>_2026_11/versions.json                 # 你实际用的 rules_sha、插件版本、FreeCAD 版本、memcheck 输出
 ```
 
 台账导出（只导本批次相关行，纯 stdlib）：
@@ -102,7 +100,7 @@ outbox/fleet_b_2026_11/versions.json                 # 你实际用的 rules_sha
 python3 - <<'PY'
 import json, os, sqlite3
 c = sqlite3.connect(os.path.expanduser("~/cad-fleet/ledger.sqlite3"))
-out = open("outbox/fleet_b_2026_11/ledger.jsonl", "w")
+out = open("outbox/fleet_<x>_2026_11/ledger.jsonl", "w")
 for table in ("model", "revision", "job", "evidence", "delivery", "fingerprint", "artifact"):
     cols = [r[1] for r in c.execute("PRAGMA table_info(%s)" % table)]
     for row in c.execute("SELECT * FROM %s" % table):
@@ -115,7 +113,7 @@ PY
 ## 6.5 推之前自己先过门禁（同一个脚本，省一轮往返）
 
 ```sh
-python3 handoff/tools/merge_check.py --mine ~/cad-fleet --theirs handoff/outbox/fleet_b_2026_11
+python3 tools/merge_check.py --root ~/cad-fleet --theirs outbox/fleet_<x>_2026_11 --baseline shared/fingerprints
 ```
 
 `ACCEPT`（exit 0）才 push。它挡：缺件、缺 FCStd/STEP、STEP 非 AP214/AP242、渲染不足 8 张或长边 <2000px、
@@ -133,4 +131,4 @@ python3 handoff/tools/merge_check.py --mine ~/cad-fleet --theirs handoff/outbox/
 - `dedupe` 报 `exact` / `scaled_same`（不管对谁）；
 - `probe` 有参数修不过（先回报，不要靠关掉该参数蒙过去）；
 - 需要 `memCapMb` 降到 1536 以下才能过（说明几何规模失控，A 机有现成处理办法）；
-- 你想改 `intake/fleet_b_2026_11.json`（清单是合同，改动必须 A 机签字）。
+- 你想改 `catalog/parts.json` 或 `intake/*.json`（清单与合同是 A 机签发物，改动必须 A 机签字并重跑 lint）。

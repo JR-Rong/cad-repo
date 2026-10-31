@@ -1,0 +1,123 @@
+{
+ "batch": "fleet_e_2026_11",
+ "machine": "E",
+ "buyer": "internal",
+ "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
+ "issued_by": "machine-A dsh-cad-agent",
+ "created": "2026-10-31",
+ "parts": [
+  "e_gpump_25",
+  "e_gpump_63",
+  "e_solbody_nc",
+  "e_solbody_22",
+  "e_filter_cup",
+  "e_filter_hv",
+  "e_manifold_5",
+  "e_manifold_8",
+  "e_mpspd_single",
+  "e_mpspd_triple"
+ ],
+ "detail": [
+  {
+   "project_id": "e_gpump_25",
+   "title": "外啮合齿轮泵壳体 25",
+   "family": "gear_pump_housing",
+   "category": "机械零件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "主/侧齿轮腔+卸荷槽 2+进出油口+O 形圈槽+轴封腔+紧固螺孔 8"
+  },
+  {
+   "project_id": "e_gpump_63",
+   "title": "大排量齿轮泵壳体 63",
+   "family": "gear_pump_housing",
+   "category": "机械零件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "溢流阀孔道+端盖止口+测压口 2+法兰油口；卸荷槽 4"
+  },
+  {
+   "project_id": "e_solbody_nc",
+   "title": "常闭先导式电磁阀体",
+   "family": "solenoid_valve_body",
+   "category": "机械零件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "膜片腔+弹簧座+进/出/泄三口+线圈定位环+指示灯窗"
+  },
+  {
+   "project_id": "e_solbody_22",
+   "title": "2/2 通电磁阀体（手动应急）",
+   "family": "solenoid_valve_body",
+   "category": "机械零件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "手动按钮腔+滤网腔+DIN 插座座+先导孔阵 6；无指示窗"
+  },
+  {
+   "project_id": "e_filter_cup",
+   "title": "杯式过滤器壳体",
+   "family": "filter_housing",
+   "category": "机械零件",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "滤芯腔+排污阀口+压差表座+卡箍槽+支架耳 2+密封唇"
+  },
+  {
+   "project_id": "e_filter_hv",
+   "title": "高压过滤器壳体",
+   "family": "filter_housing",
+   "category": "机械零件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "法兰口+滤芯端盖+安全销孔+排气螺钉座+铭牌凹台；卡箍改螺栓 6"
+  },
+  {
+   "project_id": "e_manifold_5",
+   "title": "5 位气动歧管块",
+   "family": "pneumatic_manifold",
+   "category": "机械零件",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "串接槽式密封+排气汇流道+进气道+工作口 5+标识槽 5"
+  },
+  {
+   "project_id": "e_manifold_8",
+   "title": "8 位高压歧管块",
+   "family": "pneumatic_manifold",
+   "category": "机械零件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "独立排气孔 8+高压进气道+导轨卡槽+堵板位 2；工作口 8"
+  },
+  {
+   "project_id": "e_mpspd_single",
+   "title": "单缸隔膜计量泵液力端",
+   "family": "metering_pump_head",
+   "category": "机械零件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "隔膜腔+进/出口单向阀座+补液阀+排气孔+卡箍法兰"
+  },
+  {
+   "project_id": "e_mpspd_triple",
+   "title": "三缸计量泵液力端",
+   "family": "metering_pump_head",
+   "category": "机械零件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "三腔+脉动阻尼器接口+安全膜片腔+冲洗口；阀座 6"
+  }
+ ],
+ "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
+}

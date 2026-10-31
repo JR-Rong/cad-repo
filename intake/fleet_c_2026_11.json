@@ -1,0 +1,123 @@
+{
+ "batch": "fleet_c_2026_11",
+ "machine": "C",
+ "buyer": "internal",
+ "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
+ "issued_by": "machine-A dsh-cad-agent",
+ "created": "2026-10-31",
+ "parts": [
+  "c_turnfx_d3",
+  "c_turnfx_d6",
+  "c_weldfp_a",
+  "c_weldfp_b",
+  "c_pressf_guide4",
+  "c_pressf_collar",
+  "c_airgauge_vblock",
+  "c_airgauge_multi",
+  "c_flip_180",
+  "c_flip_360"
+ ],
+ "detail": [
+  {
+   "project_id": "c_turnfx_d3",
+   "title": "三爪车削夹具座",
+   "family": "turn_fixture_base",
+   "category": "工装夹具",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "短爪定位 3+中心螺钉+平衡块槽 4+液压通道 2+排屑槽"
+  },
+  {
+   "project_id": "c_turnfx_d6",
+   "title": "六爪车削夹具座",
+   "family": "turn_fixture_base",
+   "category": "工装夹具",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "爪位 6+气密腔+快换接口+中心通孔；无液压通道"
+  },
+  {
+   "project_id": "c_weldfp_a",
+   "title": "焊接工装板（销阵式）",
+   "family": "weld_facing_plate",
+   "category": "工装夹具",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "定位销 8+压紧器螺孔阵+让位槽+基准刻线槽+吊装孔 2"
+  },
+  {
+   "project_id": "c_weldfp_b",
+   "title": "焊接工装板（V 块式）",
+   "family": "weld_facing_plate",
+   "category": "工装夹具",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "V 块 2+支撑钉 6+异形轮廓让位+气管孔 4；销位 5"
+  },
+  {
+   "project_id": "c_pressf_guide4",
+   "title": "四导柱压装模",
+   "family": "press_fixture",
+   "category": "工装夹具",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "上/下模+导套 4+顶出孔+限位垫+起吊螺钉孔 2"
+  },
+  {
+   "project_id": "c_pressf_collar",
+   "title": "轴肩压套工装",
+   "family": "press_fixture",
+   "category": "工装夹具",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "V 形定位块+可调行程挡块+弹簧顶销 2+深度量表座；无导套"
+  },
+  {
+   "project_id": "c_airgauge_vblock",
+   "title": "气动量仪检具（V 块）",
+   "family": "air_gauge_check",
+   "category": "工装夹具",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "V 块+测头座 2+标准件收纳腔+防护罩铰座+排屑孔"
+  },
+  {
+   "project_id": "c_airgauge_multi",
+   "title": "多孔位多测头检具",
+   "family": "air_gauge_check",
+   "category": "工装夹具",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "测头位 6+快换定位销 4+分流气道的孔阵+盖板卡槽"
+  },
+  {
+   "project_id": "c_flip_180",
+   "title": "翻转工装 180°",
+   "family": "flip_fixture",
+   "category": "工装夹具",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "转轴+180°定位齿 12+配重槽 2+手柄+锁销"
+  },
+  {
+   "project_id": "c_flip_360",
+   "title": "翻转工装 360° 自锁",
+   "family": "flip_fixture",
+   "category": "工装夹具",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "蜗轮自锁+刻度圈+锁紧手柄+过线滑环腔；无定位齿"
+  }
+ ],
+ "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
+}

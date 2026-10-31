@@ -99,16 +99,38 @@ def step_flavour(path):
     return "unknown-profile"
 
 
+def load_baseline(path):
+    """Baseline may be a directory of per-machine files (shared/fingerprints/<X>.json)
+    or one json. Same-id entries that disagree are a hard stop, not a merge."""
+    import glob
+    out, src = {}, {}
+    files = sorted(glob.glob(os.path.join(path, "*.json"))) if os.path.isdir(path) else [path]
+    for fp in files:
+        doc = json.load(open(fp, encoding="utf-8"))
+        tag = os.path.splitext(os.path.basename(fp))[0]
+        for pid, v in (doc.get("entries", doc)).items():
+            if not isinstance(v, dict) or "volume" not in v:
+                continue
+            if pid in out and out[pid].get("structure_sha") != v.get("structure_sha"):
+                raise SystemExit("底表冲突: %s 在 %s 与 %s 里几何不一致，先人工裁定"
+                                 % (pid, src[pid], tag))
+            out[pid] = v
+            src[pid] = tag
+    return out
+
+
 def rows_of(rows, table):
     return [r for r in rows if r.get("_table") == table]
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mine", default="cad", help="A machine cad root")
-    ap.add_argument("--theirs", required=True, help="outbox/<batch> returned by B")
+    ap.add_argument("--mine", "--root", dest="mine", default="cad",
+                    help="你自己的 cadRoot（用于本机台账交叉检查）")
+    ap.add_argument("--theirs", required=True, help="outbox/<batch> 回传目录")
     ap.add_argument("--intake", default=None)
-    ap.add_argument("--baseline", default=os.path.join(HANDOFF, "shared", "fingerprints.json"))
+    ap.add_argument("--baseline", default=os.path.join(HANDOFF, "shared", "fingerprints"),
+                    help="去重底表：目录（每台机器一个 <X>.json）或单个 json")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--plugin-python", default=None,
                     help="含 cadkit/ 的 python 目录（默认自动找 profile 的 node_modules）")
@@ -231,7 +253,7 @@ def main():
             notes.append("%s 没有 design.md（加分项：设计说明）" % pid)
 
     # ---- 6. cross-machine dedupe: THE reason this tool exists -------------
-    baseline = json.load(open(a.baseline)).get("entries", {})
+    baseline = load_baseline(a.baseline)
     delta_path = os.path.join(theirs, "fingerprints.delta.json")
     delta_raw = json.load(open(delta_path))
     delta = delta_raw.get("entries", delta_raw) if isinstance(delta_raw, dict) else {}

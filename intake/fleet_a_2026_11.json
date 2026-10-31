@@ -1,0 +1,123 @@
+{
+ "batch": "fleet_a_2026_11",
+ "machine": "A",
+ "buyer": "internal",
+ "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
+ "issued_by": "machine-A dsh-cad-agent",
+ "created": "2026-10-31",
+ "parts": [
+  "a_endcap_enc",
+  "a_endcap_fan",
+  "a_srvcover_52",
+  "a_srvcover_80",
+  "a_drvenc_din",
+  "a_drvenc_wall",
+  "a_invpanel_louvre",
+  "a_invpanel_filter",
+  "a_motmount_ff",
+  "a_motmount_b5"
+ ],
+ "detail": [
+  {
+   "project_id": "a_endcap_enc",
+   "title": "IEC 端盖·编码器法兰端",
+   "family": "iec_endcap_ext",
+   "category": "机电产品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "中心通孔+编码器止口+编码器螺柱圆阵 6+穿线孔 2；无风扇座（与 sibling 反向拓扑）"
+  },
+  {
+   "project_id": "a_endcap_fan",
+   "title": "IEC 端盖·风罩端",
+   "family": "iec_endcap_ext",
+   "category": "机电产品",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "径向通风筋 8+风扇凸缘+轴穿透槽+风罩卡爪 4；无编码器孔"
+  },
+  {
+   "project_id": "a_srvcover_52",
+   "title": "52 框伺服电机后盖",
+   "family": "servo_rear_cover",
+   "category": "机电产品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "编码器舱+航空插头座 1+制动释放孔+密封沟槽+周圈螺柱 4"
+  },
+  {
+   "project_id": "a_srvcover_80",
+   "title": "80 框伺服电机后盖（带传感器）",
+   "family": "servo_rear_cover",
+   "category": "机电产品",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "插头座 2+温度传感器孔 2+周圈筋 6+接地螺柱；螺柱 6"
+  },
+  {
+   "project_id": "a_drvenc_din",
+   "title": "小型驱动器外壳·DIN 导轨卡装",
+   "family": "drive_enclosure",
+   "category": "机电产品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "DIN35 卡扣+散热齿 12+端子开窗+LED 导光柱孔 4+接地螺柱"
+  },
+  {
+   "project_id": "a_drvenc_wall",
+   "title": "驱动器外壳·壁挂式",
+   "family": "drive_enclosure",
+   "category": "机电产品",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "安装耳 4+散热齿 20+内盖板卡槽+电缆密封孔 3+铭牌凹台；无导光柱"
+  },
+  {
+   "project_id": "a_invpanel_louvre",
+   "title": "变频器通风面板",
+   "family": "inverter_panel",
+   "category": "机电产品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "百叶 18+过滤棉导槽+风机电窗口+铭牌凹台+周圈螺栓 12"
+  },
+  {
+   "project_id": "a_invpanel_filter",
+   "title": "变频器快换滤网框",
+   "family": "inverter_panel",
+   "category": "机电产品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "快换卡扣 4+滤网筋阵 24+排水槽+密封唇；无百叶"
+  },
+  {
+   "project_id": "a_motmount_ff",
+   "title": "电机立装 FF 机座",
+   "family": "motor_mount",
+   "category": "机电产品",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "法兰止口+凸台筋 6+减重槽 4+穿线孔+地脚长孔 4"
+  },
+  {
+   "project_id": "a_motmount_b5",
+   "title": "电机 B5 法兰盘",
+   "family": "motor_mount",
+   "category": "机电产品",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "大止口+螺柱圆阵 8+定位销 2+中心通孔+背面筋 8；无地脚长孔"
+  }
+ ],
+ "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
+}

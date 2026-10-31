@@ -1,0 +1,123 @@
+{
+ "batch": "fleet_d_2026_11",
+ "machine": "D",
+ "buyer": "internal",
+ "spec": "CAD 数据采购需求说明 v1.0 (procurement_requirements.pdf)",
+ "issued_by": "machine-A dsh-cad-agent",
+ "created": "2026-10-31",
+ "parts": [
+  "d_acorner_40",
+  "d_acorner_80",
+  "d_mbracket_l",
+  "d_mbracket_ff",
+  "d_foot_heavy",
+  "d_foot_damp",
+  "d_cant_pipe",
+  "d_cant_tslot",
+  "d_doorframe_400",
+  "d_doorpanel_lock"
+ ],
+ "detail": [
+  {
+   "project_id": "d_acorner_40",
+   "title": "4040 型材角件",
+   "family": "alu_corner_bracket",
+   "category": "结构件",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "槽匹配齿 4+沉孔 8+减重切角 2+加强筋 2"
+  },
+  {
+   "project_id": "d_acorner_80",
+   "title": "4080 T 槽角板",
+   "family": "alu_corner_bracket",
+   "category": "结构件",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "T 槽面 2+铰链孔阵 6+长孔 4+筋 6；无沉孔"
+  },
+  {
+   "project_id": "d_mbracket_l",
+   "title": "L 型电机支架",
+   "family": "motor_bracket",
+   "category": "结构件",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "筋 4+地脚长孔 2+减重窗 3+出线孔+定位销孔 2"
+  },
+  {
+   "project_id": "d_mbracket_ff",
+   "title": "圆法兰立装支架",
+   "family": "motor_bracket",
+   "category": "结构件",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "止口+周圈 8+中心落料孔+防转平面+背面筋 6；无减重窗"
+  },
+  {
+   "project_id": "d_foot_heavy",
+   "title": "设备重型底脚",
+   "family": "machine_foot",
+   "category": "结构件",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "地脚板+调节螺钉座+叉车口+减振柱窝 4+水平泡座"
+  },
+  {
+   "project_id": "d_foot_damp",
+   "title": "隔振脚",
+   "family": "machine_foot",
+   "category": "结构件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "弹簧腔+阻尼孔阵 9+限位柱 3+安装板+防尘罩槽；无叉车口"
+  },
+  {
+   "project_id": "d_cant_pipe",
+   "title": "管状悬臂支架",
+   "family": "cantilever_arm",
+   "category": "结构件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "管体穿线孔 3+端部法兰+三角加强筋 6+端盖卡口"
+  },
+  {
+   "project_id": "d_cant_tslot",
+   "title": "T 槽悬臂支架",
+   "family": "cantilever_arm",
+   "category": "结构件",
+   "grade": "S",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "四面 T 槽+端连接板+气路孔 2+走线盖板槽+刚性筋 8"
+  },
+  {
+   "project_id": "d_doorframe_400",
+   "title": "检修门框 400",
+   "family": "access_door_frame",
+   "category": "结构件",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "铰链座 3+密封槽+限位缓冲孔+排水孔 2+折边加强"
+  },
+  {
+   "project_id": "d_doorpanel_lock",
+   "title": "带锁检修面板",
+   "family": "access_door_frame",
+   "category": "结构件",
+   "grade": "A",
+   "unit": "mm",
+   "type": "part",
+   "topo_signature": "转舌锁孔+观察窗框+加强筋 4+敲落孔 3；无铰链座"
+  }
+ ],
+ "notes": "两两拓扑必须不同（2.5）；关掉的特征组其参数不得留在 params 表（探针逐格验证）。"
+}
