@@ -1,4 +1,31 @@
 {
+ "04a8552e19": {
+  "count": 1,
+  "detail": "试点 10 件：build 成功者的 validate 全部 FAIL(real_object WARN)。引擎语义 ok_all=不计 FAIL，packager gate 同口径（b_in01_001 package 实证通过）；verdict 白名单只收 PASS/SKIP/N-A。建议 verdict 允许 status=WARN 且 detail 属人工终审白名单，或引擎输出 human_review_pending 标记",
+  "evidence": "",
+  "first_seen": "2026-10-31T08:01:23-0700",
+  "force": "必须做进门禁",
+  "hash": "04a8552e19",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "2fe9817fa0",
+  "origins": [
+   "2fe9817fa0"
+  ],
+  "severity": "P0",
+  "source": "audit",
+  "sources": [
+   "audit"
+  ],
+  "status": "open",
+  "title": "fleet_runner verdict 把 real_object WARN（引擎无条件人工终审项）当阶段 FAIL：validate 在 fleet 模式永远过不去，任何机器整波卡死",
+  "ts": "2026-10-31T08:01:23-0700",
+  "verdict": null,
+  "where": "tools/fleet_runner.py:verdict + cadkit/validate.py:real_object"
+ },
  "07a3a69bd7": {
   "_fresh": true,
   "_replay": 0,
@@ -27,6 +54,33 @@
   "ts": "2026-10-31T07:15:21",
   "verdict": null,
   "where": "b_in01_004"
+ },
+ "0daef52030": {
+  "count": 1,
+  "detail": "盒体 pad 起点=p_pt 贴面板背面(面接触),下游任意重算即爆 open shell/碎裂。基型叠加特征先验证与基体体积相交。",
+  "evidence": "",
+  "first_seen": "2026-10-31T12:35:20-0700",
+  "force": "必须做进门禁",
+  "hash": "0daef52030",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "0cc26ee22f",
+  "origins": [
+   "0cc26ee22f"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "加法特征贴面 fuse=慢性 open shell,须三轴实体重叠>=0.6",
+  "ts": "2026-10-31T12:35:20-0700",
+  "verdict": null,
+  "where": "panelbox_core.py:pad_case"
  },
  "0ec98e6087": {
   "count": 1,
@@ -111,6 +165,33 @@
   "verdict": "REJECTED",
   "where": "dsh-plugin-cad-freecad/python/cadkit/ledger.py"
  },
+ "1834fa7fdc": {
+  "count": 1,
+  "detail": "同题已真修(p_lug 近切弧带),本条关闭转 fixed 记录:根因不在密封槽。",
+  "evidence": "",
+  "first_seen": "2026-10-31T12:44:20-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "1834fa7fdc",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "cc9b81e1fa",
+  "origins": [
+   "cc9b81e1fa"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "wontfix",
+  "title": "sz200 周圈密封槽 rightx BOPAlgo_InvalidCurveOnSurface",
+  "ts": "2026-10-31T12:44:20-0700",
+  "verdict": null,
+  "where": "b_in03_400"
+ },
  "1c96665346": {
   "count": 1,
   "detail": "Original regression plus executed round-10 extensions; linked residuals are counted only under new_findings.",
@@ -137,6 +218,33 @@
   "ts": "2026-10-31T09:01:23.839357+00:00",
   "verdict": "REJECTED",
   "where": "dsh-plugin-cad-freecad/python/cadkit/probe.py"
+ },
+ "229b14fbee": {
+  "count": 1,
+  "detail": "002 package 后 dedupe 不再看未交付兄弟件与共享基线；register 写回 json.dump(reg) 全量覆盖旧缓存，b_in01_001/003-005 指纹被冲掉（B 已由 append-only 库恢复）。波内自撞（如两件 sig 相同几何）在此模式下漏检。建议：ledger_mode 并入 JSON 缓存做候选并集；register 改为合并写。B 侧规避：驱动端 append-only 指纹库 + 全量并集回写 + 波内 (solids,faces,edges)+volume_scale 自检，exact/scaled_same 即停",
+  "evidence": "",
+  "first_seen": "2026-10-31T08:40:39-0700",
+  "force": "必须做进门禁",
+  "hash": "229b14fbee",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "cf8b4fa39d",
+  "origins": [
+   "cf8b4fa39d"
+  ],
+  "severity": "P1",
+  "source": "audit",
+  "sources": [
+   "audit"
+  ],
+  "status": "open",
+  "title": "ledger_mode 下 dedupe 候选只含已交付件且 register 把 registry JSON 冲刷成子集",
+  "ts": "2026-10-31T08:40:39-0700",
+  "verdict": null,
+  "where": "cadkit/fingerprint.py:check_and_register"
  },
  "4217d932cc": {
   "_fresh": true,
@@ -194,6 +302,60 @@
   "verdict": null,
   "where": "tools/lesson_ingest.py:render"
  },
+ "4643612bb0": {
+  "count": 1,
+  "detail": "4-block 环槽@大尺寸右块 pocket BOP 报错;共面/薄片/弧角/干涉已全排除,小尺寸全绿。候选:fuzzy 布尔、槽宽 3→2、右块两段切。当前 15 件终验 14 绿 1 此因。",
+  "evidence": "",
+  "first_seen": "2026-10-31T12:35:20-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "4643612bb0",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "87f9fd61f9",
+  "origins": [
+   "87f9fd61f9"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "sz200 周圈密封槽 rightx 块 BOPAlgo_InvalidCurveOnSurface",
+  "ts": "2026-10-31T12:35:20-0700",
+  "verdict": null,
+  "where": "b_in03_400"
+ },
+ "4df9a020b5": {
+  "count": 1,
+  "detail": "特征 z 起点与面板或内腔底面精确共面(offset=T 或 0.0)时 MultiFuse 可能直接 recompute failed 或产生负体积伪形；同样 overlap=0 的贴面接触产生分体。原则：任何 additive 特征必须跨承载面双侧embedding(≥0.6)，禁止 z 对齐起止。",
+  "evidence": "enclosure spine0 coplanar-fail; panelbox wing z0..3 面板0..3 hp=-112负体积",
+  "first_seen": "2026-10-31T10:39:25-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "4df9a020b5",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "0eef195c87",
+  "origins": [
+   "0eef195c87"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "pad与承载面共面触发OCC recompute崩/伪形",
+  "ts": "2026-10-31T10:39:25-0700",
+  "verdict": null,
+  "where": "pad_fuse"
+ },
  "52346020dd": {
   "count": 1,
   "detail": "Original regression plus executed round-10 extensions; linked residuals are counted only under new_findings.",
@@ -221,6 +383,33 @@
   "verdict": "REJECTED",
   "where": "dsh-plugin-cad-freecad/python/cadkit/ledger.py"
  },
+ "56d0eee84f": {
+  "count": 1,
+  "detail": "sz200 挂耳壁 boss 外缘距内壁 0.2mm 近切: isValid/自研 QA 全盲,只有 check(True) 可见;BOP 报错还挂在链尾其他特征上(误导归因)。修=缩 R 后撤 >=2mm 净空。规则:旋转体/大平面加法特征要么实体相交>=0.6,要么净空>=2.0,禁 0.2~1.0 危险带。",
+  "evidence": "",
+  "first_seen": "2026-10-31T12:44:20-0700",
+  "force": "必须做进门禁",
+  "hash": "56d0eee84f",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "af9c1d848a",
+  "origins": [
+   "af9c1d848a"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "近切弧带(0.2~0.4间隙)=BOPAlgo_InvalidCurveOnSurface,要彻底相交或彻底离开>=2mm",
+  "ts": "2026-10-31T12:44:20-0700",
+  "verdict": null,
+  "where": "panelbox_core.py:p_lug"
+ },
  "61cffbcb8e": {
   "count": 1,
   "detail": "Original regression plus executed round-10 extensions; linked residuals are counted only under new_findings.",
@@ -247,6 +436,33 @@
   "ts": "2026-10-31T09:01:23.839357+00:00",
   "verdict": "REJECTED",
   "where": "dsh-plugin-cad-freecad/python/cadkit/probe.py"
+ },
+ "66a4f6bb29": {
+  "count": 1,
+  "detail": "probe ±1% 即重建失败且 restore 不重合；圆角改进草图轮廓（rounded_rect 4线4弧全约束）",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:55:56-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "66a4f6bb29",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "847a2ce05a",
+  "origins": [
+   "847a2ce05a"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "corner dressup 的边索引在参数扰动后失效（整链 Invalid）",
+  "ts": "2026-10-31T07:55:56-0700",
+  "verdict": null,
+  "where": "family/enclosure_core.py fil_corners"
  },
  "66d7392513": {
   "_fresh": true,
@@ -277,6 +493,60 @@
   "verdict": null,
   "where": "b_in01_001, b_in01_002"
  },
+ "6b7130ea0b": {
+  "count": 1,
+  "detail": "QA 必须四查:solids==1+isValid+Volume>0+体积>=0.02*sz^3。signed volume 和量级两道闸都拦过假绿。",
+  "evidence": "",
+  "first_seen": "2026-10-31T12:35:20-0700",
+  "force": "必须做进门禁",
+  "hash": "6b7130ea0b",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "85dd94b5bb",
+  "origins": [
+   "85dd94b5bb"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "fuse 后 solids==1 仍可能是反演塌缩幽灵(-112)",
+  "ts": "2026-10-31T12:35:20-0700",
+  "verdict": null,
+  "where": "panelbox_core.py:compose"
+ },
+ "717e214a4b": {
+  "count": 1,
+  "detail": "fleet 各机 cadRoot（族核 .py、项目树、波内指纹库）全部不在 git 里：①本机 A 20:3x 盘点据此误判「B cadRoot 全失」并立了个 P0，实为 B 在另一物理机正常生产（164/2000）——现场不可见即误判源；②真实丢件风险仍在：任何一台机器盘坏，定稿族核按 PROGRESS 口径重写代价极高（B 三个核心迭代了 14+ 轮）。修复纪律：族核 .py 每次改动随 commit 镜像入仓（family_src/<machine>/），cadRoot 视为可弃缓存；跨机断言现场状态前先读 origin PROGRESS，不看本机文件系统。",
+  "evidence": "rebase 撞车实证：origin a0114e5 B 20:55 行（driver 续产）vs 本机 ~/cad-fleet 不存在",
+  "first_seen": "2026-10-31T20:53:02-0700",
+  "force": "必须做进门禁",
+  "hash": "717e214a4b",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "A",
+  "machines": [
+   "A"
+  ],
+  "origin": "7a74e2c811",
+  "origins": [
+   "7a74e2c811"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "族核/项目树只活在各自 cadRoot，仓内零镜像：单机误判与真丢件都只在一念之间",
+  "ts": "2026-10-31T20:53:02-0700",
+  "verdict": null,
+  "where": "tools/fleet_runner.py; status/PROGRESS.md"
+ },
  "781ebe0c50": {
   "count": 1,
   "detail": "Bootstrap records A1@0 FAIL. A later window re-reports A1@0 PASS through STEP or DONE. Global index agreement accepts the same pair, but results.update(res_part) overwrites the earlier FAIL: both reports return ok=true, failed=0, protocol_violations=0, and 5/5 coverage. Local same-window FAIL/PASS permutations with CRASH-ish note strings remain correct. This is a false editability/coverage contrac",
@@ -304,6 +574,33 @@
   "verdict": "REJECTED",
   "where": "dsh-plugin-cad-freecad/python/cadkit/probe.py:713"
  },
+ "7956f623b2": {
+  "count": 1,
+  "detail": "Invalid alias；统一 p_ 前缀",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:55:56-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "7956f623b2",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "300d57df9b",
+  "origins": [
+   "300d57df9b"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "单字母电子表格别名（W/L/H/T）被拒绝",
+  "ts": "2026-10-31T07:55:56-0700",
+  "verdict": null,
+  "where": "family/enclosure_core.py"
+ },
  "7b943c6dbf": {
   "count": 1,
   "detail": "冒烟测试 2 件只包装 1 件：生产线程 join 后立即 stop.set()",
@@ -330,6 +627,60 @@
   "ts": "2026-10-31T06:59:23-0700",
   "verdict": null,
   "where": "tools/fleet_runner.py:main"
+ },
+ "7c62f341ee": {
+  "count": 1,
+  "detail": "@T=1.8: flange 边缘恰切 bore 底共面;@T=1.3-1.8: bore 底缘咬地板浅交 0.2;bore r5 与 cab3 第3孔 0.08 浅交(@0.6H)。已回滚到 096(sz200)/029(in05@65) 双验证参数(0.6H,+7.0,depth T+0.6,flange offset -0.6 pad1.8)。b_in05_009(sz40)回滚后回到初始病,波尾专修。定位手法:validate 只查最终形,特征名=链尾甩锅;真凶=stored-shape per-face/edge check(True) 首炸者(本轮 avflange)。",
+  "evidence": "",
+  "first_seen": "2026-10-31T19:29:28-0700",
+  "force": "必须做进门禁",
+  "hash": "7c62f341ee",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "54517a7134",
+  "origins": [
+   "54517a7134"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "航空插座 flange/bore 在薄壁小尺寸多重共面雷",
+  "ts": "2026-10-31T19:29:28-0700",
+  "verdict": null,
+  "where": "enclosure_core.py:avseat"
+ },
+ "7d896a6443": {
+  "count": 1,
+  "detail": "±1% 只动 0.34mm³ 触发 no geometric change；进表的每个单元格必须有可观测几何效应，否则删掉",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:55:56-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "7d896a6443",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "0b4bf94cfb",
+  "origins": [
+   "0b4bf94cfb"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "驱动表的低灵敏度参数会被探针判 inert",
+  "ts": "2026-10-31T07:55:56-0700",
+  "verdict": null,
+  "where": "family/enclosure_core.py rail_w"
  },
  "802713fe3e": {
   "_fresh": true,
@@ -359,6 +710,60 @@
   "ts": "2026-10-31T07:15:21",
   "verdict": null,
   "where": "b_in01_003"
+ },
+ "87154a3f0b": {
+  "count": 1,
+  "detail": "Property 'params' not found；表格名即命名空间，表达式用裸别名 p_L 等",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:55:56-0700",
+  "force": "必须做进门禁",
+  "hash": "87154a3f0b",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "41e15ec938",
+  "origins": [
+   "41e15ec938"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "电子表格别名引用写 params.X 在 FreeCAD 1.1 必炸",
+  "ts": "2026-10-31T07:55:56-0700",
+  "verdict": null,
+  "where": "CADKit expression绑定"
+ },
+ "894891acff": {
+  "count": 1,
+  "detail": "sealgroove_* 报 invalid curve 真凶在远处 p_lug boss 弧面:对最终 shape 逐面 check(True)+bbox 二分 2 分钟定位,比按 feature 名瞎修省 2 小时。",
+  "evidence": "",
+  "first_seen": "2026-10-31T12:44:20-0700",
+  "force": "必须做进门禁",
+  "hash": "894891acff",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "f02b1aeca5",
+  "origins": [
+   "f02b1aeca5"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "BOP 报错归因要按 face bbox 定位,不能信 feature 名",
+  "ts": "2026-10-31T12:44:20-0700",
+  "verdict": null,
+  "where": "b_in03_400"
  },
  "8b8b3d3725": {
   "count": 1,
@@ -413,6 +818,60 @@
   "ts": "2026-10-31T07:15:21-0700",
   "verdict": null,
   "where": "tools/lesson_ingest.py:main"
+ },
+ "8cb63b4e5a": {
+  "count": 1,
+  "detail": "009(sz40 三孔+航空 S):finx 改位置/z/pitch/invert 全无效——BOP check 在链尾特征上报,Face SelfIntersect 来自 avflange 与 avbore 底的共面欠切(@T1.8 时 flange 边缘恰切 bore 底+key 圈圆心在 bore r5 弧上)。教训:换特征位置无效 2 次以上立即怀疑上游,用 solids 数+岛 bbox 定位。",
+  "evidence": "",
+  "first_seen": "2026-10-31T13:55:58-0700",
+  "force": "必须做进门禁",
+  "hash": "8cb63b4e5a",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "60670b2f5f",
+  "origins": [
+   "60670b2f5f"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "『最后一个特征死』真凶在上游:finx 连炸 8 版全是 avbore/flange 欠切替罪",
+  "ts": "2026-10-31T13:55:58-0700",
+  "verdict": null,
+  "where": "enclosure_core.py:finx"
+ },
+ "91a07302bc": {
+  "count": 1,
+  "detail": "传中心值会整体偏移 w/2,h/2；所有定位表达式必须写成 中心-宽/2 的角点式，否则特征错位、共面切割成堆",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:55:56-0700",
+  "force": "必须做进门禁",
+  "hash": "91a07302bc",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "482290244b",
+  "origins": [
+   "482290244b"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "rect/circle 的 x_expr/y_expr 绑定的是第一角点不是中心",
+  "ts": "2026-10-31T07:55:56-0700",
+  "verdict": null,
+  "where": "family/enclosure_core.py（CADKit SketchBuilder.rect）"
  },
  "91e447e114": {
   "count": 1,
@@ -470,6 +929,33 @@
   "verdict": null,
   "where": "b_in01_005"
  },
+ "b0f780d528": {
+  "count": 1,
+  "detail": "through 沿挤出反方向穿透全部材料；腔体必须 depth=p_H-p_t 留底板",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:55:56-0700",
+  "force": "必须做进门禁",
+  "hash": "b0f780d528",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "4f8dab2f5d",
+  "origins": [
+   "4f8dab2f5d"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "内腔 pocket 用 through=True 会连底板一起切穿",
+  "ts": "2026-10-31T07:55:56-0700",
+  "verdict": null,
+  "where": "family/enclosure_core.py pocket_cavity"
+ },
  "bed04100f6": {
   "count": 1,
   "detail": "A valid independent publisher B completes in the legal post-mark/pre-cleanup-lock window. One OSError from sha256_file while A holds the cleanup lock is caught as kept_newer=False. A then removes B entirely in first-publication mode (19/19 artifact mismatches), or restores old bytes over B (6/19 mismatches). B remains the sole delivered+published row. Both cases release the flock and the next publ",
@@ -524,6 +1010,87 @@
   "verdict": "REJECTED",
   "where": "dsh-plugin-cad-freecad/python/cadkit/probe.py"
  },
+ "c85efa4cac": {
+  "count": 1,
+  "detail": "修 009 预演件期间连续改共享 core(avflange 参数 3 连改+trough 填充器保留),driver 并行实建 in01_121-164,航空组合 12 连炸 FAILSTOP 停工。规则:①driver 运行期禁改 family/,需要改先停 driver;②改共享核后必须先跑受影响 vocab 回归再重启产线;③填充器只在无干扰区(finx 前壁窗 0.052-0.148L 已验证),trough 内腔 XY 板与 螺柱/隔墙/航空区干扰,已删。",
+  "evidence": "",
+  "first_seen": "2026-10-31T19:29:27-0700",
+  "force": "必须做进门禁",
+  "hash": "c85efa4cac",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "a908d7b3ef",
+  "origins": [
+   "a908d7b3ef"
+  ],
+  "severity": "P0",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "driver 实建期间改 family 核心=向产线投毒",
+  "ts": "2026-10-31T19:29:27-0700",
+  "verdict": null,
+  "where": "enclosure_core.py:trough+avseat"
+ },
+ "cabc4fde83": {
+  "count": 1,
+  "detail": "面板被大孔/栅格切穿后，原贴面板的背面筋/垫台会把被切出的面板块带成孤岛(体积=筋bbox并集)。凡开窗 token 生效时，背面增筋只允许落在窗缘外侧板框带，兜底用不依赖面板完整性的壁贴块/角柱+浅槽阵。",
+  "evidence": "b_in03_002 单大孔+卡扣=4 solids, 孤岛1309mm³=29×20 筋区并集",
+  "first_seen": "2026-10-31T10:39:25-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "cabc4fde83",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "1801d86228",
+  "origins": [
+   "1801d86228"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "开窗成员的面贴附特征须避开开窗区",
+  "ts": "2026-10-31T10:39:25-0700",
+  "verdict": null,
+  "where": "s_pad/面板背面特征"
+ },
+ "cdfc09d317": {
+  "count": 1,
+  "detail": "029 排障 8 轮换填充几何全无效=归因在链尾。/tmp/chain.py 模板:遍历 doc.Objects 逐个 Shape.check(True),第一个失败者=真凶,2 分钟定案。方法已两次奏效(p_lug/400、light/029)。",
+  "evidence": "",
+  "first_seen": "2026-10-31T13:16:24-0700",
+  "force": "必须做进门禁",
+  "hash": "cdfc09d317",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "a8fc5fa65c",
+  "origins": [
+   "a8fc5fa65c"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "深链 BOP 报错『最后一个特征死』是假象,上游污染链从 first_bad 才开始",
+  "ts": "2026-10-31T13:16:24-0700",
+  "verdict": null,
+  "where": "validate 排障"
+ },
  "d0f632a241": {
   "_fresh": true,
   "_replay": 0,
@@ -552,6 +1119,114 @@
   "ts": "2026-10-31T07:15:21",
   "verdict": null,
   "where": "b_in01_003"
+ },
+ "d2b7c0457e": {
+  "count": 1,
+  "detail": "模块在单一尺寸(常是最小档)A/B通过≠安全：绝对坐标、贴面/0.4薄咬合、共面 pad、分数+长度混合 expr 都随 size 档位漂移或翻车。波交付前必须按合约全尺寸档×代表组合抽测(每族≥8件跨档)，solids!=1 即修核心。",
+  "evidence": "fleet_b_2026_11_w1: in03/04 二十件跨档抽查15件分体；修14处咬合/表达式后复验中",
+  "first_seen": "2026-10-31T10:39:28-0700",
+  "force": "必须做进门禁",
+  "hash": "d2b7c0457e",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "fd476b6fd5",
+  "origins": [
+   "fd476b6fd5"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "跨尺寸抽测缺失=组合雷区",
+  "ts": "2026-10-31T10:39:28-0700",
+  "verdict": null,
+  "where": "intake 全波抽测"
+ },
+ "d68892cb9c": {
+  "count": 1,
+  "detail": "开底罩构造=外壳 pad 全高 − 内腔 pad 块 cut 一次成型;pocket 从 z=H 切 H−t 把顶壁清空,顶面贴壁件分体而基型仍 1 破体(假阴性)。贴壁件三向都需体积重叠(面/线接触=分体),0.4 嵌入沿法向也计入。排查序:solids>1 先 trace 第一分体特征再核三向重叠。",
+  "evidence": "b_in04_001 TR2 knife1/hooktab/hingedl 分体;改 cavity cut 后 TR2>>[] probe 5/5",
+  "first_seen": "2026-10-31T09:36:06-0700",
+  "force": "自检（首次，待升级）",
+  "hash": "d68892cb9c",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "5dfe55bf52",
+  "origins": [
+   "5dfe55bf52"
+  ],
+  "severity": "P2",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "罩壳类开底腔禁从顶面 pocket(沿 −normal 切穿顶壁,基型假阴性 1 破体)",
+  "ts": "2026-10-31T09:36:06-0700",
+  "verdict": null,
+  "where": "~/cad-fleet/family/hood_core.py compose pocket_cav"
+ },
+ "dc1bf748e2": {
+  "count": 1,
+  "detail": "同核 3 族比例不同(in01 wr.65/in05 wr.34):固定 4.5 边距在宽体嵌入 0.5 侥幸绿,细长体变 0 相切=BOPAlgo SelfIntersect。BOP check 只报链尾特征名(finx4),真凶 light0——必须逐特征 check(True) 扫链定位(first_bad)。修=偏移一律自适应 p_t/比例,嵌入量恒定 1.5。",
+  "evidence": "",
+  "first_seen": "2026-10-31T13:16:24-0700",
+  "force": "必须做进门禁",
+  "hash": "dc1bf748e2",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "e55691d6c5",
+  "origins": [
+   "e55691d6c5"
+  ],
+  "severity": "P0",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "fixed",
+  "title": "死值偏移特征=跨族参数炸弹:light 柱 y=W/2-4.5 在 W30 细长族恰切内壁(相切 fuse 链爆)",
+  "ts": "2026-10-31T13:16:24-0700",
+  "verdict": null,
+  "where": "enclosure_core.py:light"
+ },
+ "e195397c5f": {
+  "count": 1,
+  "detail": "solids>1 且远端布尔必炸；所有 floor/wall/top 站立特征统一咬合母体 ≥0.4mm（脚0.8/柱1.2/齿0.6）",
+  "evidence": "",
+  "first_seen": "2026-10-31T07:55:56-0700",
+  "force": "必须做进门禁",
+  "hash": "e195397c5f",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "79d2511050",
+  "origins": [
+   "79d2511050"
+  ],
+  "severity": "P1",
+  "source": "self",
+  "sources": [
+   "self"
+  ],
+  "status": "open",
+  "title": "站立特征与母体共面接触会被 fuse 成独立实体",
+  "ts": "2026-10-31T07:55:56-0700",
+  "verdict": null,
+  "where": "family/enclosure_core.py 支脚/铜柱/散热齿"
  },
  "e2d255323b": {
   "count": 1,
@@ -606,5 +1281,32 @@
   "ts": "2026-10-31T07:13:32-0700",
   "verdict": null,
   "where": "tools/fleet_runner.py:worker"
+ },
+ "e5ecdeb5b5": {
+  "count": 1,
+  "detail": "b_in01_003/005/006/008/010 build：rc=0、几何实际成功（repro 单跑 solids=1），仅 CADKIT 行被 spinner 回车污染截断（b3.out pos=40960 处 JSON 断裂）。B 侧 sitecustomize 换行 guard 只部分缓解（002/007/009 过后 010 仍挂）。建议引擎 CADKIT 行前强制 write(n)+flush，或调度器优先读 CADKIT_OUT 文件（build 阶段未写 out 文件）",
+  "evidence": "",
+  "first_seen": "2026-10-31T08:01:23-0700",
+  "force": "必须做进门禁",
+  "hash": "e5ecdeb5b5",
+  "last_seen": "2026-10-31T20:53:24",
+  "machine": "B",
+  "machines": [
+   "B"
+  ],
+  "origin": "bcb8c2921f",
+  "origins": [
+   "bcb8c2921f"
+  ],
+  "severity": "P1",
+  "source": "audit",
+  "sources": [
+   "audit"
+  ],
+  "status": "open",
+  "title": "freecadcmd 进度条与 CADKIT>> 同行流冲突：JSON 在 ~40KB 块边界被截断成非法行，fleet_runner 报『无 CADKIT JSON 输出』假失败",
+  "ts": "2026-10-31T08:01:23-0700",
+  "verdict": null,
+  "where": "entry.py:611 print + FreeCAD Console logRefresh"
  }
 }

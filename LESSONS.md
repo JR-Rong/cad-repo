@@ -94,7 +94,7 @@ A 机用**自己的工作树**算 `rules_sha` 签 `shared/versions.json`（64a95
 
 <!-- AUTO-INGEST:BEGIN 这一节由 tools/lesson_ingest.py 维护，勿手改 -->
 
-## 四、错题本（自动摄入，15 条未关闭 / 共 22 条）
+## 四、错题本（自动摄入，29 条未关闭 / 共 48 条）
 
 由 `tools/lesson_ingest.py` 从审计发现、`merge_check` 挡单与各机上报合并；
 `复发` = 同因出现次数；`≥2 或 P0/P1 或部分通过` ⇒ 强制方式自动升级为**必须做进门禁**。
@@ -102,23 +102,49 @@ A 机用**自己的工作树**算 `rules_sha` 签 `shared/versions.json`（64a95
 | hash | 严重 | 状态 | 复发 | 症状 | 根因位置 | 强制 | 来源 |
 |---|---|---|---|---|---|---|---|
 | `8b8b3d3725` | P0 | open | 1 | 调度器把退出码 0 当阶段通过，而引擎失败也返回 0 | tools/fleet_runner.py:run_stage | 必须做进门禁 | self |
+| `04a8552e19` | P0 | open | 1 | fleet_runner verdict 把 real_object WARN（引擎无条件人工终审项）当阶段 FAIL：validate 在 fleet 模式永远过不去，任何机器整 | er.py:verdict + cadkit/validate.py:real_object | 必须做进门禁 | audit |
 | `7b943c6dbf` | P1 | open | 1 | 调度器包装队列未排空就停线程，静默丢交付 | tools/fleet_runner.py:main | 必须做进门禁 | self |
 | `0ec98e6087` | P1 | open | 1 | 无头调用不能用命令行选项：freecadcmd 会吃掉 --action | lugin/dsh-plugin-cad-freecad/python/entry.py:4 | 必须做进门禁 | self |
 | `8bbd20876b` | P1 | open | 1 | 错题本会把测试/演练数据当成真错题并计入复发升级 | tools/lesson_ingest.py:main | 必须做进门禁 | self |
+| `91a07302bc` | P1 | open | 1 | rect/circle 的 x_expr/y_expr 绑定的是第一角点不是中心 | y/enclosure_core.py（CADKit SketchBuilder.rect） | 必须做进门禁 | self |
+| `87154a3f0b` | P1 | open | 1 | 电子表格别名引用写 params.X 在 FreeCAD 1.1 必炸 | CADKit expression绑定 | 必须做进门禁 | self |
+| `e195397c5f` | P1 | open | 1 | 站立特征与母体共面接触会被 fuse 成独立实体 | family/enclosure_core.py 支脚/铜柱/散热齿 | 必须做进门禁 | self |
+| `b0f780d528` | P1 | open | 1 | 内腔 pocket 用 through=True 会连底板一起切穿 | family/enclosure_core.py pocket_cavity | 必须做进门禁 | self |
+| `e5ecdeb5b5` | P1 | open | 1 | freecadcmd 进度条与 CADKIT>> 同行流冲突：JSON 在 ~40KB 块边界被截断成非法行，fleet_runner 报『无 CADKIT JSON 输出』假失败 | ntry.py:611 print + FreeCAD Console logRefresh | 必须做进门禁 | audit |
+| `229b14fbee` | P1 | open | 1 | ledger_mode 下 dedupe 候选只含已交付件且 register 把 registry JSON 冲刷成子集 | cadkit/fingerprint.py:check_and_register | 必须做进门禁 | audit |
 | `1009890910` | P1 | partial | 1 | 部分通过 N1：Ordering and recovery pass; ownership-read failure remains | dsh-plugin-cad-freecad/python/cadkit/ledger.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
 | `52346020dd` | P1 | partial | 1 | 部分通过 N20：Normal ownership races pass; exceptional owner read remains unsafe | dsh-plugin-cad-freecad/python/cadkit/ledger.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
 | `91e447e114` | P1 | partial | 1 | 部分通过 N2：Repair and rollback pass; ownership-read failure can restore over winner | dsh-plugin-cad-freecad/python/cadkit/ledger.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
 | `bed04100f6` | P1 | open | 1 | Ownership hash-read exception lets locked CAS cleanup destroy a newer delivery | gin-cad-freecad/python/cadkit/packager.py:1095 | 必须做进门禁 | audit:findings_round10_2026_10_31 |
+| `7c62f341ee` | P1 | open | 1 | 航空插座 flange/bore 在薄壁小尺寸多重共面雷 | enclosure_core.py:avseat | 必须做进门禁 | self |
+| `717e214a4b` | P1 | open | 1 | 族核/项目树只活在各自 cadRoot，仓内零镜像：单机误判与真丢件都只在一念之间 | tools/fleet_runner.py; status/PROGRESS.md | 必须做进门禁 | self |
 | `1c96665346` | P2 | partial | 1 | 部分通过 N23：Local duplicate precedence holds; cross-window merge is last-write-wins | dsh-plugin-cad-freecad/python/cadkit/probe.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
 | `61cffbcb8e` | P2 | partial | 1 | 部分通过 N18：Abnormal exits stay honest; cross-window FAIL overwrite remains | dsh-plugin-cad-freecad/python/cadkit/probe.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
 | `c4648f54c7` | P2 | partial | 1 | 部分通过 N16：Resume works; aggregate merge can discard earlier FAIL | dsh-plugin-cad-freecad/python/cadkit/probe.py | 必须做进门禁 | audit:findings_round10_2026_10_31/rechec |
 | `426ed4c25e` | P2 | open | 1 | 摄入器标题写在标记外，每跑一次 LESSONS.md 多一行标题 | tools/lesson_ingest.py:render | 自检（首次，待升级） | self |
 | `e2d255323b` | P2 | open | 1 | 门禁把重放当复发，同因复发计数被自己刷高 | tools/lesson_ingest.py:merge | 自检（首次，待升级） | self |
 | `e52eb603b1` | P2 | open | 1 | 旧件复检只在有件完成时触发，卡住或全失败时永不复检 | tools/fleet_runner.py:worker | 自检（首次，待升级） | self |
+| `7956f623b2` | P2 | open | 1 | 单字母电子表格别名（W/L/H/T）被拒绝 | family/enclosure_core.py | 自检（首次，待升级） | self |
+| `66a4f6bb29` | P2 | open | 1 | corner dressup 的边索引在参数扰动后失效（整链 Invalid） | family/enclosure_core.py fil_corners | 自检（首次，待升级） | self |
+| `7d896a6443` | P2 | open | 1 | 驱动表的低灵敏度参数会被探针判 inert | family/enclosure_core.py rail_w | 自检（首次，待升级） | self |
 | `781ebe0c50` | P2 | open | 1 | Cross-window merge lets a later PASS erase a valid earlier FAIL | -plugin-cad-freecad/python/cadkit/probe.py:713 | 自检（首次，待升级） | audit:findings_round10_2026_10_31 |
+| `d68892cb9c` | P2 | open | 1 | 罩壳类开底腔禁从顶面 pocket(沿 −normal 切穿顶壁,基型假阴性 1 破体) | d-fleet/family/hood_core.py compose pocket_cav | 自检（首次，待升级） | self |
+| `4643612bb0` | P2 | open | 1 | sz200 周圈密封槽 rightx 块 BOPAlgo_InvalidCurveOnSurface | b_in03_400 | 自检（首次，待升级） | self |
 
 <details><summary>已关闭 / wontfix（保留可查）</summary>
 
+- `4df9a020b5` fixed ｜ P2 ｜ pad与承载面共面触发OCC recompute崩/伪形
+- `cabc4fde83` fixed ｜ P2 ｜ 开窗成员的面贴附特征须避开开窗区
+- `d2b7c0457e` fixed ｜ P1 ｜ 跨尺寸抽测缺失=组合雷区
+- `6b7130ea0b` fixed ｜ P1 ｜ fuse 后 solids==1 仍可能是反演塌缩幽灵(-112)
+- `0daef52030` fixed ｜ P1 ｜ 加法特征贴面 fuse=慢性 open shell,须三轴实体重叠>=0.6
+- `56d0eee84f` fixed ｜ P1 ｜ 近切弧带(0.2~0.4间隙)=BOPAlgo_InvalidCurveOnSurface,要彻底相交或彻底离开>=2mm
+- `894891acff` fixed ｜ P1 ｜ BOP 报错归因要按 face bbox 定位,不能信 feature 名
+- `1834fa7fdc` wontfix ｜ P2 ｜ sz200 周圈密封槽 rightx BOPAlgo_InvalidCurveOnSurface
+- `dc1bf748e2` fixed ｜ P0 ｜ 死值偏移特征=跨族参数炸弹:light 柱 y=W/2-4.5 在 W30 细长族恰切内壁(相切 fuse 链爆)
+- `cdfc09d317` fixed ｜ P1 ｜ 深链 BOP 报错『最后一个特征死』是假象,上游污染链从 first_bad 才开始
+- `8cb63b4e5a` fixed ｜ P1 ｜ 『最后一个特征死』真凶在上游:finx 连炸 8 版全是 avbore/flange 欠切替罪
+- `c85efa4cac` fixed ｜ P0 ｜ driver 实建期间改 family 核心=向产线投毒
 - `07a3a69bd7` synthetic ｜ P1 ｜ b_in01_004 渲染长边不足 2000px: view_back.png=1600x1600, view_bottom.png=1600x1600, vi
 - `0f9f1cfc17` synthetic ｜ P1 ｜ b_in01_006 缺 STEP（2.3）
 - `4217d932cc` synthetic ｜ P1 ｜ LESSONS_ACK 过期: 回传 deadbeef，当前教训 f9e9205c（教训已更新，重读后重跑）
