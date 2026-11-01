@@ -121,6 +121,12 @@ def main():
     ap.add_argument("--baseline", default=os.path.join(HANDOFF, "shared", "fingerprints"),
                     help="去重底表：目录（每台机器一个 <X>.json）或单个 json")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--strict", action="store_true",
+                    help="T-strict 补丁B：证据 PASS 行缺失从 note 升 blocking；"
+                         "并核验 DELIVERY_CHECKLIST.acceptance_overall==PASS")
+    ap.add_argument("--require-review", action="store_true",
+                    help="T-strict 补丁B：交付包 DELIVERY_CHECKLIST.review_status"
+                         " 必须 complete，否则 blocking")
     ap.add_argument("--plugin-python", default=None,
                     help="含 cadkit/ 的 python 目录（默认自动找 profile 的 node_modules）")
     a = ap.parse_args()
@@ -237,7 +243,11 @@ def main():
         kinds = {e.get("kind") for e in evidence if e.get("status") == "PASS"}
         for k in ("validate", "probe", "export"):
             if k not in kinds:
-                notes.append("%s: 证据表没有 %s PASS 行（只有 %d 行证据）" % (pid, k, len(evidence)))
+                msg = "%s: 证据表没有 %s PASS 行（只有 %d 行证据）" % (pid, k, len(evidence))
+                if a.strict:                      # T-strict 补丁B：旧版只 note
+                    blocking.append(msg)
+                else:
+                    notes.append(msg)
                 break
 
     # ---- 5. physical delivery folder per part ------------------------------
@@ -279,6 +289,27 @@ def main():
             blocking.append("%s 渲染长边不足 2000px: %s" % (pid, ", ".join(small)))
         if not os.path.exists(os.path.join(pdir, "design.md")):
             notes.append("%s 没有 design.md（加分项：设计说明）" % pid)
+
+    # ---- 5b. strict / require_review: 读交付包自带的验收自证（补丁B）----
+    if a.strict or a.require_review:
+        for pid in want:
+            if pid in missing:
+                continue
+            clp = os.path.join(batch_dir, pid, "DELIVERY_CHECKLIST.json")
+            if not os.path.exists(clp):
+                blocking.append("%s 缺 DELIVERY_CHECKLIST.json（strict 收货必须核验交付自证）" % pid)
+                continue
+            try:
+                cl = json.load(open(clp, encoding="utf-8"))
+            except Exception as exc:
+                blocking.append("%s DELIVERY_CHECKLIST.json 读不动: %s" % (pid, exc))
+                continue
+            if a.strict and cl.get("acceptance_overall") != "PASS":
+                blocking.append("%s acceptance_overall=%s（strict）"
+                                % (pid, cl.get("acceptance_overall")))
+            if a.require_review and cl.get("review_status") != "complete":
+                blocking.append("%s review_status=%s（require_review：人审未闭环不收）"
+                                % (pid, cl.get("review_status")))
 
     # ---- 6. cross-machine dedupe: THE reason this tool exists -------------
     baseline = load_baseline(a.baseline)

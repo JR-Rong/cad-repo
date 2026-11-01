@@ -165,7 +165,7 @@ def pending(rec, intake, stages, limit=None):
     return out[:limit] if limit else out
 
 
-def verdict(payload, stage, expect_rules=None):
+def verdict(payload, stage, expect_rules=None, strict=False):
     """只有引擎自己说 ok 才算过；checks[] 里任何 FAIL 都算不过。
 
     修（B 机 08:30 报告①，代码复核成立）：checks 里的 WARN 是引擎设计好的
@@ -189,13 +189,17 @@ def verdict(payload, stage, expect_rules=None):
             return True, ""
         return False, "无 CADKIT JSON 输出（阶段未真正执行）"
     got = ((payload.get("engine") or {}).get("rules_sha"))
+    if strict and expect_rules and not got:
+        return False, ("strict: 引擎报告没带 rules_sha，版本握手无从校验"
+                       "（旧代码 got=None 直接放行）")
     if expect_rules and got and got != expect_rules:
         return False, ("版本握手不一致：本阶段引擎 rules_sha=%s，签发值=%s "
                        "—— 整波停下，别用错引擎生产（见 shared/versions.json）"
                        % (got, expect_rules))
+    _allow = ("PASS", "SKIP", "N/A") if strict else \
+             ("PASS", "SKIP", "N/A", "", "WARN")
     bad = [c for c in (payload.get("checks") or [])
-           if isinstance(c, dict) and str(c.get("status", "")).upper() not in
-           ("PASS", "SKIP", "N/A", "", "WARN")]
+           if isinstance(c, dict) and str(c.get("status", "")).upper() not in _allow]
     if bad:
         return False, "checks FAIL: " + "; ".join(
             "%s(%s)" % (c.get("id"), str(c.get("detail", ""))[:60]) for c in bad[:3])
@@ -223,7 +227,7 @@ def _warn_ids(payload):
 
 
 def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
-              expect_rules=None):
+              expect_rules=None, strict=False, require_review=False):
     # 参数只能走环境：freecadcmd 会先把 --xxx 当成自己的选项吃掉
     cmd = [freecad, entry]
     env = dict(os.environ)
@@ -234,6 +238,13 @@ def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
         opts["long_side"] = 2400
     env.update({"CADKIT_ACTION": stage, "CADKIT_ROOT": root, "CADKIT_PROJECT": pid,
                 "CADKIT_MEM_MB": str(mem_mb), "CADKIT_OPTS": json.dumps(opts)})
+    # T-strict 补丁A：strict/require_review 必须真的传到引擎（packager L329-333 认这两个 env）。
+    # 旧版舰队跑 package 永远是引擎默认非 strict——strict 名不副实。
+    if strict:
+        env["CADKIT_STRICT"] = "1"
+    if require_review:
+        env["CADKIT_REQUIRE_REVIEW"] = "1"
+        env["CADKIT_STRICT"] = "1"   # 人审强制隐含 strict
     # 修（B 机 08:30 报告②，代码复核成立）：FreeCAD 的进度条与 CADKIT JSON
     # 共享同一 stdout 行流，40KB 块边界可以把 JSON 拦腰截断 —— 而 entry.py
     # 对**所有** action 都支持 --out（结果文件由引擎自己落盘，不过 stdout）。
@@ -268,7 +279,7 @@ def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
                 except ValueError:
                     payload = None
                 break
-    ok, err = verdict(payload, stage, expect_rules)
+    ok, err = verdict(payload, stage, expect_rules, strict=strict)
     if not ok and not err:
         err = ((p.stderr or p.stdout or "").strip().splitlines() or ["?"])[-1][:200]
     if payload is None and p.returncode != 0:
@@ -309,8 +320,16 @@ def main():
                     help="签发的 rules_sha（默认读 shared/versions.json），每个阶段自查一次")
     ap.add_argument("--limit", type=int, default=None,
                     help="只跑前 N 件（试点/分批用；续跑语义不变）")
+    ap.add_argument("--strict", action="store_true",
+                    help="T-strict 补丁A：checks 里 WARN/空/未知状态一律 FAIL；"
+                         "并给引擎透传 CADKIT_STRICT=1")
+    ap.add_argument("--require-review", action="store_true",
+                    help="T-strict 补丁A：CADKIT_REQUIRE_REVIEW=1（package 阶段 L1/L2 "
+                         "回执不全直接拒包），隐含 --strict")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    if a.require_review:
+        a.strict = True
 
     if a.expect_rules is None:
         vj = os.path.join(REPO, "shared", "versions.json")
@@ -372,7 +391,8 @@ def main():
                 return
             for stage in t:
                 r = run_stage(freecad, entry, root, a.batch, pid, stage,
-                              a.stage_mem_mb, a.timeout, a.expect_rules)
+                              a.stage_mem_mb, a.timeout, a.expect_rules,
+                              strict=a.strict, require_review=a.require_review)
                 r["lane"] = "produce"
                 r["worker"] = n
                 emit(r)
@@ -439,7 +459,8 @@ def main():
                     continue
                 try:
                     r = run_stage(freecad, entry, root, a.batch, pid, "package",
-                                  a.stage_mem_mb, a.timeout, a.expect_rules)
+                                  a.stage_mem_mb, a.timeout, a.expect_rules,
+                                  strict=a.strict, require_review=a.require_review)
                 finally:
                     pkg_q.task_done()      # 没有这句，pkg_q.join() 永远返回不了（实测挂死）
                 r["lane"] = "package"
