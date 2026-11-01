@@ -1,0 +1,66 @@
+{
+ "schema": "cadkit.ownership_overrides.v1",
+ "protocol": "双侧 ACK 才生效；生效需 tools/build_catalog.py 重生成 + catalog_lint 通过 + PROGRESS 公告；单侧行仅作意向记录",
+ "rows": [
+  {
+   "family": "md42",
+   "from": "A",
+   "to": "D",
+   "reason": "v3 传输清单（用户 2026-11-01 裁决执行）；A 侧零领取零在途",
+   "giving_machine_ack": "A",
+   "giving_ack_ts": "2026-11-01T01:15-0700",
+   "receiving_machine_ack": null,
+   "evidence": "cad/audit/aud_A_20261031_T2306/A_alignment_snapshot.md; docs分支 planning/ownership_changes.csv"
+  },
+  {
+   "family": "tr24",
+   "from": "A",
+   "to": "E",
+   "reason": "同上",
+   "giving_machine_ack": "A",
+   "giving_ack_ts": "2026-11-01T01:15-0700",
+   "receiving_machine_ack": null,
+   "evidence": "同上"
+  },
+  {
+   "family": "tr25",
+   "from": "A",
+   "to": "E",
+   "reason": "同上",
+   "giving_machine_ack": "A",
+   "giving_ack_ts": "2026-11-01T01:15-0700",
+   "receiving_machine_ack": null,
+   "evidence": "同上"
+  },
+  {
+   "family": "tr42",
+   "from": "A",
+   "to": "E",
+   "reason": "同上",
+   "giving_machine_ack": "A",
+   "giving_ack_ts": "2026-11-01T01:15-0700",
+   "receiving_machine_ack": null,
+   "evidence": "同上"
+  },
+  {
+   "family": "tr43",
+   "from": "A",
+   "to": "E",
+   "reason": "同上",
+   "giving_machine_ack": "A",
+   "giving_ack_ts": "2026-11-01T01:15-0700",
+   "receiving_machine_ack": null,
+   "evidence": "同上"
+  },
+  {
+   "family": "st08",
+   "from": "D",
+   "to": "A",
+   "reason": "v3 传输清单；A 为接收方，随时可接；待 D 侧 ACK 与排空确认",
+   "giving_machine_ack": null,
+   "receiving_machine_ack": "A",
+   "receiving_ack_ts": "2026-11-01T01:15-0700",
+   "evidence": "同上"
+  }
+ ]
+}

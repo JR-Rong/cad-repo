@@ -28,6 +28,27 @@ DOMAIN_NAME = {"md": "电机与驱动附件", "tr": "传动与减速机构", "in
                "ce": "消费电子与电气封装", "fx": "工装夹具", "ga": "检具量具与测量",
                "st": "结构与机架", "mh": "输送仓储与物料", "fl": "流体与气路",
                "en": "能源与热管理"}
+# v3 fleet ownership transfers (docs/integrated-workflow-fleet-210k-20261101,
+# planning/ownership_changes.csv).  A family re-homes ONLY when both sides
+# have acked in catalog/ownership_overrides.json - a one-sided transfer must
+# never reshuffle a mid-wave layout on another machine.  While a row is not
+# effective the family stays with its old owner (protocol: old owner keeps
+# claimed revisions; only reconciled unclaimed candidates migrate).
+def _ownership_overrides():
+    import json, os
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "..", "catalog", "ownership_overrides.json")
+    try:
+        with open(p, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (FileNotFoundError, ValueError):
+        return {}
+    return {r["family"]: r["to"] for r in doc.get("rows", [])
+            if r.get("giving_machine_ack") and r.get("receiving_machine_ack")}
+
+FAMILY_MACHINE_OVERRIDES = _ownership_overrides()
+
+
 DOMAIN_CATEGORY = {"md": "机电产品", "tr": "机械零件", "in": "机电产品", "ce": "消费品",
                    "fx": "工装夹具", "ga": "工装夹具", "st": "结构件", "mh": "结构件",
                    "fl": "机械零件", "en": "机电产品"}
@@ -545,7 +566,8 @@ def families():
         key, zh, ladder = (p.strip() for p in line.split("|"))
         dom = re_key(key)
         out.append({"key": key, "zh": zh, "ladder": ladder, "domain": dom,
-                    "machine": DOMAIN_MACHINE[dom], "category": DOMAIN_CATEGORY[dom],
+                    "machine": FAMILY_MACHINE_OVERRIDES.get(key, DOMAIN_MACHINE[dom]),
+                    "category": DOMAIN_CATEGORY[dom],
                     "domain_name": DOMAIN_NAME[dom]})
     return out
 
