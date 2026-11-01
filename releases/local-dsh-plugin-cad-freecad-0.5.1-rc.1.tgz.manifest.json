@@ -1,0 +1,129 @@
+{
+ "artifact": "local-dsh-plugin-cad-freecad-0.5.1-rc.1.tgz",
+ "tarball_sha256": "67036e9915b8ff4f763c7d527da748ed8f9516c40a50879b3353f0c68b0bc65f",
+ "bytes": 103139,
+ "rules_sha_staged": "1b440ce4803dfb9b",
+ "files": [
+  {
+   "file": "package/INSTALL.md",
+   "sha256": "aff343591f900e4ed37478ecaf90a45e6faf1f944e88efcd6b50594316eda1d9",
+   "bytes": 5148
+  },
+  {
+   "file": "package/README.md",
+   "sha256": "9e4618b81caab916b9a645fdd1f4144f4c490c8284082333385a8fa62417614c",
+   "bytes": 3873
+  },
+  {
+   "file": "package/cordis.patch.yml",
+   "sha256": "2d834f4ffdf07210daaf6d22af7ea885ab7268ee8d24f59bfa065a0dcfb3f682",
+   "bytes": 1413
+  },
+  {
+   "file": "package/icon.svg",
+   "sha256": "d42d96ade4e44e0c6093f16b95a87ef108604e1543eca2c73fe6bb2359dd3bfb",
+   "bytes": 789
+  },
+  {
+   "file": "package/index.js",
+   "sha256": "4bad3c126bfb318c3363b3127a2d5db93776469f920c9c284341cc71d57d4198",
+   "bytes": 18916
+  },
+  {
+   "file": "package/lib/client.js",
+   "sha256": "5dfb252a94677160743a8f454a76a27036b4881a6c5a0b8516f5409961fbb882",
+   "bytes": 23734
+  },
+  {
+   "file": "package/locale/en.json",
+   "sha256": "357bface679fef69228338f669789f0d38dbe3e20077f89e61c4e1f6f6deb263",
+   "bytes": 226
+  },
+  {
+   "file": "package/locale/zh.json",
+   "sha256": "fd6ccbde3f4dc295e1786f99a339cbbd7cf4d100d353cb94560dbfc93e2e830d",
+   "bytes": 232
+  },
+  {
+   "file": "package/package.json",
+   "sha256": "ddb48569216bc89576992269d18dc7e07b67e60bb274f957846ccdd96dd6b8c6",
+   "bytes": 1009
+  },
+  {
+   "file": "package/python/cadkit/__init__.py",
+   "sha256": "b8b6cf3be757f0d7e87f9ad42a8a2c5138287e715bf5016ce12d4f2886c4ff23",
+   "bytes": 116
+  },
+  {
+   "file": "package/python/cadkit/contract.py",
+   "sha256": "89977164cb033caadcebe31d886284b91ed8bda47cad69830efa7ba5ad3ae90f",
+   "bytes": 1662
+  },
+  {
+   "file": "package/python/cadkit/docctx.py",
+   "sha256": "7169b009422dd276e521853e6cfa5a8a9691b2c0c8a318aad5628c67cba3fe51",
+   "bytes": 22657
+  },
+  {
+   "file": "package/python/cadkit/exporter.py",
+   "sha256": "40a99e8efe2981c856232714f8bd28c821d8174c3a1156f358f48067f7d5b88c",
+   "bytes": 6983
+  },
+  {
+   "file": "package/python/cadkit/fingerprint.py",
+   "sha256": "2c17da749037b3b4c7c2d017ba4893b643e33a10b6364efc39496b6be7539085",
+   "bytes": 9597
+  },
+  {
+   "file": "package/python/cadkit/ledger.py",
+   "sha256": "12ff1fdfb0bbfd31370f2cc21d8c621c4f44242643678b89fbf1c9d77da97e23",
+   "bytes": 40330
+  },
+  {
+   "file": "package/python/cadkit/mem.py",
+   "sha256": "49c5a37f4ef7bf130be5be38aef34731324755743f3287cb13f8cee9c83f7ae9",
+   "bytes": 10814
+  },
+  {
+   "file": "package/python/cadkit/packager.py",
+   "sha256": "82aef9297b9881cd32779354e538dcae7d1c8246dab5a8fe928fbfbafc9879ce",
+   "bytes": 68969
+  },
+  {
+   "file": "package/python/cadkit/probe.py",
+   "sha256": "771c16f25ec32b28987911727fbce302d55a62cee7d498da29c08af840136786",
+   "bytes": 38363
+  },
+  {
+   "file": "package/python/cadkit/project.py",
+   "sha256": "c7529d076b950ad95672463bc4791309857a033b0b72ca6fbfa7cc47132d5623",
+   "bytes": 3939
+  },
+  {
+   "file": "package/python/cadkit/render.py",
+   "sha256": "35ba1eb9552676248a96d3d498f23654b3a74454574294ab8de2b9ff1993deeb",
+   "bytes": 20618
+  },
+  {
+   "file": "package/python/cadkit/validate.py",
+   "sha256": "91e30d097a07d91c14835b50a1ea6f17800a57695f69acc4bc03b15e3fc42de2",
+   "bytes": 27249
+  },
+  {
+   "file": "package/python/cadkit/version.py",
+   "sha256": "4bf96664c38aa691ccf9bf056049543ba48b96167abbf90a8179c656b62e24d3",
+   "bytes": 5032
+  },
+  {
+   "file": "package/python/entry.py",
+   "sha256": "5079409e6d0901429d3efd6397d3adeb2200a1aaa217a5191ebe78665308e098",
+   "bytes": 25344
+  }
+ ],
+ "built": "2026-11-01T01:20-0700",
+ "source": "installed tree + N45 patch (probe.py DONE frame replay)",
+ "supersedes": {
+  "published_rules_sha": "1d835a8f3d2ef4f1",
+  "dev_checkout_rules_sha": "64a95367ef997904"
+ }
+}
