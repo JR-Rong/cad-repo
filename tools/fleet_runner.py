@@ -15,6 +15,7 @@
 断点续跑靠台账幂等键（已 OK 且 input_hash 未变的阶段直接跳过），所以崩了就重跑同一条命令。
 """
 import argparse
+import hashlib
 import json
 import os
 import queue
@@ -64,28 +65,128 @@ def find_freecad(explicit=None):
                      "而它仍然退出码 0。")
 
 
-def pending(root, intake, stages, limit=None):
-    """Only queue what the ledger has not already accepted."""
+# ---------------------------------------------------------------------------
+# Stage recorder (fix 2026-10-31, A-line; B 机 08:30 报告的两处之外补第三处)
+#
+# 出厂引擎里 job 表只有 schema 和读写访问器，**没有任何写入方**：
+# "崩了重跑、已 OK 阶段自动跳过" 的幂等键全靠这张表，不写它 resume 就是空话，
+# merge_check 的"台账五阶段"门禁也永远拿不到 OK 行。pilot 批次当时用
+# cad/tools/pilotctl.py 记账；这里按同一套键语义做成舰队版：
+#   base = sha(project.yml) + sha(族谱模块) + rules_sha
+#   build 输入含 build.py 自身；validate/probe/dedupe/export 含 FCStd；
+#   package 含全部证据文件 + STEP + 8 渲染 + build.py（N7 语义）。
+# ---------------------------------------------------------------------------
+
+def _h(*parts):
+    h = hashlib.sha256()
+    for p in parts:
+        h.update(str(p).encode())
+        h.update(b"\0")
+    return h.hexdigest()[:20]
+
+
+def _sha(path):
+    if not os.path.exists(path):
+        return "NOFILE"
+    hh = hashlib.sha256()
+    with open(path, "rb") as f:
+        for c in iter(lambda: f.read(1 << 20), b""):
+            hh.update(c)
+    return hh.hexdigest()
+
+
+RENDER_VIEWS = ("front", "back", "left", "right", "top", "bottom",
+                "iso_up", "iso_down")
+
+
+class Recorder:
+    def __init__(self, root, engine_py, rules):
+        if engine_py not in sys.path:
+            sys.path.insert(0, engine_py)
+        from cadkit.ledger import open_ledger, job_state, job_record
+        self.root, self.rules = root, rules
+        self._open, self._state, self._rec = open_ledger, job_state, job_record
+
+    def input_hash(self, pid, stage):
+        pr = os.path.join(self.root, "projects", pid)
+        try:
+            fam = (json.load(open(os.path.join(pr, "project.yml"),
+                                  encoding="utf-8")) or {}).get("family")
+        except Exception:
+            fam = None
+        yml = _sha(os.path.join(pr, "project.yml"))
+        famsha = _sha(os.path.join(self.root, "family", fam + ".py")) \
+            if fam else "NOFAM"
+        base = _h(yml, famsha, self.rules)
+        bsrc = _sha(os.path.join(pr, "build.py"))
+        bd = os.path.join(pr, "build")
+        fc = _sha(os.path.join(bd, pid + ".FCStd"))
+        if stage == "build":
+            return _h(base, bsrc)
+        if stage in ("validate", "probe", "dedupe", "export"):
+            return _h(base, fc)
+        if stage == "package":
+            extra = "".join(_sha(os.path.join(bd, fn)) for fn in
+                            ("report.json", "probe.json", "export_manifest.json"))
+            for v in RENDER_VIEWS:
+                extra += _sha(os.path.join(bd, "renders", "view_%s.png" % v))
+            extra += _sha(os.path.join(bd, pid + ".step")) + bsrc
+            return _h(base, fc, extra)
+        raise SystemExit("unknown stage " + stage)
+
+    def state(self, pid, stage):
+        conn = self._open(self.root)
+        try:
+            return self._state(conn, pid, stage,
+                               self.input_hash(pid, stage), self.rules)
+        finally:
+            conn.close()
+
+    def record(self, pid, stage, ok, error_class=None):
+        conn = self._open(self.root)
+        try:
+            self._rec(conn, pid, stage, self.input_hash(pid, stage),
+                      self.rules, "OK" if ok else "FAIL", error_class)
+        finally:
+            conn.close()
+
+
+def pending(rec, intake, stages, limit=None):
+    """Only queue what the ledger has not already accepted **for these very
+    inputs**（旧版按 (pid,stage) 查任意 input_sha 的 OK，改了模型也能续跑过去，
+    这是错的；现在是 pilotctl 的严格语义）。"""
     doc = json.load(open(intake, encoding="utf-8"))
     pids = doc.get("parts", [])
-    db = os.path.join(root, "ledger.sqlite3")
-    done = {}
-    if os.path.exists(db):
-        con = sqlite3.connect("file:%s?mode=ro" % db, uri=True)
-        for pid, stage, state in con.execute("select project_id, stage, state from job"):
-            done.setdefault(pid, {})[stage] = state
-        con.close()
     out = []
     for pid in pids:
-        todo = [s for s in stages if done.get(pid, {}).get(s) != "OK"]
+        todo = [s for s in stages if rec.state(pid, s) != "OK"]
         if todo:
             out.append((pid, todo))
     return out[:limit] if limit else out
 
 
 def verdict(payload, stage, expect_rules=None):
-    """只有引擎自己说 ok 才算过；checks[] 里任何 FAIL 都算不过。"""
+    """只有引擎自己说 ok 才算过；checks[] 里任何 FAIL 都算不过。
+
+    修（B 机 08:30 报告①，代码复核成立）：checks 里的 WARN 是引擎设计好的
+    "人工终审提示位"（validate.py:552 real_object 恒为 WARN），引擎门禁与
+    packager 都按 WARN 放行；旧白名单没有它，fleet 模式下 validate 会全灭。
+    WARN 计入日志但**不**算不过。
+
+    修（去重阶段）：act_dedupe 的返回没有 ok 键，只有 exact/scaled 命中列表；
+    工单 §7 的口径是 exact/scaled_same 阻断、series/related 不阻断 ——
+    与 act_package 的 pre-gate（possible_exact + scaled∩series）同语义。
+    """
     if not isinstance(payload, dict) or "ok" not in payload:
+        if stage == "dedupe" and isinstance(payload, dict) and (
+                "exact" in payload or "similar_series" in payload):
+            hits = list(payload.get("possible_exact") or [])
+            sc = set(payload.get("scaled") or [])
+            hits += [m for m in (payload.get("similar_series") or []) if m in sc]
+            if hits:
+                return False, ("dedupe 命中 exact/scaled_same: %s —— 工单 §7：停下喊人"
+                               % ",".join(hits[:5]))
+            return True, ""
         return False, "无 CADKIT JSON 输出（阶段未真正执行）"
     got = ((payload.get("engine") or {}).get("rules_sha"))
     if expect_rules and got and got != expect_rules:
@@ -94,7 +195,7 @@ def verdict(payload, stage, expect_rules=None):
                        % (got, expect_rules))
     bad = [c for c in (payload.get("checks") or [])
            if isinstance(c, dict) and str(c.get("status", "")).upper() not in
-           ("PASS", "SKIP", "N/A", "")]
+           ("PASS", "SKIP", "N/A", "", "WARN")]
     if bad:
         return False, "checks FAIL: " + "; ".join(
             "%s(%s)" % (c.get("id"), str(c.get("detail", ""))[:60]) for c in bad[:3])
@@ -115,6 +216,12 @@ def verdict(payload, stage, expect_rules=None):
     return True, ""
 
 
+def _warn_ids(payload):
+    return [c.get("id") for c in ((payload or {}).get("checks") or [])
+            if isinstance(c, dict)
+            and str(c.get("status", "")).upper() == "WARN"]
+
+
 def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
               expect_rules=None):
     # 参数只能走环境：freecadcmd 会先把 --xxx 当成自己的选项吃掉
@@ -127,10 +234,19 @@ def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
         opts["long_side"] = 2400
     env.update({"CADKIT_ACTION": stage, "CADKIT_ROOT": root, "CADKIT_PROJECT": pid,
                 "CADKIT_MEM_MB": str(mem_mb), "CADKIT_OPTS": json.dumps(opts)})
-    env.pop("CADKIT_OUT", None)
-    if stage in ("validate", "probe", "export", "package"):
-        env["CADKIT_OUT"] = os.path.join(root, "projects", pid, "build",
-                                         "runner_%s.json" % stage)
+    # 修（B 机 08:30 报告②，代码复核成立）：FreeCAD 的进度条与 CADKIT JSON
+    # 共享同一 stdout 行流，40KB 块边界可以把 JSON 拦腰截断 —— 而 entry.py
+    # 对**所有** action 都支持 --out（结果文件由引擎自己落盘，不过 stdout）。
+    # 旧版只给 validate/probe/export/package 设了 CADKIT_OUT，build 裸奔；
+    # 现在全阶段都落文件、优先读文件，stdout 只剩兜底。旧文件先删，
+    # 防上一轮的陈旧结果冒充本轮执行。
+    out = os.path.join(root, "projects", pid, "build", "runner_%s.json" % stage)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    try:
+        os.remove(out)
+    except OSError:
+        pass
+    env["CADKIT_OUT"] = out
     t0 = time.time()
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
@@ -138,14 +254,20 @@ def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
         return {"pid": pid, "stage": stage, "ok": False, "error": "timeout %ds" % timeout,
                 "seconds": round(time.time() - t0, 1)}
     payload = None
-    for line in reversed((p.stdout or "").splitlines()):
-        line = line.strip()
-        if line.startswith("CADKIT>>"):
-            try:
-                payload = json.loads(line[len("CADKIT>>"):].strip())
-            except ValueError:
-                payload = None
-            break
+    try:
+        with open(out, encoding="utf-8") as f:
+            payload = json.load(f)
+    except Exception:
+        payload = None
+    if payload is None:  # 兜底：stdout 的 CADKIT>> 行（可能被 spinner 污染）
+        for line in reversed((p.stdout or "").splitlines()):
+            line = line.strip()
+            if line.startswith("CADKIT>>"):
+                try:
+                    payload = json.loads(line[len("CADKIT>>"):].strip())
+                except ValueError:
+                    payload = None
+                break
     ok, err = verdict(payload, stage, expect_rules)
     if not ok and not err:
         err = ((p.stderr or p.stdout or "").strip().splitlines() or ["?"])[-1][:200]
@@ -155,6 +277,7 @@ def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
     return {"pid": pid, "stage": stage, "ok": ok, "rc": p.returncode,
             "seconds": round(time.time() - t0, 1),
             "peak_mb": mem.get("peak_mb"), "degraded": bool(mem.get("degraded")),
+            "warns": _warn_ids(payload),
             "error": None if ok else err}
 
 
@@ -184,6 +307,8 @@ def main():
                     help="freecadcmd 路径（默认 FREECAD_BIN → PATH → /Applications/FreeCAD.app/…）")
     ap.add_argument("--expect-rules", default=None,
                     help="签发的 rules_sha（默认读 shared/versions.json），每个阶段自查一次")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="只跑前 N 件（试点/分批用；续跑语义不变）")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
@@ -211,7 +336,8 @@ def main():
         print("握手自检：%s ✓（与签发值一致）" % (got or "引擎未报告 rules_sha"))
     root = os.path.abspath(os.path.expanduser(a.root))
     allowed = max(1, min(a.workers, a.mem_budget_mb // a.per_part_mb))
-    todo = pending(root, a.intake, stages)
+    rec = Recorder(root, engine, a.expect_rules or rules_sha_of(engine))
+    todo = pending(rec, a.intake, stages, a.limit)
     print("引擎 %s（%s）\n本波待跑 %d 件（阶段 %s）；生产并发 %d（内存预算 %dMB / 单件 %dMB），package %s"
           % (engine, os.path.basename(freecad), len(todo), ",".join(stages), allowed,
              a.mem_budget_mb, a.per_part_mb,
@@ -251,6 +377,8 @@ def main():
                 r["worker"] = n
                 emit(r)
                 with lock:
+                    rec.record(pid, stage, r["ok"],
+                               (r.get("error") or "")[:40] or None)
                     stats["ok" if r["ok"] else "fail"] += 1
                     print("%-7s [%d] %-18s %-8s %s%s" % ("ok" if r["ok"] else "FAIL", n, pid,
                           stage, "%5.1fs" % r["seconds"], "  " + str(r["error"])[:90] if not r["ok"]
@@ -317,6 +445,8 @@ def main():
                 r["lane"] = "package"
                 emit(r)
                 with lock:
+                    rec.record(pid, "package", r["ok"],
+                               (r.get("error") or "")[:40] or None)
                     stats["packaged" if r["ok"] else "fail"] += 1
                     print("PACKAGE %-18s %s%s" % (pid, "ok" if r["ok"] else "FAIL",
                           "  " + str(r["error"])[:90] if not r["ok"] else ""), flush=True)
