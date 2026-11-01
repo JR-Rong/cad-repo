@@ -1,0 +1,13 @@
+{
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "canonical_id": null,
+  "owner": null,
+  "revision": null,
+  "token": null,
+  "issued_at": null,
+  "expires_at": null,
+  "contract_sha256": null,
+  "source_sha256": null,
+  "status": "UNCLAIMED",
+  "atomicity_proven": false
+}

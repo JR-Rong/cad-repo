@@ -1,0 +1,44 @@
+{
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "schema_version": "integration-v2-draft",
+  "batch_id": "REPLACE_NEW_BATCH",
+  "candidate_id": "REPLACE_NEW_ID",
+  "canonical_id": null,
+  "backend": "partdesign_recipe",
+  "history_baseline": {
+    "legacy_new": 100,
+    "legacy_references": 8,
+    "manifest_sha256": null,
+    "other_sources": []
+  },
+  "requirements": {
+    "native_history_policy": "single_partdesign_body",
+    "minimum_real_contributing_nodes": 20,
+    "functional_contract": {},
+    "structural_difference": "",
+    "drawing_policy": "CONFIRM_REQUIRED_OR_OPTIONAL",
+    "metadata_excluded": [
+      "source_url",
+      "license",
+      "author"
+    ]
+  },
+  "attempt_policy": {
+    "max_total_design_attempts": 5,
+    "includes_initial": true,
+    "counting_semantics_requires_contract": true
+  },
+  "routing_policy": {
+    "per_inference_task": true,
+    "low": "SELF_HOSTED_UNCONFIGURED",
+    "medium": "DEEPSEEK_OFFICIAL_UNCONFIGURED",
+    "high": "CODEX_UNCONFIGURED",
+    "qwen_role": "UNCONFIRMED"
+  },
+  "quota_policy": {
+    "target_unique_new": null,
+    "visual_pending_reserves_capacity": true,
+    "references_count_as_new": false
+  },
+  "manufacturing_release": false
+}

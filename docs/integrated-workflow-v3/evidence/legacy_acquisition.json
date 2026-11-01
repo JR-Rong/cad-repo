@@ -1,0 +1,25 @@
+{
+  "root_key": "LEGACY_ARCHIVE_ROOT",
+  "relative_directory": "final_delivery_100_unique_new_8_references_20261014/standalone_two_ordinary_ZIPs",
+  "archives": [
+    {
+      "filename": "FreeCAD_runtime_source_100new_8refs_complete_under8MB_20261014.zip",
+      "bytes": 5409515,
+      "sha256": "62ce275859f5798dfeeafe5ff527fe7d36410a873e27fef8cdda0d8da881d73a",
+      "entries": 781,
+      "python_files": 144,
+      "python_uncompressed_bytes": 1071643
+    },
+    {
+      "filename": "FreeCAD_required_native_references4_100new_8refs_complete_under8MB_20261014.zip",
+      "bytes": 7003732,
+      "sha256": "139ab4e1a6d70c5724496bedfc7de906ad77eb0a39c7a547bc62c3a716a712fe",
+      "entries": 6,
+      "python_files": 0,
+      "python_uncompressed_bytes": 0
+    }
+  ],
+  "source_code_not_in_git": true,
+  "public_copy_status": "NOT_COPIED",
+  "reason": "Pure source subset identified; all runtime data dependencies and third-party publication provenance not exhaustively cleared. Original sealed assets remain separately supplied."
+}

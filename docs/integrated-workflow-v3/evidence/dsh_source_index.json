@@ -1,0 +1,1605 @@
+[
+  {
+    "id": "D01",
+    "title": "已安装插件身份",
+    "bytes": 1004,
+    "sha256": "64a0cd6fbc5f0f92f4a809cd39ca71395f9c631c236b00982e59236e668786db",
+    "line_count": 40,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/package.json",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D01",
+    "title": "已安装插件身份",
+    "bytes": 18916,
+    "sha256": "4bad3c126bfb318c3363b3127a2d5db93776469f920c9c284341cc71d57d4198",
+    "line_count": 474,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/index.js",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D01",
+    "title": "已安装插件身份",
+    "bytes": 1413,
+    "sha256": "2d834f4ffdf07210daaf6d22af7ea885ab7268ee8d24f59bfa065a0dcfb3f682",
+    "line_count": 24,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/cordis.patch.yml",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D02",
+    "title": "看板客户端",
+    "bytes": 23734,
+    "sha256": "5dfb252a94677160743a8f454a76a27036b4881a6c5a0b8516f5409961fbb882",
+    "line_count": 535,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/lib/client.js",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D02",
+    "title": "看板客户端",
+    "bytes": 232,
+    "sha256": "fd6ccbde3f4dc295e1786f99a339cbbd7cf4d100d353cb94560dbfc93e2e830d",
+    "line_count": 6,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/locale/zh.json",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D03",
+    "title": "动作分派和快照",
+    "bytes": 25344,
+    "sha256": "5079409e6d0901429d3efd6397d3adeb2200a1aaa217a5191ebe78665308e098",
+    "line_count": 614,
+    "top_level_symbols": [
+      {
+        "name": "parse_args",
+        "line": 31
+      },
+      {
+        "name": "load_project",
+        "line": 51
+      },
+      {
+        "name": "act_new",
+        "line": 55
+      },
+      {
+        "name": "act_build",
+        "line": 83
+      },
+      {
+        "name": "_final_of",
+        "line": 102
+      },
+      {
+        "name": "act_validate",
+        "line": 106
+      },
+      {
+        "name": "act_probe",
+        "line": 117
+      },
+      {
+        "name": "act_export",
+        "line": 131
+      },
+      {
+        "name": "act_package",
+        "line": 168
+      },
+      {
+        "name": "act_dedupe",
+        "line": 217
+      },
+      {
+        "name": "act_status",
+        "line": 224
+      },
+      {
+        "name": "mem_dir",
+        "line": 301
+      },
+      {
+        "name": "_read_json",
+        "line": 305
+      },
+      {
+        "name": "_png_size",
+        "line": 313
+      },
+      {
+        "name": "_write_atomic",
+        "line": 326
+      },
+      {
+        "name": "_stamp",
+        "line": 336
+      },
+      {
+        "name": "record_action",
+        "line": 345
+      },
+      {
+        "name": "build_board",
+        "line": 383
+      },
+      {
+        "name": "act_board",
+        "line": 497
+      },
+      {
+        "name": "main",
+        "line": 503
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/entry.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D03",
+    "title": "动作分派和快照",
+    "bytes": 3939,
+    "sha256": "c7529d076b950ad95672463bc4791309857a033b0b72ca6fbfa7cc47132d5623",
+    "line_count": 110,
+    "top_level_symbols": [
+      {
+        "name": "grade_for_steps",
+        "line": 23
+      },
+      {
+        "name": "check_safe_name",
+        "line": 33
+      },
+      {
+        "name": "Project",
+        "line": 39
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/project.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D04",
+    "title": "构造与参数表",
+    "bytes": 22657,
+    "sha256": "7169b009422dd276e521853e6cfa5a8a9691b2c0c8a318aad5628c67cba3fe51",
+    "line_count": 567,
+    "top_level_symbols": [
+      {
+        "name": "BuildError",
+        "line": 20
+      },
+      {
+        "name": "_v",
+        "line": 24
+      },
+      {
+        "name": "_ex",
+        "line": 36
+      },
+      {
+        "name": "SketchBuilder",
+        "line": 49
+      },
+      {
+        "name": "PartBuilder",
+        "line": 244
+      },
+      {
+        "name": "open_project_doc",
+        "line": 565
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/docctx.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D04",
+    "title": "构造与参数表",
+    "bytes": 1662,
+    "sha256": "89977164cb033caadcebe31d886284b91ed8bda47cad69830efa7ba5ad3ae90f",
+    "line_count": 40,
+    "top_level_symbols": [
+      {
+        "name": "head_envelope_radius",
+        "line": 17
+      },
+      {
+        "name": "head_envelope_height",
+        "line": 25
+      },
+      {
+        "name": "rib_reservation_radius",
+        "line": 38
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/contract.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D05",
+    "title": "机器验收",
+    "bytes": 27249,
+    "sha256": "91e30d097a07d91c14835b50a1ea6f17800a57695f69acc4bc03b15e3fc42de2",
+    "line_count": 613,
+    "top_level_symbols": [
+      {
+        "name": "is_sketch",
+        "line": 28
+      },
+      {
+        "name": "is_feature",
+        "line": 32
+      },
+      {
+        "name": "is_step_node",
+        "line": 44
+      },
+      {
+        "name": "cadkit_marker",
+        "line": 54
+      },
+      {
+        "name": "final_objects",
+        "line": 62
+      },
+      {
+        "name": "contributing_set",
+        "line": 82
+      },
+      {
+        "name": "solids_of",
+        "line": 92
+      },
+      {
+        "name": "_check",
+        "line": 105
+      },
+      {
+        "name": "validate_document",
+        "line": 110
+      },
+      {
+        "name": "_should_be_in_closure",
+        "line": 572
+      },
+      {
+        "name": "_union",
+        "line": 581
+      },
+      {
+        "name": "features_for",
+        "line": 588
+      },
+      {
+        "name": "validate_project",
+        "line": 597
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/validate.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D06",
+    "title": "参数探针",
+    "bytes": 37990,
+    "sha256": "0b99797b68398abdf49fd44fa24787950e6dbeaa154f07c69ed9059841bd6e55",
+    "line_count": 882,
+    "top_level_symbols": [
+      {
+        "name": "_states",
+        "line": 27
+      },
+      {
+        "name": "_total_volume",
+        "line": 36
+      },
+      {
+        "name": "_metric",
+        "line": 47
+      },
+      {
+        "name": "_split_addr",
+        "line": 86
+      },
+      {
+        "name": "_addr",
+        "line": 97
+      },
+      {
+        "name": "driving_cells",
+        "line": 105
+      },
+      {
+        "name": "_aliases",
+        "line": 157
+      },
+      {
+        "name": "probe_worker",
+        "line": 164
+      },
+      {
+        "name": "_moved",
+        "line": 282
+      },
+      {
+        "name": "_calibrate_worker_mb",
+        "line": 296
+      },
+      {
+        "name": "plan_workers",
+        "line": 319
+      },
+      {
+        "name": "_wait_for_memory",
+        "line": 358
+      },
+      {
+        "name": "probe_project",
+        "line": 377
+      },
+      {
+        "name": "_idx_of",
+        "line": 787
+      },
+      {
+        "name": "_row_of",
+        "line": 800
+      },
+      {
+        "name": "_fallback_sketch_probe",
+        "line": 810
+      },
+      {
+        "name": "_dim_constraints",
+        "line": 860
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/probe.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D07",
+    "title": "导出与渲染",
+    "bytes": 6983,
+    "sha256": "40a99e8efe2981c856232714f8bd28c821d8174c3a1156f358f48067f7d5b88c",
+    "line_count": 200,
+    "top_level_symbols": [
+      {
+        "name": "_final_objs",
+        "line": 16
+      },
+      {
+        "name": "export_step",
+        "line": 21
+      },
+      {
+        "name": "_import_module",
+        "line": 38
+      },
+      {
+        "name": "step_schema",
+        "line": 46
+      },
+      {
+        "name": "force_rebuild_and_check",
+        "line": 154
+      },
+      {
+        "name": "consistency_check",
+        "line": 168
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/exporter.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D07",
+    "title": "导出与渲染",
+    "bytes": 20618,
+    "sha256": "35ba1eb9552676248a96d3d498f23654b3a74454574294ab8de2b9ff1993deeb",
+    "line_count": 517,
+    "top_level_symbols": [
+      {
+        "name": "collect_solids",
+        "line": 61
+      },
+      {
+        "name": "_add",
+        "line": 91
+      },
+      {
+        "name": "_diag",
+        "line": 96
+      },
+      {
+        "name": "_mesh_one",
+        "line": 107
+      },
+      {
+        "name": "_tessellate",
+        "line": 126
+      },
+      {
+        "name": "_tessellate_uncapped",
+        "line": 184
+      },
+      {
+        "name": "_weld",
+        "line": 199
+      },
+      {
+        "name": "_vertex_normals",
+        "line": 210
+      },
+      {
+        "name": "_nrm",
+        "line": 242
+      },
+      {
+        "name": "_lit",
+        "line": 247
+      },
+      {
+        "name": "_frame",
+        "line": 257
+      },
+      {
+        "name": "_raster_band",
+        "line": 292
+      },
+      {
+        "name": "_render_view",
+        "line": 354
+      },
+      {
+        "name": "downsample2",
+        "line": 377
+      },
+      {
+        "name": "write_png",
+        "line": 390
+      },
+      {
+        "name": "plan",
+        "line": 416
+      },
+      {
+        "name": "render_document",
+        "line": 432
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/render.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D08",
+    "title": "交付包装",
+    "bytes": 68969,
+    "sha256": "82aef9297b9881cd32779354e538dcae7d1c8246dab5a8fe928fbfbafc9879ce",
+    "line_count": 1428,
+    "top_level_symbols": [
+      {
+        "name": "_png_dims",
+        "line": 34
+      },
+      {
+        "name": "_png_white_corners",
+        "line": 42
+      },
+      {
+        "name": "_png_content",
+        "line": 74
+      },
+      {
+        "name": "_check_native",
+        "line": 246
+      },
+      {
+        "name": "_check_references",
+        "line": 267
+      },
+      {
+        "name": "_load_json",
+        "line": 286
+      },
+      {
+        "name": "_safe_open_w",
+        "line": 296
+      },
+      {
+        "name": "_sheet_cells",
+        "line": 303
+      },
+      {
+        "name": "package_project",
+        "line": 321
+      },
+      {
+        "name": "_rollback_drift",
+        "line": 1232
+      },
+      {
+        "name": "_delivered_owns_disk",
+        "line": 1302
+      },
+      {
+        "name": "_withdraw_model_deliveries",
+        "line": 1324
+      },
+      {
+        "name": "rebuild_info_csv",
+        "line": 1339
+      },
+      {
+        "name": "_csv_drop",
+        "line": 1403
+      },
+      {
+        "name": "write_info",
+        "line": 1416
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/packager.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D09",
+    "title": "事务账本",
+    "bytes": 40330,
+    "sha256": "12ff1fdfb0bbfd31370f2cc21d8c621c4f44242643678b89fbf1c9d77da97e23",
+    "line_count": 877,
+    "top_level_symbols": [
+      {
+        "name": "_ms",
+        "line": 89
+      },
+      {
+        "name": "sha256_file",
+        "line": 93
+      },
+      {
+        "name": "_fp_blob",
+        "line": 104
+      },
+      {
+        "name": "_migrate",
+        "line": 134
+      },
+      {
+        "name": "open_ledger",
+        "line": 142
+      },
+      {
+        "name": "stage_dir",
+        "line": 160
+      },
+      {
+        "name": "fsync_dir",
+        "line": 194
+      },
+      {
+        "name": "fsync_file",
+        "line": 202
+      },
+      {
+        "name": "_PubStack",
+        "line": 207
+      },
+      {
+        "name": "_pub_lock",
+        "line": 214
+      },
+      {
+        "name": "_pub_unlock",
+        "line": 243
+      },
+      {
+        "name": "publish",
+        "line": 267
+      },
+      {
+        "name": "drop_superseded_trash",
+        "line": 358
+      },
+      {
+        "name": "commit_acceptance",
+        "line": 369
+      },
+      {
+        "name": "_intake_sha",
+        "line": 559
+      },
+      {
+        "name": "job_state",
+        "line": 571
+      },
+      {
+        "name": "job_record",
+        "line": 579
+      },
+      {
+        "name": "is_committed",
+        "line": 594
+      },
+      {
+        "name": "get_committed_rev",
+        "line": 608
+      },
+      {
+        "name": "same_project_revisions",
+        "line": 616
+      },
+      {
+        "name": "dedup_candidates",
+        "line": 628
+      },
+      {
+        "name": "is_stale_attempt",
+        "line": 652
+      },
+      {
+        "name": "reinstate_previous",
+        "line": 674
+      },
+      {
+        "name": "mark_published",
+        "line": 711
+      },
+      {
+        "name": "_mark_published",
+        "line": 733
+      },
+      {
+        "name": "_reelect_classes",
+        "line": 812
+      },
+      {
+        "name": "delivery_state",
+        "line": 850
+      },
+      {
+        "name": "abandon_pending",
+        "line": 858
+      },
+      {
+        "name": "withdraw",
+        "line": 866
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/ledger.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D10",
+    "title": "指纹与版本",
+    "bytes": 9597,
+    "sha256": "2c17da749037b3b4c7c2d017ba4893b643e33a10b6364efc39496b6be7539085",
+    "line_count": 243,
+    "top_level_symbols": [
+      {
+        "name": "compute",
+        "line": 16
+      },
+      {
+        "name": "_add",
+        "line": 68
+      },
+      {
+        "name": "registry_path",
+        "line": 73
+      },
+      {
+        "name": "load_registry",
+        "line": 79
+      },
+      {
+        "name": "scaled_same",
+        "line": 87
+      },
+      {
+        "name": "related",
+        "line": 113
+      },
+      {
+        "name": "check_and_register",
+        "line": 128
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/fingerprint.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D10",
+    "title": "指纹与版本",
+    "bytes": 5032,
+    "sha256": "4bf96664c38aa691ccf9bf056049543ba48b96167abbf90a8179c656b62e24d3",
+    "line_count": 137,
+    "top_level_symbols": [
+      {
+        "name": "_pkg_dir",
+        "line": 17
+      },
+      {
+        "name": "rules_sha",
+        "line": 21
+      },
+      {
+        "name": "stamp",
+        "line": 41
+      },
+      {
+        "name": "fcstd_sha",
+        "line": 54
+      },
+      {
+        "name": "runtime_sha",
+        "line": 59
+      },
+      {
+        "name": "evidence_issues",
+        "line": 71
+      },
+      {
+        "name": "adjudicate_review",
+        "line": 90
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/version.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D11",
+    "title": "内存治理",
+    "bytes": 10814,
+    "sha256": "49c5a37f4ef7bf130be5be38aef34731324755743f3287cb13f8cee9c83f7ae9",
+    "line_count": 308,
+    "top_level_symbols": [
+      {
+        "name": "_env_int",
+        "line": 54
+      },
+      {
+        "name": "cap_mb",
+        "line": 62
+      },
+      {
+        "name": "floor_mb",
+        "line": 67
+      },
+      {
+        "name": "probe_max_workers",
+        "line": 72
+      },
+      {
+        "name": "abort_enabled",
+        "line": 76
+      },
+      {
+        "name": "_libc_load",
+        "line": 89
+      },
+      {
+        "name": "rss_mb",
+        "line": 113
+      },
+      {
+        "name": "peak_mb",
+        "line": 135
+      },
+      {
+        "name": "avail_mb",
+        "line": 143
+      },
+      {
+        "name": "memory_ok",
+        "line": 181
+      },
+      {
+        "name": "tri_budget",
+        "line": 190
+      },
+      {
+        "name": "clamp_long_side",
+        "line": 197
+      },
+      {
+        "name": "degrade",
+        "line": 216
+      },
+      {
+        "name": "degraded",
+        "line": 224
+      },
+      {
+        "name": "Watchdog",
+        "line": 229
+      },
+      {
+        "name": "status",
+        "line": 295
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/python/cadkit/mem.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D12",
+    "title": "批处理调度",
+    "bytes": 22343,
+    "sha256": "28eae84bdaa08715b915be2fe69c8cbcb820ba314c313f1a106c8adbef5a1e29",
+    "line_count": 473,
+    "top_level_symbols": [
+      {
+        "name": "find_entry",
+        "line": 37
+      },
+      {
+        "name": "rules_sha_of",
+        "line": 44
+      },
+      {
+        "name": "find_freecad",
+        "line": 52
+      },
+      {
+        "name": "_h",
+        "line": 80
+      },
+      {
+        "name": "_sha",
+        "line": 88
+      },
+      {
+        "name": "Recorder",
+        "line": 102
+      },
+      {
+        "name": "pending",
+        "line": 154
+      },
+      {
+        "name": "verdict",
+        "line": 168
+      },
+      {
+        "name": "_warn_ids",
+        "line": 219
+      },
+      {
+        "name": "run_stage",
+        "line": 225
+      },
+      {
+        "name": "main",
+        "line": 284
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/fleet_runner.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D12",
+    "title": "批处理调度",
+    "bytes": 1803,
+    "sha256": "36c693b6327a3e2ce09d7a6d160983cbb43e6cfca577dabd677eb9aa0ee754f5",
+    "line_count": 42,
+    "top_level_symbols": [
+      {
+        "name": "candidates",
+        "line": 17
+      },
+      {
+        "name": "discover",
+        "line": 32
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/plugin_source.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D13",
+    "title": "任务拆分",
+    "bytes": 3181,
+    "sha256": "6c7ccaf65df97c9d7bc845f3b0b1702aadc8280290ac6cb8e5ef48646fa54a12",
+    "line_count": 80,
+    "top_level_symbols": [
+      {
+        "name": "main",
+        "line": 23
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/emit_members.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D13",
+    "title": "任务拆分",
+    "bytes": 19297,
+    "sha256": "c0ae3296fcc067c7b219a720e16f7c20224dcd614157cac0e3d03b12ed7ee26c",
+    "line_count": 330,
+    "top_level_symbols": [
+      {
+        "name": "arch_of",
+        "line": 100
+      },
+      {
+        "name": "combos",
+        "line": 107
+      },
+      {
+        "name": "member_ids",
+        "line": 114
+      },
+      {
+        "name": "members_of",
+        "line": 118
+      },
+      {
+        "name": "load",
+        "line": 137
+      },
+      {
+        "name": "sha_members",
+        "line": 150
+      },
+      {
+        "name": "write_family_files",
+        "line": 155
+      },
+      {
+        "name": "write_intake",
+        "line": 228
+      },
+      {
+        "name": "write_briefs",
+        "line": 256
+      },
+      {
+        "name": "write_sample",
+        "line": 295
+      },
+      {
+        "name": "main",
+        "line": 312
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/build_catalog.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D13",
+    "title": "任务拆分",
+    "bytes": 14877,
+    "sha256": "209bafac33cc56fe02675ff6c5f48ae681e02eac0c39e7a8bab419441502d1e1",
+    "line_count": 555,
+    "top_level_symbols": [
+      {
+        "name": "families",
+        "line": 539
+      },
+      {
+        "name": "re_key",
+        "line": 553
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/families_500.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D13",
+    "title": "任务拆分",
+    "bytes": 10448,
+    "sha256": "48f93ab07491e4dee3aaa3640437571d3e6620fa91625427f04dc879aaf3152b",
+    "line_count": 170,
+    "top_level_symbols": [
+      {
+        "name": "load",
+        "line": 23
+      },
+      {
+        "name": "slice_of",
+        "line": 31
+      },
+      {
+        "name": "render",
+        "line": 37
+      },
+      {
+        "name": "main",
+        "line": 146
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/kickoff.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D14",
+    "title": "收货与旧件复检",
+    "bytes": 16878,
+    "sha256": "3b58af2e044202117574698c4044b92e2054698b387c951442057b598a54a0ca",
+    "line_count": 367,
+    "top_level_symbols": [
+      {
+        "name": "find_plugin_python",
+        "line": 29
+      },
+      {
+        "name": "load_predicates",
+        "line": 41
+      },
+      {
+        "name": "load_jsonl",
+        "line": 59
+      },
+      {
+        "name": "png_size",
+        "line": 69
+      },
+      {
+        "name": "step_flavour",
+        "line": 77
+      },
+      {
+        "name": "load_baseline",
+        "line": 91
+      },
+      {
+        "name": "rows_of",
+        "line": 111
+      },
+      {
+        "name": "main",
+        "line": 115
+      },
+      {
+        "name": "emit",
+        "line": 356
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/merge_check.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D14",
+    "title": "收货与旧件复检",
+    "bytes": 8173,
+    "sha256": "8e9ecd9335c31a71a7976592611fa4f741014ffc90dba53b6a36bf67c1ebaafb",
+    "line_count": 177,
+    "top_level_symbols": [
+      {
+        "name": "png_size",
+        "line": 28
+      },
+      {
+        "name": "step_profile",
+        "line": 36
+      },
+      {
+        "name": "rows",
+        "line": 46
+      },
+      {
+        "name": "scan",
+        "line": 57
+      },
+      {
+        "name": "to_lessons",
+        "line": 140
+      },
+      {
+        "name": "main",
+        "line": 150
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/review_scan.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D14",
+    "title": "收货与旧件复检",
+    "bytes": 2030,
+    "sha256": "189aaa2a400cc4a15942a4594e66d2583f55bb6a0d5add99e371772f9e54e083",
+    "line_count": 49,
+    "top_level_symbols": [
+      {
+        "name": "load",
+        "line": 15
+      },
+      {
+        "name": "selftest",
+        "line": 38
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/engine_predicates.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D15",
+    "title": "共享历史与教训",
+    "bytes": 5871,
+    "sha256": "b6c57ba28dda32fdfe9a4959188fa7151f14902f7b6d69d9e08b44bc916dd48a",
+    "line_count": 136,
+    "top_level_symbols": [
+      {
+        "name": "load_files",
+        "line": 41
+      },
+      {
+        "name": "main",
+        "line": 59
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/registry_sync.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D15",
+    "title": "共享历史与教训",
+    "bytes": 3838,
+    "sha256": "49fb0bbd46ec698ff00e069295c6b4c43494e6b317a54772693419adc2165795",
+    "line_count": 107,
+    "top_level_symbols": [
+      {
+        "name": "entries_of",
+        "line": 31
+      },
+      {
+        "name": "collide",
+        "line": 36
+      },
+      {
+        "name": "main",
+        "line": 44
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/fingerprint_merge.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D15",
+    "title": "共享历史与教训",
+    "bytes": 11765,
+    "sha256": "d74374f5cb613b5d4f1e08e4a953ea1296dde91770be71adc4f4d2ccde63c94f",
+    "line_count": 248,
+    "top_level_symbols": [
+      {
+        "name": "norm",
+        "line": 36
+      },
+      {
+        "name": "rhash",
+        "line": 40
+      },
+      {
+        "name": "from_inbox",
+        "line": 44
+      },
+      {
+        "name": "from_audit",
+        "line": 62
+      },
+      {
+        "name": "from_gate",
+        "line": 87
+      },
+      {
+        "name": "merge",
+        "line": 98
+      },
+      {
+        "name": "render",
+        "line": 146
+      },
+      {
+        "name": "splice",
+        "line": 170
+      },
+      {
+        "name": "main",
+        "line": 180
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/lesson_ingest.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D15",
+    "title": "共享历史与教训",
+    "bytes": 3640,
+    "sha256": "3da62dc1b255c25194e8488bb9303200e289f67d064e82ed24d19e02cfaf1dfb",
+    "line_count": 90,
+    "top_level_symbols": [
+      {
+        "name": "norm",
+        "line": 28
+      },
+      {
+        "name": "root_hash",
+        "line": 33
+      },
+      {
+        "name": "append",
+        "line": 40
+      },
+      {
+        "name": "main",
+        "line": 48
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/tools/lesson_add.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D16",
+    "title": "签发版本与批量协作文档",
+    "bytes": 1214,
+    "sha256": "91d3139dbcb80ef8656f2ee335d4b5367621f1fb34f66b7b3dceb392b7a23032",
+    "line_count": 18,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/shared/versions.json",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D16",
+    "title": "签发版本与批量协作文档",
+    "bytes": 11442,
+    "sha256": "6d76d67af58c347fea06f5b7aebf1f59f6b2fac88b8178ac8cc802011ba51c08",
+    "line_count": 172,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/WORKFLOW.md",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D16",
+    "title": "签发版本与批量协作文档",
+    "bytes": 1605,
+    "sha256": "02467535979a1700248afe7660be468a2a0298e013bcb03bbc3de2da308ea03c",
+    "line_count": 23,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/plugin/README.md",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D17",
+    "title": "审查记录与试点入口",
+    "bytes": 3700,
+    "sha256": "76fb016597d71d6dd476c6c225a50090b424629c1d49744054ada6067f75443c",
+    "line_count": 94,
+    "top_level_symbols": [
+      {
+        "name": "sha256_file",
+        "line": 29
+      },
+      {
+        "name": "main",
+        "line": 37
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "cad/tools/record_approval.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D17",
+    "title": "审查记录与试点入口",
+    "bytes": 6655,
+    "sha256": "b19de953057155d340fc833124a968ab507f91ced0723ecf239f0d2098fb4469",
+    "line_count": 130,
+    "top_level_symbols": [
+      {
+        "name": "sha256_file",
+        "line": 20
+      },
+      {
+        "name": "main",
+        "line": 28
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "cad/tools/gen_receipts.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D17",
+    "title": "审查记录与试点入口",
+    "bytes": 6073,
+    "sha256": "e4d3577415ee4672a97b6893a3a4da5bfa9125d0410bb8d73428115aa120ffbb",
+    "line_count": 153,
+    "top_level_symbols": [
+      {
+        "name": "_h",
+        "line": 29
+      },
+      {
+        "name": "input_hash",
+        "line": 37
+      },
+      {
+        "name": "cmd_done",
+        "line": 90
+      },
+      {
+        "name": "cmd_record",
+        "line": 97
+      },
+      {
+        "name": "cmd_hash",
+        "line": 104
+      },
+      {
+        "name": "cmd_reconcile",
+        "line": 109
+      },
+      {
+        "name": "cmd_pending",
+        "line": 132
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "cad/tools/pilotctl.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D17",
+    "title": "审查记录与试点入口",
+    "bytes": 4806,
+    "sha256": "4dee40767c72b23acfe02dc18ddf7c4c7962d2b4fb6192c9ccf3abf758da949e",
+    "line_count": 104,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "cad/tools/strict_pass.sh",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D18",
+    "title": "第十一轮历史审计",
+    "bytes": 1686166,
+    "sha256": "43c87e6300a82c24b1120fbf43364c32a13bc9f4eb55cab4baab522d66fe5226",
+    "line_count": 50065,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "cad/audit/findings_round11_2026_10_31.json",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D18",
+    "title": "第十一轮历史审计",
+    "bytes": 4652,
+    "sha256": "8fb94d2ea1426c2d1b685c43b35b42e492cb3ed98f6c166153859edef597bd7c",
+    "line_count": 85,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "cad/audit/review_round11_brief.md",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D19",
+    "title": "安装和设计说明",
+    "bytes": 3873,
+    "sha256": "9e4618b81caab916b9a645fdd1f4144f4c490c8284082333385a8fa62417614c",
+    "line_count": 62,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/README.md",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D19",
+    "title": "安装和设计说明",
+    "bytes": 5148,
+    "sha256": "aff343591f900e4ed37478ecaf90a45e6faf1f944e88efcd6b50594316eda1d9",
+    "line_count": 99,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-plugin-cad-freecad/INSTALL.md",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D19",
+    "title": "安装和设计说明",
+    "bytes": 84797,
+    "sha256": "ecdc39a460ffa7ac61a09b5ef387210cc1d3b49bc6708f702b377d200f277396",
+    "line_count": 980,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "dsh-cad-plugin-design.md",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D20",
+    "title": "仓库副本",
+    "bytes": 1004,
+    "sha256": "64a0cd6fbc5f0f92f4a809cd39ca71395f9c631c236b00982e59236e668786db",
+    "line_count": 40,
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/plugin/dsh-plugin-cad-freecad/package.json",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D20",
+    "title": "仓库副本",
+    "bytes": 37455,
+    "sha256": "17ebea5f1b6f7f8574d0627fa2d2b456d46306d70a1bdf9ec0a5f8ed5328f13b",
+    "line_count": 869,
+    "top_level_symbols": [
+      {
+        "name": "_states",
+        "line": 27
+      },
+      {
+        "name": "_total_volume",
+        "line": 36
+      },
+      {
+        "name": "_metric",
+        "line": 47
+      },
+      {
+        "name": "_split_addr",
+        "line": 86
+      },
+      {
+        "name": "_addr",
+        "line": 97
+      },
+      {
+        "name": "driving_cells",
+        "line": 105
+      },
+      {
+        "name": "_aliases",
+        "line": 157
+      },
+      {
+        "name": "probe_worker",
+        "line": 164
+      },
+      {
+        "name": "_moved",
+        "line": 282
+      },
+      {
+        "name": "_calibrate_worker_mb",
+        "line": 296
+      },
+      {
+        "name": "plan_workers",
+        "line": 319
+      },
+      {
+        "name": "_wait_for_memory",
+        "line": 358
+      },
+      {
+        "name": "probe_project",
+        "line": 377
+      },
+      {
+        "name": "_idx_of",
+        "line": 774
+      },
+      {
+        "name": "_row_of",
+        "line": 787
+      },
+      {
+        "name": "_fallback_sketch_probe",
+        "line": 797
+      },
+      {
+        "name": "_dim_constraints",
+        "line": 847
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/plugin/dsh-plugin-cad-freecad/python/cadkit/probe.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D20",
+    "title": "仓库副本",
+    "bytes": 68050,
+    "sha256": "89c2fd984d9b987320f2fd84c9164019fc793ffa76cf4d2dd417d6ab961783b3",
+    "line_count": 1413,
+    "top_level_symbols": [
+      {
+        "name": "_png_dims",
+        "line": 34
+      },
+      {
+        "name": "_png_white_corners",
+        "line": 42
+      },
+      {
+        "name": "_png_content",
+        "line": 74
+      },
+      {
+        "name": "_check_native",
+        "line": 246
+      },
+      {
+        "name": "_check_references",
+        "line": 267
+      },
+      {
+        "name": "_load_json",
+        "line": 286
+      },
+      {
+        "name": "_safe_open_w",
+        "line": 296
+      },
+      {
+        "name": "_sheet_cells",
+        "line": 303
+      },
+      {
+        "name": "package_project",
+        "line": 321
+      },
+      {
+        "name": "_rollback_drift",
+        "line": 1217
+      },
+      {
+        "name": "_delivered_owns_disk",
+        "line": 1287
+      },
+      {
+        "name": "_withdraw_model_deliveries",
+        "line": 1309
+      },
+      {
+        "name": "rebuild_info_csv",
+        "line": 1324
+      },
+      {
+        "name": "_csv_drop",
+        "line": 1388
+      },
+      {
+        "name": "write_info",
+        "line": 1401
+      }
+    ],
+    "root_key": "DSH_WORKSPACE_ROOT",
+    "relative_path": "handoff/plugin/dsh-plugin-cad-freecad/python/cadkit/packager.py",
+    "availability": "EXTERNAL_REQUIRED"
+  },
+  {
+    "id": "D21",
+    "title": "本次 DSH 只读盘点",
+    "bytes": 8091,
+    "sha256": "1b371f2aedec4dfba5960a9648ed67fa0ff425f00d037bf00d025d90d149b329",
+    "root_key": "LEGACY_V2_DOC_ROOT",
+    "relative_path": "evidence/dsh_readonly_inventory.json",
+    "availability": "EXTERNAL_REQUIRED"
+  }
+]

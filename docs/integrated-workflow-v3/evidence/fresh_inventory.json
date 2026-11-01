@@ -1,0 +1,17 @@
+{
+  "public_summary": true,
+  "original_private_evidence_sha256": "9a49fa762b9986d748650e543355a24002f242fc63184a1181e5c8d5ffd835f6",
+  "not_identical_to_original": true,
+  "scope": "Read-only historical findings, not a new CAD run",
+  "summary": {
+    "archive_bytes": 909477759,
+    "archive_sha256": "7f8523309b576fe78b1bb073a6f48aa29459b270c2a21458db28e488391b4325",
+    "new_parts": 100,
+    "references": 8,
+    "internal_pairs": 5750,
+    "drawings_new": 85,
+    "drawings_references": 8,
+    "drawings_missing_new": 15,
+    "source_zip_matched_files": 613
+  }
+}

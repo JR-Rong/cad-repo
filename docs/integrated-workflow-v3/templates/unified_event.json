@@ -1,0 +1,14 @@
+{
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "schema_version": "integration-v2-draft",
+  "event_id": null,
+  "event_kind": "StageStarted",
+  "occurred_at_utc": null,
+  "batch_id": null,
+  "candidate_id": null,
+  "revision_id": null,
+  "idempotency_key": null,
+  "lease_id": null,
+  "evidence_sha256": null,
+  "payload": {}
+}

@@ -1,0 +1,18 @@
+{
+  "public_summary": true,
+  "original_private_evidence_sha256": "1b371f2aedec4dfba5960a9648ed67fa0ff425f00d037bf00d025d90d149b329",
+  "not_identical_to_original": true,
+  "scope": "Read-only historical findings, not a new CAD run",
+  "summary": {
+    "local_project_count": 14,
+    "delivered": 10,
+    "counts_sum": 9,
+    "published": 10,
+    "artifact_hashes_checked": 190,
+    "artifact_mismatches": [],
+    "N45": "UNFIXED",
+    "installed_rules_sha": "64a95367ef997904",
+    "signed_release_rules_sha": "1d835a8f3d2ef4f1",
+    "remote_machines_verified": false
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "project_id": "",
+  "revision": "",
+  "attempt_number": 1,
+  "max_total_attempts": 5,
+  "plan_sha256": "",
+  "native_sha256": "",
+  "rule_id": "",
+  "status": "FAIL_OR_UNVERIFIED",
+  "measured_value": null,
+  "threshold": null,
+  "evidence_paths": [],
+  "diagnosis": "",
+  "allowed_change_scope": "",
+  "previous_failure_preserved": true,
+  "checker_modified": false,
+  "next_action": "REPAIR_OR_SKIP"
+}

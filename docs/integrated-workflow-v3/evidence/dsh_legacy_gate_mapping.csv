@@ -1,0 +1,13 @@
+dsh_validate_id,related_legacy_gate,equivalent
+rebuild_no_error,REBUILD,NO - compare scope and evidence in chapter 33
+step_floor,CONTRIBUTING_NODES,NO - compare scope and evidence in chapter 33
+sketch_constraints,SKETCH_CONSTRAINTS,NO - compare scope and evidence in chapter 33
+geometry_valid,GEOMETRY_VALID,NO - compare scope and evidence in chapter 33
+unit_scale,UNITS_SCALE,NO - compare scope and evidence in chapter 33
+tidy,TIDY,NO - compare scope and evidence in chapter 33
+not_reverse_engineered,FORWARD_HISTORY,NO - compare scope and evidence in chapter 33
+parametric_history,PARAMETRIC_HISTORY,NO - compare scope and evidence in chapter 33
+seal_land_clear,FUNCTIONAL_COMPONENT,NO - compare scope and evidence in chapter 33
+bolt_access,FUNCTIONAL_COMPONENT,NO - compare scope and evidence in chapter 33
+real_object,FUNCTIONAL_COMPONENT + actual visual review,NO - compare scope and evidence in chapter 33
+source_license,User metadata override; not an automatic provenance proof,NO - compare scope and evidence in chapter 33

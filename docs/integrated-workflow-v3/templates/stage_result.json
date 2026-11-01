@@ -1,0 +1,19 @@
+{
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "schema_version": "integration-v2-draft",
+  "request_id": null,
+  "revision_id": null,
+  "stage": null,
+  "clean_exit": false,
+  "exit_code": null,
+  "status": "UNVERIFIED",
+  "input_manifest_sha256": null,
+  "executor_sha256": null,
+  "checker_sha256": null,
+  "artifacts": [],
+  "checks": [],
+  "warnings": [],
+  "resource_usage": {},
+  "error_class": null,
+  "retryability": "UNKNOWN"
+}

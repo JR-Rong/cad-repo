@@ -1,0 +1,203 @@
+{
+  "artifact_kind": "Complete workflow documentation and proposed five-machine plan; not a runnable integrated CAD engine",
+  "base_repository": "https://github.com/JR-Rong/cad-repo",
+  "base_commit": "bdaab3c1de90723fcd07ddae1edc75132b285a09",
+  "files": [
+    {
+      "path": "FreeCAD_Fleet_Integrated_Handbook.zh.md",
+      "bytes": 148198,
+      "sha256": "903034f161a42b54190e0407632ad8e25105cf97e243a8747a72ea091bd9c79c"
+    },
+    {
+      "path": "FreeCAD_Fleet_Integrated_Handbook.zh.docx",
+      "bytes": 119304,
+      "sha256": "090126a0ee073678262297ba9052e6e8fecd9804786d7b9c543793cdb429ed50"
+    },
+    {
+      "path": "README.md",
+      "bytes": 7537,
+      "sha256": "d5967ae3d763d82f863f5f9c86b3cb1d066b7bad15ba2e4b7711d178e9dc8d1d"
+    },
+    {
+      "path": "planning/family_extensions.csv",
+      "bytes": 10779,
+      "sha256": "9f03c4df53a739467a5033d3f5c14ceba977499292ca1d459af50cea69bbe304"
+    },
+    {
+      "path": "planning/family_ownership.csv",
+      "bytes": 155362,
+      "sha256": "3cd01854fb29f0c1bc4c9a7a88b4321edd420ab13111cf7f1c7809148f9c4ee2"
+    },
+    {
+      "path": "planning/fleet_plan.json",
+      "bytes": 2823,
+      "sha256": "b6cfff71374cf9e81fc194327ece37e8c3e94784fecf02c2d6dc3e3ba1c77376"
+    },
+    {
+      "path": "planning/ownership_changes.csv",
+      "bytes": 10822,
+      "sha256": "06208146cebba4a5458ba3dc35d2fad127205a10fa5551d624e6d6e3501a3e9c"
+    },
+    {
+      "path": "prompts/START_A.md",
+      "bytes": 16273,
+      "sha256": "6a05e10f42b3e4b9d47d32854d161919562639569680f1ce6eba03c3d46c12a2"
+    },
+    {
+      "path": "prompts/START_B.md",
+      "bytes": 17753,
+      "sha256": "2099fc4285b8c1bc03362fb253a91a9a35cba2474135452f7f3db92f3a421dc0"
+    },
+    {
+      "path": "prompts/START_C.md",
+      "bytes": 16735,
+      "sha256": "f72ddd8fe6c3d48a6481fde1b94338fa087bc48ca494f6da472c4348d13f1bc9"
+    },
+    {
+      "path": "prompts/START_D.md",
+      "bytes": 16908,
+      "sha256": "1de36be051010c28ae6dba657b73c10fc1c79871966c4c1a026f3fa0d4cd90d3"
+    },
+    {
+      "path": "prompts/START_E.md",
+      "bytes": 16652,
+      "sha256": "677ba25b0481877bd2c58fbeb07af19f38915e376e632157fec79a51e05a8da8"
+    },
+    {
+      "path": "templates/failure_feedback_template.json",
+      "bytes": 454,
+      "sha256": "6b1f2fd9e66b22d6045f55e90cdacb680f537e97885a3969fccca6e5b767dd79"
+    },
+    {
+      "path": "templates/global_acceptance_record.json",
+      "bytes": 654,
+      "sha256": "c62f35b86b29ee1db5afb1aa69fea609a1fc5e716ab5cbb3c2bbc10a7f661f91"
+    },
+    {
+      "path": "templates/lease_record.json",
+      "bytes": 277,
+      "sha256": "5d3c5681950a4200dc022135e1f37fde4b899a375a074140d7acb1aff9e46efc"
+    },
+    {
+      "path": "templates/machine_inventory.json",
+      "bytes": 648,
+      "sha256": "fb94dcf438727d8a7bcd56b70f7a2abb47a4e637f5d4a95ef85cd94a376d178e"
+    },
+    {
+      "path": "templates/queue_schema_example.json",
+      "bytes": 955,
+      "sha256": "8c61a53ff0b955c29f6ecefeac7ba8e37f2d183df1d1f92a2005d18fd2aa6ff7"
+    },
+    {
+      "path": "templates/review_record_template.json",
+      "bytes": 512,
+      "sha256": "ecff19746fcde12d273e7293f0ca16da4d4835ff581f7db0b7b0e802fa7983b9"
+    },
+    {
+      "path": "templates/routing_decision.json",
+      "bytes": 439,
+      "sha256": "c5810c324230e68317b65cc4c6a4afdce6edf188454d035a6b6c860238335948"
+    },
+    {
+      "path": "templates/stage_result.json",
+      "bytes": 441,
+      "sha256": "0c4c84414c75de87dbd1973bec5338564491b2faa356224f4135cd7030f708ad"
+    },
+    {
+      "path": "templates/state_mapping.csv",
+      "bytes": 808,
+      "sha256": "80610a30a0b40b4083df8210b512e6422631fd3966fe6b091c292cba6a7d8fcb"
+    },
+    {
+      "path": "templates/unified_event.json",
+      "bytes": 331,
+      "sha256": "3cbf59dc55d366a8f906b9b7d5e266be4bdc46b1cf8fbb9b8ee89ee8ef6986e5"
+    },
+    {
+      "path": "templates/unified_gate_manifest.json",
+      "bytes": 663,
+      "sha256": "25ea6d191c6466c9b9be132475765743274a385b2868cf1c366c59e4c1d96c2b"
+    },
+    {
+      "path": "templates/unified_task_contract.json",
+      "bytes": 1208,
+      "sha256": "5191ce5d3a303c0f8da94f996ecef7571afa9e28b2dbb0263550fb6fecd66504"
+    },
+    {
+      "path": "evidence/dsh_legacy_gate_mapping.csv",
+      "bytes": 1031,
+      "sha256": "75926fae73488e0315fce01127867a618f98d6b58a4348883f492fb5efb7b538"
+    },
+    {
+      "path": "evidence/dsh_readonly_inventory.json",
+      "bytes": 575,
+      "sha256": "c808ab9bba55f7f49afbd0a6943b1695d8c21f74419030ba25d53a8714024f1e"
+    },
+    {
+      "path": "evidence/dsh_source_index.json",
+      "bytes": 34298,
+      "sha256": "ac77fa8938b70582b437e62ed3c9139518581640c6193c8676fdb0c8e418a0b2"
+    },
+    {
+      "path": "evidence/fleet_source_index.json",
+      "bytes": 1748,
+      "sha256": "c1ecd1fae4a573713e1eb8368efa4d13403e05f86e760d8f72b4f5e41a911057"
+    },
+    {
+      "path": "evidence/fresh_inventory.json",
+      "bytes": 570,
+      "sha256": "0b66c6ad08b3a7ef4f17699754f7528399f0808dfe9d8ed8ae2515d424cf0be7"
+    },
+    {
+      "path": "evidence/handbook_validation.json",
+      "bytes": 4778,
+      "sha256": "1642ea73ab1733ff96f788b85bc59cceeb3a58adfd868b4bb46e2534e6edbb0b"
+    },
+    {
+      "path": "evidence/legacy_acquisition.json",
+      "bytes": 1037,
+      "sha256": "721b39a3b668641315b1c2390348f45e267aaacfc2cf520f737677a7c7fd667c"
+    },
+    {
+      "path": "evidence/pdf_rule_inventory.json",
+      "bytes": 17983,
+      "sha256": "6b06128f9dbf072e24f8fa19d69cf3d1548d2d0411ec7288b5adfd558e4516ef"
+    },
+    {
+      "path": "evidence/pdf_rule_mapping.csv",
+      "bytes": 4417,
+      "sha256": "7a1c3af32be8f688e95da294a3f2330ce3503811b1852f7c75b641796a8b2b01"
+    },
+    {
+      "path": "evidence/procurement_pdf_text.txt",
+      "bytes": 5120,
+      "sha256": "b4f066fbfcc178f6d494e2a1f34f32a2b1ff8fbe0abd9badeed9e830bea12c85"
+    },
+    {
+      "path": "evidence/repository_asset_inventory.json",
+      "bytes": 15065,
+      "sha256": "cf0bc5739c1036a0beb991d88237889750897692981aa1ab8123126d15bc56eb"
+    },
+    {
+      "path": "evidence/repository_investigation.json",
+      "bytes": 2271,
+      "sha256": "8a4d13b5c5cd77b1564d7022987253cd09414f12deb4a8408d467b5dd1313a80"
+    },
+    {
+      "path": "evidence/source_index.json",
+      "bytes": 23902,
+      "sha256": "ff8322989d76a9545d5f3f2b073a21412386ce8f497900ec4727fd46252db3ff"
+    },
+    {
+      "path": "config/asset_roots.example.json",
+      "bytes": 224,
+      "sha256": "3414d3bc1fc410ad88a2e18c026d69f4bcaa6fcaa4e6d702245724f68301701b"
+    },
+    {
+      "path": "tools/verify_documentation_assets.py",
+      "bytes": 2008,
+      "sha256": "79b87a90f371c4ec42aca4d3063c50dff669ec7c27974efdd00e3435891c9753"
+    }
+  ],
+  "manifest_self_hash_excluded": true
+}

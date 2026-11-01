@@ -1,0 +1,17 @@
+{
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "schema_version": "integration-v2-draft",
+  "task_id": null,
+  "revision_id": null,
+  "inference_task_kind": null,
+  "difficulty": "UNASSESSED",
+  "reason": null,
+  "provider_alias": null,
+  "model_id": null,
+  "requires_vision": false,
+  "vision_capability_verified": false,
+  "input_manifest_sha256": null,
+  "budget": {},
+  "decision_time_utc": null,
+  "credentials_included": false
+}

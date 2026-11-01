@@ -1,0 +1,56 @@
+[
+  {
+    "id": "F01",
+    "root_key": "DOC_ROOT",
+    "relative_path": "evidence/repository_investigation.json",
+    "sha256": "8a4d13b5c5cd77b1564d7022987253cd09414f12deb4a8408d467b5dd1313a80",
+    "bytes": 2271,
+    "base_commit": null,
+    "availability": "INCLUDED"
+  },
+  {
+    "id": "F02",
+    "root_key": "REPO_ROOT",
+    "relative_path": "status/PROGRESS.md",
+    "sha256": "5b2d3414bf8ebe8c68a0cb960173cb6f09d193cf61132f18cd6675cd5016725e",
+    "bytes": 20152,
+    "base_commit": "bdaab3c1de90723fcd07ddae1edc75132b285a09",
+    "availability": "REPOSITORY"
+  },
+  {
+    "id": "F03",
+    "root_key": "DOC_ROOT",
+    "relative_path": "evidence/repository_asset_inventory.json",
+    "sha256": "cf0bc5739c1036a0beb991d88237889750897692981aa1ab8123126d15bc56eb",
+    "bytes": 15065,
+    "base_commit": null,
+    "availability": "INCLUDED"
+  },
+  {
+    "id": "F04",
+    "root_key": "REPO_ROOT",
+    "relative_path": "catalog/families.json",
+    "sha256": "3ee24f5999dce0a0fb8deeb6351d0084e7c6c79b0bb220359269007de88fed96",
+    "bytes": 146034,
+    "base_commit": "bdaab3c1de90723fcd07ddae1edc75132b285a09",
+    "availability": "REPOSITORY"
+  },
+  {
+    "id": "F04",
+    "root_key": "REPO_ROOT",
+    "relative_path": "tools/build_catalog.py",
+    "sha256": "c0ae3296fcc067c7b219a720e16f7c20224dcd614157cac0e3d03b12ed7ee26c",
+    "bytes": 19297,
+    "base_commit": "bdaab3c1de90723fcd07ddae1edc75132b285a09",
+    "availability": "REPOSITORY"
+  },
+  {
+    "id": "F04",
+    "root_key": "REPO_ROOT",
+    "relative_path": "tools/catalog_lint.py",
+    "sha256": "52e6b8c458064c2687112b88e3b92416aa4ac250e3d9df7ae20a00be9f0f8176",
+    "bytes": 5923,
+    "base_commit": "bdaab3c1de90723fcd07ddae1edc75132b285a09",
+    "availability": "REPOSITORY"
+  }
+]

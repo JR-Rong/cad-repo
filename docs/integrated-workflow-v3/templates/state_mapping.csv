@@ -1,0 +1,10 @@
+proposed_state,legacy_evidence,dsh_evidence,required_adapter
+PLANNED,queue item / recipe,intake / project.yml,Add immutable TaskContract
+BUILDING,build phase,build action,Persist RUNNING + lease
+TECHNICAL_PASSED,19 gates + functional evidence,validate/probe/export,Joint gate manifest required
+VISUAL_PENDING,visual pending capacity,review_status=pending,"Reserve capacity, do not accept"
+ACCEPTED_UNIQUE,fully qualified new canonical,not equivalent to counts,Transactional quota commit
+PUBLISH_PENDING,_ACCEPTING,delivery=pending,Verify staged artifact manifest
+PUBLISHED,accepted manifest,delivered + published=1,Verify actual disk hashes
+DELIVERED,delivery receipt,not modeled by folder alone,External handoff receipt
+HELD,held/failed with evidence,FAIL is insufficient,"Add reason, retain all revisions"

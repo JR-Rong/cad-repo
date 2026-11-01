@@ -1,0 +1,22 @@
+{
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "schema_version": "integration-v2-draft",
+  "revision_id": null,
+  "technical_state": "UNVERIFIED",
+  "functional_state": "UNVERIFIED",
+  "dedup_state": "UNVERIFIED",
+  "visual_state": "PENDING",
+  "human_review_state": "PENDING",
+  "publish_state": "NOT_STARTED",
+  "original_19_report_sha256": null,
+  "rule_mapping_sha256": null,
+  "functional_positive_and_negative_evidence": [],
+  "baseline_source_coverage": [],
+  "native_sha256": null,
+  "step_sha256": null,
+  "render_sha256": {},
+  "drawing_sha256": {},
+  "review_receipt_sha256": null,
+  "acceptance_allowed": false,
+  "manufacturing_release": false
+}

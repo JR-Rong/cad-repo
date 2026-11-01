@@ -1,0 +1,41 @@
+id,mandatory,page,clause,implementation,gap
+SCOPE_REAL,True,1,2.1,功能合同 人工复核,只能证明有限名义几何；真实物件和完整性需外部语义证据
+SOFTWARE,True,1,2.1,METADATA 原生读取,观察 FreeCAD 1.1.1；创作版本与读取版本应分别追溯
+PARAM_HISTORY,True,1,2.1,PARAMETRIC_HISTORY,原生特征草图及无冻结检查；限支持域
+SOURCE_ACCESS,True,1,2.2,用户覆盖,当前交付不要求来源URL；原PDF要求仍保留，不宣称原规则通过
+SOURCE_MATCH,True,1,2.2,用户覆盖与人工来源记录,没有网页匹配自动证明；不应伪造来源
+LICENSE,True,1,2.2,用户覆盖,当前不交许可证字段；不等于自动证明任意数据的权利来源
+NATIVE,True,2,2.3,PARAMETRIC_HISTORY FORWARD_HISTORY,完整Native历史与输入绑定；FCStd本身的ZIP容器不等于压缩历史
+ASSEMBLY_REFS,True,2,2.3,REFERENCES,仅一个Body且无App::Link；装配体验收未实现
+STEP,True,2,2.3,STEP_DIRECT_AND_SCHEMA,重开Native直接导出并绑定SHA；AP214或AP242
+VIEW_COUNT,True,2,2.3,EIGHT_NATIVE_RENDER_VIEWS,固定8个PNG并按名称与内容复核
+VIEW_STYLE,True,2,2.3,EIGHT_NATIVE_RENDER_VIEWS,在固定白灰渲染协议内全像素一致，不是通用图像语义理解
+VIEW_SIZE,True,2,2.3,EIGHT_NATIVE_RENDER_VIEWS,固定2000×2000，比原文长边≥2000更具体
+VIEW_POSE_CONTENT,True,2,2.3,EIGHT_NATIVE_RENDER_VIEWS,使用±45度俯仰；与严格等轴测定义歧义仍需买方确认
+VIEW_SCALE,True,2,2.3,EIGHT_NATIVE_RENDER_VIEWS,共同正交比例、独立Native网格全像素校验
+METADATA,True,2,2.3,METADATA,按当前用户口径不含URL许可证作者，不能算原PDF全部字段齐全
+PROJECT_FOLDERS,True,2,2.3,队列和归档,按project_id目录；另核对metadata和批次覆盖
+BATCH_TABLE,True,2,2.3,batch_table,生成CSV和JSON；字段遵从用户覆盖，非原PDF全部字段
+FILE_NAMES,True,2,2.3,DELIVERY_NAMES 与ID预检,当前单项只检查文件basename；新交付另查所有相对目录组件
+GEOMETRY_MATCH,True,2,2.4,GEOMETRY_MATCH,原生与STEP相对体积≤1e-4，每轴相对长度≤1e-3
+REBUILD,True,2,2.4,REBUILD,独立重开和全对象强制重建，无特征失败
+EDITABLE,True,2,2.4,两项EDIT检查,全部独立数值有限扰动加每草图一个关系案例；不能证明任意编辑
+SKETCH_CONSTRAINTS,True,2,2.4,SKETCH_CONSTRAINTS,非空且至少1约束并用于材料特征；并非该项保证全约束
+GEOMETRY_VALID,True,2,2.4,GEOMETRY_VALID,单实体闭合正体积、正面面积、深层OCCT；无通用壁厚制造认证
+UNITS_SCALE,True,2,2.4,UNITS_SCALE,mm及最大包围盒轴长1至20000；真实尺度对应仍需语义核查
+TIDY,True,2,2.4,TIDY SKETCH_CONSTRAINTS,抑制和未用对象检查；无通用乱码语义判定
+REAL_RECOGNIZABLE,True,2,2.4,FUNCTIONAL_COMPONENT 人工复核,专门量规提供有限功能证据；名称真实完整需人工判断
+FORWARD_DESIGN,True,2,2.4,FORWARD_HISTORY 过程证据,没有导入冻结并有purpose；完整来源过程仍需追溯
+NODE_MIN,True,2,2.4,CONTRIBUTING_NODES,实际保留贡献的特征和草图≥20；不是买方计数认证
+BUYER_COUNT,True,2,2.4,外部缺口,无买方管线结果，不能由内部候选计数替代
+BATCH_DEDUP,True,3,2.5,canonical检查 双图去重,内部支持域保守判定；新件与此前历史共5750对
+FAMILY_ID,True,3,2.5,METADATA 队列精确匹配,family和architecture等记录；仍应人工核对系列划分
+INVENTORY_DEDUP,True,3,2.5,外部缺口,内部108历史不等于买方全部库存或公开参考库
+BONUS_REQUIREMENTS,False,3,3,requirements operations,有名义需求和设计计划；不自动等于真实客户原始规格
+BONUS_DRAWING,False,3,3,可选图纸与视觉审查,93套含PDF和DXF，15新件缺图；非19项必选门禁
+BONUS_PHOTO,False,3,3,未提供通用证明,渲染图不能当实物照片
+BONUS_DESIGN_NOTE,False,3,3,purpose relations 源规划,保留意图和名义尺寸理由；外部规格来由另核
+BONUS_OPENSCAD,False,3,3,未提供通用交付,本批是FreeCAD，不以缺SCAD阻止当前必选通过
+BONUS_AUTHOR_RENDER,False,3,3,独立加分缺口,八张规定灰图不自动证明作者高质量渲染加分
+BONUS_PARAMETRIC,False,3,3,Native ExpressionEngine,实际有表达式依赖；逐件以真实Native证据为准
+BONUS_CONFIG,False,3,3,不增加数量,没有通用多配置交付能力；即使有仍计一件

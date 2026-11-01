@@ -1,0 +1,71 @@
+{
+  "plan_revision": "fleet_v3_20261101",
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "target_accepted_unique_new": 210000,
+  "baseline_credit": 0,
+  "baseline_credit_note": "原100新件与8参考件只作去重基线；本轮既有候选经全局复验可抵扣，不默认接受",
+  "candidate_budget_total": 350000,
+  "assumed_acceptance_rate": 0.6,
+  "rate_measured": false,
+  "original_families": 500,
+  "proposed_extensions": 50,
+  "ownership_transfers": 35,
+  "machines": {
+    "A": {
+      "accepted_target": 42000,
+      "candidate_budget": 70000,
+      "retained_or_proposed_original_family_count": 96,
+      "proposed_extension_count": 10,
+      "verified_current_accepted": "UNKNOWN",
+      "scope": "承载、轴定位、传力、防护和装拆的机械结构",
+      "exclude": "流体分配排泄给 E；通用机架吊装给 D；干式电子封装给 B；精密工件夹检给 C"
+    },
+    "B": {
+      "accepted_target": 42000,
+      "candidate_budget": 70000,
+      "retained_or_proposed_original_family_count": 111,
+      "proposed_extension_count": 10,
+      "verified_current_accepted": "UNKNOWN",
+      "scope": "仪器、人机界面、电气和消费电子的外壳、连接器定位、隔离及检修接口",
+      "exclude": "工件测试座给 C；以换热为主的结构给 E；通用承载结构给 D；传动承载给 A"
+    },
+    "C": {
+      "accepted_target": 42000,
+      "candidate_budget": 70000,
+      "retained_or_proposed_original_family_count": 103,
+      "proposed_extension_count": 10,
+      "verified_current_accepted": "UNKNOWN",
+      "scope": "直接决定工件基准、夹紧、测头可达性和试验接口的结构",
+      "exclude": "量具收纳给 D；仪器通用壳给 B；独立阀路给 E；传动部件给 A"
+    },
+    "D": {
+      "accepted_target": 42000,
+      "candidate_budget": 70000,
+      "retained_or_proposed_original_family_count": 104,
+      "proposed_extension_count": 10,
+      "verified_current_accepted": "UNKNOWN",
+      "scope": "通用机架、设备支撑、物料导向搬运仓储和非测量型安装保护",
+      "exclude": "精密工件基准给 C；传动张紧核心给 A；介质通路换热给 E；电气封装给 B"
+    },
+    "E": {
+      "accepted_target": 42000,
+      "candidate_budget": 70000,
+      "retained_or_proposed_original_family_count": 86,
+      "proposed_extension_count": 10,
+      "verified_current_accepted": "UNKNOWN",
+      "scope": "介质路由、隔离、密封接口、排放及换热通道的几何结构",
+      "exclude": "干式电气盒给 B；纯安装支架给 D；独立传动接口给 A；工件夹检给 C"
+    }
+  },
+  "stage_limits": [
+    0,
+    1,
+    5,
+    25,
+    100,
+    500,
+    2000
+  ],
+  "count_source": "single_global_acceptance_ledger",
+  "manufacturing_release": false
+}

@@ -1,0 +1,35 @@
+{
+  "queue_id": "NEW_BATCH_REQUIRES_NEW_POLICY",
+  "target_count": 1,
+  "max_attempts": 1,
+  "timeouts_seconds": {
+    "build": 240,
+    "validate": 240,
+    "render": 180,
+    "structure": 300,
+    "quality": 1200,
+    "views": 180
+  },
+  "items": [
+    {
+      "item_id": "NEW001_first",
+      "project_id": "NEW001",
+      "recipe_id": "NEW001_NOT_REGISTERED",
+      "description": "REPLACE_WITH_REVIEWED_DESCRIPTION",
+      "functional_description": "REPLACE_WITH_FUNCTION_CONTRACT",
+      "structural_difference": "REPLACE_WITH_REAL_STRUCTURAL_DIFFERENCE",
+      "series_id": "REPLACE_WITH_EXACT_CATALOGUE_VALUE",
+      "structure_requirements": {
+        "component_type": "REPLACE_WITH_EXACT_CATALOGUE_OBJECT"
+      },
+      "modeling_requirements": {
+        "unit": "mm",
+        "native_history": true,
+        "min_contributing_nodes": 20,
+        "render_views": 8
+      },
+      "parameters": [],
+      "use_verified_cache": false
+    }
+  ]
+}

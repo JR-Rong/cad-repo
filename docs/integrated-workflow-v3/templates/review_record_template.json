@@ -1,0 +1,20 @@
+{
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "project_id": "",
+  "revision": "",
+  "native_sha256": "",
+  "step_sha256": "",
+  "image_sha256": {},
+  "drawing_sha256": "",
+  "technical_status": "PENDING",
+  "dedup_status": "PENDING",
+  "visual_status": "PENDING",
+  "buyer_acceptance": "UNVERIFIED",
+  "manufacturing_release": false,
+  "reviewer_kind": "human_or_verified_visual_agent",
+  "reviewed_at": "",
+  "reviewed_files": [],
+  "findings": [],
+  "required_changes": [],
+  "final_decision": "PENDING"
+}

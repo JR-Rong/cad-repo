@@ -1,0 +1,437 @@
+{
+  "base_commit": "bdaab3c1de90723fcd07ddae1edc75132b285a09",
+  "files": [
+    {
+      "relative_path": ".gitignore",
+      "bytes": 97,
+      "sha256": "6f66b89aa55177bb1a7551fa3ae56105d800056f36987ecb3ee0d62c8977d61f"
+    },
+    {
+      "relative_path": "DISPATCH.md",
+      "bytes": 5080,
+      "sha256": "9345690082c7c3641cf6357982a17250151627a07690f9a13d24609e82ea25af"
+    },
+    {
+      "relative_path": "LESSONS.md",
+      "bytes": 16620,
+      "sha256": "35725a47acce50fd2cbaf34ef9cbc3c99d041ba71ef0742a4d72ee865c2e675f"
+    },
+    {
+      "relative_path": "MEMORY.md",
+      "bytes": 5965,
+      "sha256": "75c9834a3abf8b74b573cae8f203227136fd95332acaf6adc1298a1c6134b45c"
+    },
+    {
+      "relative_path": "README.md",
+      "bytes": 7219,
+      "sha256": "0938d039adb89e888277813ce04c2c53ce3e44a7d83c4086d4b42c727ea321e8"
+    },
+    {
+      "relative_path": "WORK-ORDER.md",
+      "bytes": 9470,
+      "sha256": "0bd64e4e67fc8f1fc09b6e625fcb5b7a37d0965a7b47afb9fb0ba4b451c2bb10"
+    },
+    {
+      "relative_path": "WORKFLOW.md",
+      "bytes": 11442,
+      "sha256": "6d76d67af58c347fea06f5b7aebf1f59f6b2fac88b8178ac8cc802011ba51c08"
+    },
+    {
+      "relative_path": "briefs/BRIEF-FOR-A-LOCAL.txt",
+      "bytes": 4406,
+      "sha256": "8794f70b7472c5b522e518672631e2ce43ffb1bc065413402c336a588147e13a"
+    },
+    {
+      "relative_path": "briefs/BRIEF-FOR-A.txt",
+      "bytes": 12937,
+      "sha256": "281c956d80b122b9ca109b8bfc8dd6be69e850be80c079f1f2e9e54c3a0c89c9"
+    },
+    {
+      "relative_path": "briefs/BRIEF-FOR-B.txt",
+      "bytes": 12997,
+      "sha256": "84e45257a4cd90dc064ad7c7b043d8f769227a7854130eb15770bf031391ece8"
+    },
+    {
+      "relative_path": "briefs/BRIEF-FOR-C.txt",
+      "bytes": 13234,
+      "sha256": "3d2b8a1f19eea4410c3dfd393e700c4585276f82a140f4034ab93632ef11b51f"
+    },
+    {
+      "relative_path": "briefs/BRIEF-FOR-D.txt",
+      "bytes": 12739,
+      "sha256": "4d7004f83ed549707b2edb6f4a1bc08ee833a9b5a333542acf388f74af31f2ac"
+    },
+    {
+      "relative_path": "briefs/BRIEF-FOR-E.txt",
+      "bytes": 13168,
+      "sha256": "b6991c8e8c6e82ca25b432139dd6b11bf13a279f911e685ddfa1490634b1852c"
+    },
+    {
+      "relative_path": "briefs/KICKOFF-A.txt",
+      "bytes": 7634,
+      "sha256": "834a8b13ae9d093631dd1f8a1bec843e96088388c9027bcec25de78ce79579ed"
+    },
+    {
+      "relative_path": "briefs/KICKOFF-B.txt",
+      "bytes": 7428,
+      "sha256": "ffefd0d11a0f38490cfa127090bbde7c423a456f938c0d488d38d665509a71ec"
+    },
+    {
+      "relative_path": "briefs/KICKOFF-C.txt",
+      "bytes": 7427,
+      "sha256": "83cb11eacbcd382d08a683f570e5bdf21e619663e6434a6087b9bad5b345ba87"
+    },
+    {
+      "relative_path": "briefs/KICKOFF-D.txt",
+      "bytes": 7400,
+      "sha256": "748fe3198f8baef3960bc153122fa0107f7de51074941b395bb038f2c5f87304"
+    },
+    {
+      "relative_path": "briefs/KICKOFF-E.txt",
+      "bytes": 7445,
+      "sha256": "4a70e0315114e9cd951fe01b8df01c8b2c27c9c90f1f370f092dc003fa8cb4c9"
+    },
+    {
+      "relative_path": "briefs-common.txt",
+      "bytes": 3696,
+      "sha256": "9ce1e5c25150e1748e37c183e3f0a57af292b4780db645fcdac316034734834c"
+    },
+    {
+      "relative_path": "catalog/FAMILIES.md",
+      "bytes": 41388,
+      "sha256": "14d6e31ce30a39c2d18c9b2b855ed6ed3fad1a039ef27e778d628d4c7a20893d"
+    },
+    {
+      "relative_path": "catalog/delivered.json",
+      "bytes": 1877,
+      "sha256": "9bbfb8797759d775f121d85f335776b15d9f3d99ee53ecb84e0fa6b68bd79e23"
+    },
+    {
+      "relative_path": "catalog/families.json",
+      "bytes": 146034,
+      "sha256": "3ee24f5999dce0a0fb8deeb6351d0084e7c6c79b0bb220359269007de88fed96"
+    },
+    {
+      "relative_path": "catalog/manifest.csv",
+      "bytes": 51392,
+      "sha256": "289cb06a71c11ad4b292795790c2c3e3f2ff3a707be18a818823db73cb421b62"
+    },
+    {
+      "relative_path": "catalog/sample_A_wave1.csv",
+      "bytes": 224855,
+      "sha256": "fc371d057d416a7ca977a9c98b4cde758f17a6b7548c04814b46b7c7e94e22e6"
+    },
+    {
+      "relative_path": "intake/fleet_a_2026_11.json",
+      "bytes": 21865,
+      "sha256": "31a52ad0452393e04ae2fb7c5ac9975e80537c924c157c5728af8339ed34ddd4"
+    },
+    {
+      "relative_path": "intake/fleet_b_2026_11.json",
+      "bytes": 21860,
+      "sha256": "9ad34bc5edc2fff22f9b327f219f20e181856e8faadb7ca5809509feac5e2517"
+    },
+    {
+      "relative_path": "intake/fleet_c_2026_11.json",
+      "bytes": 22072,
+      "sha256": "fc3de7ab17492f41a4e8169bf62961444d261891e3de30c546dfcecd67a39ca9"
+    },
+    {
+      "relative_path": "intake/fleet_d_2026_11.json",
+      "bytes": 21605,
+      "sha256": "f8b2f5178324cb046003069c85b2e77479874347e9b6a604e7cfb995533e8d8b"
+    },
+    {
+      "relative_path": "intake/fleet_e_2026_11.json",
+      "bytes": 22001,
+      "sha256": "c28460a1a3b8a3be345f4c47830e582e5d3ed5b590f63c6a91e26197f0381e7a"
+    },
+    {
+      "relative_path": "intake/waves/fleet_a_2026_11_w1.json",
+      "bytes": 617107,
+      "sha256": "e774b1b063fa890436b5c946e2c02b693aec8c8f5c03bdf3ed3960a87b3407bb"
+    },
+    {
+      "relative_path": "intake/waves/fleet_b_2026_11_w1.json",
+      "bytes": 622130,
+      "sha256": "f4e84883e0e8eb4d2eca516c70c34cd8341f48de7a09f73cd59d9a9c8b966b44"
+    },
+    {
+      "relative_path": "lessons/README.md",
+      "bytes": 1656,
+      "sha256": "55926f70b134ecb6fdca9e89337c1a84191887f14be4815803ca3b0d0559a8b2"
+    },
+    {
+      "relative_path": "lessons/inbox/A.jsonl",
+      "bytes": 4353,
+      "sha256": "2a36b63b442f7c997667ff44f22b9c630b21e4189c13524fcc9a359f7de457af"
+    },
+    {
+      "relative_path": "lessons/inbox/B.jsonl",
+      "bytes": 13263,
+      "sha256": "5b61fceca151bc93eef0100bba7f5576a0206f474ee722508222fe3002e42fac"
+    },
+    {
+      "relative_path": "lessons/index.json",
+      "bytes": 40273,
+      "sha256": "7aca4115e36ad0bc550c3454f37e434bd607d5b1b7873ad13053b57588cd070a"
+    },
+    {
+      "relative_path": "outbox/README.md",
+      "bytes": 1531,
+      "sha256": "643f6c3303da9146649b5e24b4e2f40df96d17232187c25fb49715e4784ef49d"
+    },
+    {
+      "relative_path": "plugin/README.md",
+      "bytes": 1605,
+      "sha256": "02467535979a1700248afe7660be468a2a0298e013bcb03bbc3de2da308ea03c"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/INSTALL.md",
+      "bytes": 5111,
+      "sha256": "5088cb132ab1fe1c8d4645ff9fe4cc4735184ef6cdcefab2f0baef19d05743fb"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/README.md",
+      "bytes": 3873,
+      "sha256": "9e4618b81caab916b9a645fdd1f4144f4c490c8284082333385a8fa62417614c"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/cordis.patch.yml",
+      "bytes": 1413,
+      "sha256": "2d834f4ffdf07210daaf6d22af7ea885ab7268ee8d24f59bfa065a0dcfb3f682"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/icon.svg",
+      "bytes": 789,
+      "sha256": "d42d96ade4e44e0c6093f16b95a87ef108604e1543eca2c73fe6bb2359dd3bfb"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/index.js",
+      "bytes": 18905,
+      "sha256": "f92452e8b3103e6240c6d4a9bcc2d3c93636801b126f6dbd547e1ce1fa8df56d"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/lib/client.js",
+      "bytes": 23734,
+      "sha256": "5dfb252a94677160743a8f454a76a27036b4881a6c5a0b8516f5409961fbb882"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/locale/en.json",
+      "bytes": 226,
+      "sha256": "357bface679fef69228338f669789f0d38dbe3e20077f89e61c4e1f6f6deb263"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/locale/zh.json",
+      "bytes": 232,
+      "sha256": "fd6ccbde3f4dc295e1786f99a339cbbd7cf4d100d353cb94560dbfc93e2e830d"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/package.json",
+      "bytes": 1004,
+      "sha256": "64a0cd6fbc5f0f92f4a809cd39ca71395f9c631c236b00982e59236e668786db"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/__init__.py",
+      "bytes": 116,
+      "sha256": "b8b6cf3be757f0d7e87f9ad42a8a2c5138287e715bf5016ce12d4f2886c4ff23"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/contract.py",
+      "bytes": 1662,
+      "sha256": "89977164cb033caadcebe31d886284b91ed8bda47cad69830efa7ba5ad3ae90f"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/docctx.py",
+      "bytes": 22657,
+      "sha256": "7169b009422dd276e521853e6cfa5a8a9691b2c0c8a318aad5628c67cba3fe51"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/exporter.py",
+      "bytes": 6983,
+      "sha256": "40a99e8efe2981c856232714f8bd28c821d8174c3a1156f358f48067f7d5b88c"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/fingerprint.py",
+      "bytes": 9597,
+      "sha256": "2c17da749037b3b4c7c2d017ba4893b643e33a10b6364efc39496b6be7539085"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/ledger.py",
+      "bytes": 40330,
+      "sha256": "12ff1fdfb0bbfd31370f2cc21d8c621c4f44242643678b89fbf1c9d77da97e23"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/mem.py",
+      "bytes": 10814,
+      "sha256": "49c5a37f4ef7bf130be5be38aef34731324755743f3287cb13f8cee9c83f7ae9"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/packager.py",
+      "bytes": 68050,
+      "sha256": "89c2fd984d9b987320f2fd84c9164019fc793ffa76cf4d2dd417d6ab961783b3"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/probe.py",
+      "bytes": 37455,
+      "sha256": "17ebea5f1b6f7f8574d0627fa2d2b456d46306d70a1bdf9ec0a5f8ed5328f13b"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/project.py",
+      "bytes": 3939,
+      "sha256": "c7529d076b950ad95672463bc4791309857a033b0b72ca6fbfa7cc47132d5623"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/render.py",
+      "bytes": 20618,
+      "sha256": "35ba1eb9552676248a96d3d498f23654b3a74454574294ab8de2b9ff1993deeb"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/validate.py",
+      "bytes": 27249,
+      "sha256": "91e30d097a07d91c14835b50a1ea6f17800a57695f69acc4bc03b15e3fc42de2"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/cadkit/version.py",
+      "bytes": 5032,
+      "sha256": "4bf96664c38aa691ccf9bf056049543ba48b96167abbf90a8179c656b62e24d3"
+    },
+    {
+      "relative_path": "plugin/dsh-plugin-cad-freecad/python/entry.py",
+      "bytes": 25344,
+      "sha256": "5079409e6d0901429d3efd6397d3adeb2200a1aaa217a5191ebe78665308e098"
+    },
+    {
+      "relative_path": "releases/INSTALL.md",
+      "bytes": 5148,
+      "sha256": "aff343591f900e4ed37478ecaf90a45e6faf1f944e88efcd6b50594316eda1d9"
+    },
+    {
+      "relative_path": "releases/README.md",
+      "bytes": 250,
+      "sha256": "1f418f72df0945d8e05f15986e91596e1d6381e48f3251b44dd422ecdc34f34c"
+    },
+    {
+      "relative_path": "releases/local-dsh-plugin-cad-freecad-0.5.0.tgz",
+      "bytes": 103292,
+      "sha256": "2c20ed9df517259616d3b22e4e8ce382ce491d7fef9e81adfdc3974b9f19a872"
+    },
+    {
+      "relative_path": "shared/fingerprints/A.json",
+      "bytes": 4817,
+      "sha256": "2180d9bf93c3eb8bf780898e50d0226035313ee9c08a4d6ebf25a705716e2387"
+    },
+    {
+      "relative_path": "shared/spec-extract.txt",
+      "bytes": 5317,
+      "sha256": "8120c3a01942066b19f6fd06a8e6dc75fcff84cfc6f324d5cc8e66171b2e833b"
+    },
+    {
+      "relative_path": "shared/versions.json",
+      "bytes": 1214,
+      "sha256": "91d3139dbcb80ef8656f2ee335d4b5367621f1fb34f66b7b3dceb392b7a23032"
+    },
+    {
+      "relative_path": "shared/waiver-template.json",
+      "bytes": 626,
+      "sha256": "5a16713a4e09116754f950a627a2b49326711698d72086b70cf5d0d38876e58c"
+    },
+    {
+      "relative_path": "status/PROGRESS.md",
+      "bytes": 20152,
+      "sha256": "5b2d3414bf8ebe8c68a0cb960173cb6f09d193cf61132f18cd6675cd5016725e"
+    },
+    {
+      "relative_path": "status/runner_smoke_2026_11_20261031_0712.jsonl",
+      "bytes": 1151,
+      "sha256": "009035eae411161a0d03f3bc6fdec895f7998f1947daebb771d06b54c5afb655"
+    },
+    {
+      "relative_path": "tools/build_catalog.py",
+      "bytes": 19297,
+      "sha256": "c0ae3296fcc067c7b219a720e16f7c20224dcd614157cac0e3d03b12ed7ee26c"
+    },
+    {
+      "relative_path": "tools/catalog_lint.py",
+      "bytes": 5923,
+      "sha256": "52e6b8c458064c2687112b88e3b92416aa4ac250e3d9df7ae20a00be9f0f8176"
+    },
+    {
+      "relative_path": "tools/emit_members.py",
+      "bytes": 3181,
+      "sha256": "6c7ccaf65df97c9d7bc845f3b0b1702aadc8280290ac6cb8e5ef48646fa54a12"
+    },
+    {
+      "relative_path": "tools/engine_predicates.py",
+      "bytes": 2030,
+      "sha256": "189aaa2a400cc4a15942a4594e66d2583f55bb6a0d5add99e371772f9e54e083"
+    },
+    {
+      "relative_path": "tools/families_500.py",
+      "bytes": 14877,
+      "sha256": "209bafac33cc56fe02675ff6c5f48ae681e02eac0c39e7a8bab419441502d1e1"
+    },
+    {
+      "relative_path": "tools/fingerprint_merge.py",
+      "bytes": 3838,
+      "sha256": "49fb0bbd46ec698ff00e069295c6b4c43494e6b317a54772693419adc2165795"
+    },
+    {
+      "relative_path": "tools/fleet_runner.py",
+      "bytes": 22343,
+      "sha256": "28eae84bdaa08715b915be2fe69c8cbcb820ba314c313f1a106c8adbef5a1e29"
+    },
+    {
+      "relative_path": "tools/kickoff.py",
+      "bytes": 10448,
+      "sha256": "48f93ab07491e4dee3aaa3640437571d3e6620fa91625427f04dc879aaf3152b"
+    },
+    {
+      "relative_path": "tools/lesson_add.py",
+      "bytes": 3640,
+      "sha256": "3da62dc1b255c25194e8488bb9303200e289f67d064e82ed24d19e02cfaf1dfb"
+    },
+    {
+      "relative_path": "tools/lesson_ingest.py",
+      "bytes": 11765,
+      "sha256": "d74374f5cb613b5d4f1e08e4a953ea1296dde91770be71adc4f4d2ccde63c94f"
+    },
+    {
+      "relative_path": "tools/merge_check.py",
+      "bytes": 16878,
+      "sha256": "3b58af2e044202117574698c4044b92e2054698b387c951442057b598a54a0ca"
+    },
+    {
+      "relative_path": "tools/plugin_source.py",
+      "bytes": 1803,
+      "sha256": "36c693b6327a3e2ce09d7a6d160983cbb43e6cfca577dabd677eb9aa0ee754f5"
+    },
+    {
+      "relative_path": "tools/recall.py",
+      "bytes": 6838,
+      "sha256": "dc16fd253e4cbce1a0e73124d6783d9b2dea44454db3c7b44ea3b8282296bfa2"
+    },
+    {
+      "relative_path": "tools/refresh_versions.py",
+      "bytes": 4003,
+      "sha256": "0ee16c5d18f206ca8c9fb0580b36e59b906cfa3983d7d3015baaf35132ecdcdd"
+    },
+    {
+      "relative_path": "tools/registry_sync.py",
+      "bytes": 5871,
+      "sha256": "b6c57ba28dda32fdfe9a4959188fa7151f14902f7b6d69d9e08b44bc916dd48a"
+    },
+    {
+      "relative_path": "tools/review_scan.py",
+      "bytes": 8173,
+      "sha256": "8e9ecd9335c31a71a7976592611fa4f741014ffc90dba53b6a36bf67c1ebaafb"
+    }
+  ],
+  "not_found_in_pinned_tree": [
+    "original PartDesign workflow backend",
+    "family_src/A through E full cores",
+    "backfill_ledger.py",
+    "package_wave1.py"
+  ],
+  "note": "Absence here does not establish absence on remote physical machines"
+}

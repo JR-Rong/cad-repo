@@ -1,0 +1,27 @@
+{
+  "schema_status": "PROPOSED_NOT_IMPLEMENTED",
+  "machine": "UNKNOWN",
+  "audit_time_utc": null,
+  "mode": "AUDIT_ONLY",
+  "observed_commit": null,
+  "installed_rules_sha": null,
+  "remote_physical_access": false,
+  "consistent_snapshot": false,
+  "active_runner": "UNKNOWN",
+  "lock_owner": "UNKNOWN",
+  "counts": {
+    "families": null,
+    "architectures": null,
+    "configurations": null,
+    "generated": null,
+    "technical_pass": null,
+    "visual_pending": null,
+    "accepted_unique_new": null,
+    "published": null,
+    "failed": null,
+    "unknown": null
+  },
+  "records": [],
+  "baseline_revision": null,
+  "source_evidence": []
+}

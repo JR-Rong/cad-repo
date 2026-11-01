@@ -1,0 +1,94 @@
+{
+  "audit_scope": "Local A workspace and pinned public repository only; remote B-E physical machines not accessed",
+  "repository": "JR-Rong/cad-repo",
+  "visibility": "public",
+  "authenticated_owner": "JR-Rong",
+  "base_commit": "bdaab3c1de90723fcd07ddae1edc75132b285a09",
+  "local_original_handoff_commit": "d56486c23e4f261a8f5343ceb024c1e8f49d5187",
+  "original_worktree_clean": true,
+  "catalog_family_counts": {
+    "A": 100,
+    "B": 100,
+    "C": 100,
+    "D": 100,
+    "E": 100
+  },
+  "catalog_planned_configs": 200000,
+  "catalog_delivered_registration": 11,
+  "shared_fingerprint_sources": {
+    "A": 10
+  },
+  "local_A_ledger": {
+    "integrity": "ok",
+    "delivered_counts_published": [
+      10,
+      9,
+      10
+    ],
+    "job_states": [
+      [
+        "build",
+        "OK",
+        10
+      ],
+      [
+        "export",
+        "OK",
+        10
+      ],
+      [
+        "package",
+        "FAIL",
+        20
+      ],
+      [
+        "package",
+        "OK",
+        10
+      ],
+      [
+        "probe",
+        "OK",
+        10
+      ],
+      [
+        "validate",
+        "OK",
+        10
+      ]
+    ],
+    "table_counts": {
+      "model": 10,
+      "revision": 10,
+      "artifact": 190,
+      "delivery": 10,
+      "intake": 10,
+      "buyer_stock": 0
+    }
+  },
+  "local_A_ledger_source_hashes": {
+    "ledger.sqlite3": "895081c3c5e84e240a0b3415a194b3126ed878099e8b883055d6c82a052ae795",
+    "ledger.sqlite3-wal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "local_A_project_count": 14,
+  "remote_B_latest_claims": {
+    "source": "status/PROGRESS.md at base_commit",
+    "source_sha256": "5b2d3414bf8ebe8c68a0cb960173cb6f09d193cf61132f18cd6675cd5016725e",
+    "driver_reported": "170+; 172-member backfill rehearsal",
+    "fingerprints_reported": 169,
+    "stale_step_reported": "92/173, later 92+1; repair in progress",
+    "remaining_fail_ids_reported": [
+      "b_in01_121",
+      "b_in01_161"
+    ],
+    "latest_note": "096 reported revived; package_wave1 6-piece draft rehearsal; delivery still blocked",
+    "physical_files_verified": false,
+    "fully_accepted_unique_count": "UNKNOWN"
+  },
+  "remote_CDE": {
+    "C": "UNKNOWN",
+    "D": "UNKNOWN",
+    "E": "UNKNOWN"
+  },
+  "production_launched": false
+}
