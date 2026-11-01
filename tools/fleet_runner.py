@@ -30,6 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import plugin_source                                                # noqa: E402
+import acceptance_contract as AC   # gates3（A4 修订）：唯一验收契约实现  # noqa: E402
 
 ENTRY = "entry.py"
 
@@ -98,14 +99,96 @@ def _sha(path):
 RENDER_VIEWS = ("front", "back", "left", "right", "top", "bottom",
                 "iso_up", "iso_down")
 
+# ---------------------------------------------------------------------------
+# gates2 补丁（task-9 / CAD-AB-A2, 2026-11-01）：
+#   ② input_hash 缺 strict/require_review profile、checker/工具版本、审查回执绑定
+#     —— profile 换档/工具升版/回执重写都不会让 package 重跑（弱接受跨续跑存活）；
+#   ④ strict 一律拒全部 WARN，与引擎 validate.py:552-554 real_object 恒 WARN
+#     （人工终审位）冲突 —— 机器 FAIL 必阻断；WARN 只可由绑定 (pid, rev, 渲染 sha)
+#     的人审回执工件放行；无回执生成待审材料（8 视图/检查单/pending 记录）但不
+#     最终接受；绝不把 WARN 改判 PASS，绝不伪造回执；
+#   ⑤ strict+require_review 是默认路径；--lenient 是唯一显式降级且落审计事件。
+# ---------------------------------------------------------------------------
+TOOL_VERSION = "fleet_runner-gates3-a4fix-20261101"
+
+
+def _load_json(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def receipt_path(root, pid):
+    '''人审回执工件位置：与待审材料同目录（人工写入；调度器只读不写）。'''
+    return os.path.join(root, "projects", pid, "review", "receipts.json")
+
+
+def audit_event(log_path, event):
+    '''追加一条审计 JSONL（验收 profile、review_pending 等）。--lenient 必须留痕。'''
+    if not log_path:
+        return None
+    os.makedirs(os.path.dirname(os.path.abspath(log_path)), exist_ok=True)
+    ev = {"at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "tool": TOOL_VERSION}
+    ev.update(event)
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(ev, ensure_ascii=False) + chr(10))
+    return log_path
+
 
 class Recorder:
-    def __init__(self, root, engine_py, rules):
+    def __init__(self, root, engine_py, rules, profile=None):
         if engine_py not in sys.path:
             sys.path.insert(0, engine_py)
         from cadkit.ledger import open_ledger, job_state, job_record
         self.root, self.rules = root, rules
         self._open, self._state, self._rec = open_ledger, job_state, job_record
+        # gates2 ②：验收 profile、checker/工具版本、人审回执字节都是 package 的输入。
+        # 旧版 input_hash 只绑 yml/family/rules_sha+产物 sha —— lenient→strict 换档、
+        # 工具升版、回执重写都不让 package 重跑，弱接受跨续跑存活。
+        prof = {"strict": False, "require_review": False,
+                "tool_version": TOOL_VERSION,
+                "tool_sha": _sha(os.path.abspath(__file__))}
+        prof.update(profile or {})
+        self.profile = prof
+        # ---------------- 依赖值接口（A4 整合项；eng_prof 合并时生效）--------
+        # prof_sha 历史上只吃 strict/require_review 两旗标 + 工具版本 + runner
+        # 文件 hash。这里改成对**整个 profile 规范化后全量 hash**：
+        #   * 合并 eng_prof 时把 delivery profile 正文（尺寸档/渲染口径/验收清单
+        #     版本…）与 checker 语义版本一并放进 profile= 参数；
+        #   * 于是 profile 内容或 checker 语义一变 ⇒ prof_sha 变 ⇒ package 的
+        #     input_hash 变 ⇒ 台账 OK 不再命中 ⇒ 下游自动重跑（旧弱接受不会跨
+        #     续跑存活）；接口点实跑证据见 out2/out_gates3_integration.txt I1。
+        # 两旗标本身仍单独落审计事件（--lenient 留痕语义不变）。
+        self.prof_sha = _h("profile", AC.canon(prof))
+
+    def review_receipt_sha(self, pid):
+        return _sha(receipt_path(self.root, pid))
+
+    def dep_identity(self, pid):
+        """A4 修订 P1-3 的**生产侧写点**：当前实际依赖值 = native/step/渲染/
+        rules_sha/checker 版本/profile/回执字节。
+        台账导出必须随 job 行落 dep_sha = self.dep_sha(pid, stage, rev)；
+        收货侧 merge_check 用包内字节 + versions.json + 回执工件重算同一函数，
+        同 rev 换 Native/STEP、错 checker、换 profile、重写回执都会显式不符。"""
+        pr = os.path.join(self.root, "projects", pid)
+        bd = os.path.join(pr, "build")
+        renders = {}
+        for v in RENDER_VIEWS:
+            f = os.path.join(bd, "renders", "view_%s.png" % v)
+            if os.path.exists(f):
+                renders["view_%s.png" % v] = _sha(f)
+        return AC.dep_identity(
+            _sha(os.path.join(bd, pid + ".FCStd")),
+            _sha(os.path.join(bd, pid + ".step")),
+            self.rules, TOOL_VERSION, self.prof_sha,
+            AC.manifest_digest(renders) if renders else None,
+            self.review_receipt_sha(pid))
+
+    def dep_sha(self, pid, stage, rev=None):
+        idn = self.dep_identity(pid)
+        return AC.dep_input_sha(stage, pid, rev or ("rev:" + idn["native"]), idn)
 
     def input_hash(self, pid, stage):
         pr = os.path.join(self.root, "projects", pid)
@@ -131,7 +214,10 @@ class Recorder:
             for v in RENDER_VIEWS:
                 extra += _sha(os.path.join(bd, "renders", "view_%s.png" % v))
             extra += _sha(os.path.join(bd, pid + ".step")) + bsrc
-            return _h(base, fc, extra)
+            # gates2 ②：package 是验收阶段 —— profile/工具版本/人审回执字节都参与
+            # input_hash；任一变化 ⇒ 台账 OK 不再命中 ⇒ 必须重跑（旧证据行保留）。
+            return _h(base, fc, extra, self.prof_sha,
+                      _h("receipt", self.review_receipt_sha(pid)))
         raise SystemExit("unknown stage " + stage)
 
     def state(self, pid, stage):
@@ -226,14 +312,148 @@ def _warn_ids(payload):
             and str(c.get("status", "")).upper() == "WARN"]
 
 
+def warn_only_blockers(payload, allow=None):
+    '''gates3（A4 修订 P1-1）：strict 口径下**可由人审闭环**的 WARN id 列表。
+
+    返回 None 的三种情形（都不得走回执）：
+      * 混有机器 FAIL / 空 / 未知状态 —— 机器硬 FAIL；
+      * 任何**不在合同白名单** AC.HUMAN_CLOSABLE_WARN_IDS 的 WARN —— 未知 WARN
+        一律不可人审放行（白名单只含引擎人工终审位 real_object，扩容须改合同）；
+      * 没有未允许状态（本来就该过）。'''
+    allow = tuple(allow) if allow else AC.HUMAN_CLOSABLE_WARN_IDS
+    bad = [c for c in ((payload or {}).get("checks") or []) if isinstance(c, dict)
+           and str(c.get("status", "")).upper() not in AC.ALLOW_STATUSES]
+    if not bad:
+        return None
+    if any(str(c.get("status", "")).upper() != "WARN" for c in bad):
+        return None
+    ids = [str(c.get("id")) for c in bad]
+    if any(i not in allow for i in ids):
+        return None
+    return ids
+
+
+def review_receipt_state(root, pid, engine_py, rules=None, warn_ids=None):
+    '''绑定人审回执裁决（gates2 ④）：回执必须绑定 (pid, rev=native 字节 sha,
+    contract, family, L2 渲染 digest 集)。复用引擎 cadkit.version.adjudicate_review
+    的 require_review 强制绑定语义 —— 不另起炉灶、不放宽、不伪造。'''
+    rp = receipt_path(root, pid)
+    receipt = _load_json(rp)
+    if not isinstance(receipt, dict) or not receipt:
+        return {"valid": False, "path": rp,
+                "reason": "review/receipts.json 缺失或为空（无绑定人审回执工件）"}
+    if engine_py and engine_py not in sys.path:
+        sys.path.insert(0, engine_py)
+    try:
+        from cadkit.version import adjudicate_review
+    except Exception as exc:
+        return {"valid": False, "path": rp,
+                "reason": "无法导入 adjudicate_review: %s" % exc}
+    pr = os.path.join(root, "projects", pid)
+    bd = os.path.join(pr, "build")
+    doc = _load_json(os.path.join(pr, "project.yml")) or {}
+    fcstd_sha = _sha(os.path.join(bd, pid + ".FCStd"))
+    fam = doc.get("family")
+    famsha = _sha(os.path.join(root, "family", fam + ".py")) if fam else None
+    contract = hashlib.sha256(json.dumps(
+        {"params": (doc.get("variant") or {}).get("params", {}),
+         "topo": (doc.get("variant") or {}).get("topo", {}),
+         "family": fam or ""},
+        sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    renders = {}
+    for v in RENDER_VIEWS:
+        p = os.path.join(bd, "renders", "view_%s.png" % v)
+        if os.path.exists(p):
+            renders["view_%s.png" % v] = _sha(p)
+    man = os.path.join(bd, "export_manifest.json")
+    man_sha = _sha(man) if os.path.exists(man) else None
+    # A4 修订 P1-2：签发侧也走 acceptance_contract.adjudicate_receipt 同一入口
+    # （与收货侧共用一份完整裁决契约，不做两套）。
+    res = AC.adjudicate_receipt(receipt, adjudicate_review, pid, fcstd_sha, renders,
+                                family_sha=famsha, contract=contract,
+                                manifest_sha=man_sha, warn_ids=warn_ids)
+    return {"valid": res["ok"], "rinfo": res["rinfo"], "path": rp,
+            "receipt_sha": _sha(rp), "reason": "; ".join(res["reasons"])}
+
+
+def write_pending_review_material(root, pid, warn_ids, reason=""):
+    '''WARN 阻断后的待审材料：8 视图清点 + 检查单 + pending 记录 + 填写说明。
+    只生成**材料**，不生成回执——回执只能由人写（不得伪造）。'''
+    rdir = os.path.join(root, "projects", pid, "review")
+    os.makedirs(rdir, exist_ok=True)
+    bd = os.path.join(root, "projects", pid, "build")
+    views = []
+    for v in RENDER_VIEWS:
+        p = os.path.join(bd, "renders", "view_%s.png" % v)
+        views.append({"view": v, "path": p, "exists": os.path.exists(p),
+                      "sha256": _sha(p) if os.path.exists(p) else None})
+    ids = sorted(set([str(w) for w in (warn_ids or [])]))
+    doc = {"kind": "pending_review", "project_id": pid, "status": "pending",
+           "warn_checks": ids, "reason": str(reason)[:400],
+           "render_checklist": views,
+           "howto": "人审通过后把 L1/L2 回执写入 review/receipts.json（project_id、"
+                    "native_sha256、family_sha、review_of_record、"
+                    "render_manifest_sha256、L2.render_sha256 必须绑定当前件当前 "
+                    "rev 与实际渲染字节），再重跑续作；调度器不生成也不修改回执。",
+           "tool": TOOL_VERSION, "at": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+    path = os.path.join(rdir, "pending_checklist.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=1)
+    return path
+
+
+def strict_review_adjudication(root, pid, stage, payload, engine_py,
+                               audit_log=None, expect_rules=None):
+    '''gates2 ④ 统一入口（仅 strict 下调用）。返回 (ok, err, extra)：
+      None  ⇒ 不归本裁决管（保持原 verdict 结论，机器 FAIL 阻断不变）；
+      True  ⇒ 纯 WARN 且存在绑定 (pid,rev,渲染sha) 的人审回执 ⇒ 放行并留证；
+      False ⇒ 纯 WARN 无绑定回执：生成待审材料（8 视图/检查单/pending 记录）
+              但**不**最终接受。'''
+    wids = warn_only_blockers(payload)
+    if wids is None:
+        if isinstance(payload, dict) and payload.get("stage") == "review":
+            # 引擎 require_review 拒 package：同样生成待审材料，但不最终接受
+            mp = write_pending_review_material(
+                root, pid, sorted((payload.get("reviews") or {}).keys()),
+                payload.get("error") or "engine require_review refused")
+            audit_event(audit_log, {"event": "review_pending", "pid": pid,
+                                    "stage": stage, "material": mp})
+            return False, "require_review: 人审回执不全（待审材料 %s）" % mp, \
+                {"review_pending": True, "material": mp}
+        return None, "", {}
+    # A4 修订 P1-1：先决条件（握手/协议/ok=false/passed=false/机器 FAIL/未知 WARN）
+    # 先判一遍——即便 checks 全白名单 WARN，先决条件不过也**不得**进入回执翻转。
+    hard, hard_reason = AC.hard_prerequisite(payload, stage, expect_rules, strict=True)
+    if hard:
+        audit_event(audit_log, {"event": "hard_reject", "pid": pid, "stage": stage,
+                                 "reason": hard_reason, "receipt_can_flip": False})
+        return None, "硬拒（人审回执不可翻转）：" + hard_reason, {"hard_reject": True}
+    state = review_receipt_state(root, pid, engine_py, warn_ids=wids)
+    if state.get("valid"):
+        return True, "", {"reviewed_warns": wids,
+                          "review_receipt_sha": state.get("receipt_sha")}
+    mp = write_pending_review_material(root, pid, wids, state.get("reason"))
+    audit_event(audit_log, {"event": "review_pending", "pid": pid, "stage": stage,
+                            "warns": wids, "material": mp,
+                            "reason": state.get("reason")})
+    return False, ("strict: WARN %s 无绑定 (pid,rev,渲染sha) 人审回执 —— 已生成待审"
+                   "材料 %s（不最终接受）" % (",".join(wids), mp)), \
+        {"review_pending": True, "material": mp}
+
+
 def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
-              expect_rules=None, strict=False, require_review=False):
+              expect_rules=None, strict=False, require_review=False,
+              engine_py=None, audit_log=None):
     # 参数只能走环境：freecadcmd 会先把 --xxx 当成自己的选项吃掉
     cmd = [freecad, entry]
     env = dict(os.environ)
     opts = {}
     if stage == "package":
         opts["batch"] = batch
+        # gates2 ④：把绑定人审回执工件透传给引擎（@文件 ⇒ packager 自己裁决绑定）
+        rp = receipt_path(root, pid)
+        if os.path.exists(rp):
+            opts["review"] = "@" + os.path.abspath(rp)
     if stage == "export":
         opts["long_side"] = 2400
     env.update({"CADKIT_ACTION": stage, "CADKIT_ROOT": root, "CADKIT_PROJECT": pid,
@@ -280,16 +500,50 @@ def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
                     payload = None
                 break
     ok, err = verdict(payload, stage, expect_rules, strict=strict)
+    adj = {}
+    hard = False
+    if not ok and strict:
+        # A4 修订 P1-1：**硬拒优先**。先决条件（握手/协议/ok=false/
+        # report|probe|gate.passed=false/机器 FAIL/非白名单 WARN）不成立时，
+        # 根本不去问有没有回执——任何回执都不可翻转硬拒（原缺陷是 L460-461 把
+        # 原拒绝直接覆盖成 ok=True）。
+        hard, hard_reason = AC.hard_prerequisite(payload, stage, expect_rules,
+                                                 strict=True)
+        if hard:
+            audit_event(audit_log, {"event": "hard_reject", "pid": pid,
+                                    "stage": stage, "reason": hard_reason,
+                                    "receipt_can_flip": False})
+            adj = {"hard_reject": True}
+            err = "%s｜硬拒先决条件：%s（人审回执不可翻转）" % (err, hard_reason)
+        else:
+            adj_ok, adj_err, adj = strict_review_adjudication(
+                root, pid, stage, payload, engine_py, audit_log,
+                expect_rules=expect_rules)
+            if adj_ok is True:
+                ok, err = True, ""
+            elif adj_ok is False:
+                err = adj_err or err
     if not ok and not err:
         err = ((p.stderr or p.stdout or "").strip().splitlines() or ["?"])[-1][:200]
     if payload is None and p.returncode != 0:
         err = "rc=%d %s" % (p.returncode, err)
     mem = (payload or {}).get("mem") or {}
-    return {"pid": pid, "stage": stage, "ok": ok, "rc": p.returncode,
-            "seconds": round(time.time() - t0, 1),
-            "peak_mb": mem.get("peak_mb"), "degraded": bool(mem.get("degraded")),
-            "warns": _warn_ids(payload),
-            "error": None if ok else err}
+    out = {"pid": pid, "stage": stage, "ok": ok, "rc": p.returncode,
+           "seconds": round(time.time() - t0, 1),
+           "peak_mb": mem.get("peak_mb"), "degraded": bool(mem.get("degraded")),
+           "warns": _warn_ids(payload),
+           # A4 修订（整合项）：输出结构带验收 profile 标记。lenient=true 的记录
+           # 只是历史导入/研究口径，**不得**计入正式接受计数、不得进发布导出链。
+           "lenient": not strict, "strict": bool(strict),
+           "require_review": bool(require_review),
+           "hard_reject": bool(adj.get("hard_reject")),
+           "error": None if ok else err}
+    if adj:
+        out["review_pending"] = bool(adj.get("review_pending"))
+        if adj.get("reviewed_warns"):
+            out["reviewed_warns"] = adj["reviewed_warns"]
+            out["review_receipt_sha"] = adj.get("review_receipt_sha")
+    return out
 
 
 def main():
@@ -321,15 +575,28 @@ def main():
     ap.add_argument("--limit", type=int, default=None,
                     help="只跑前 N 件（试点/分批用；续跑语义不变）")
     ap.add_argument("--strict", action="store_true",
-                    help="T-strict 补丁A：checks 里 WARN/空/未知状态一律 FAIL；"
-                         "并给引擎透传 CADKIT_STRICT=1")
+                    help="gates2 ⑤：strict 验收是**默认**。此旗标仅为兼容既有命令行保留"
+                         "（与默认一致）；降级只用 --lenient")
     ap.add_argument("--require-review", action="store_true",
-                    help="T-strict 补丁A：CADKIT_REQUIRE_REVIEW=1（package 阶段 L1/L2 "
-                         "回执不全直接拒包），隐含 --strict")
+                    help="gates2 ⑤：require_review 是**默认**。此旗标仅为兼容保留"
+                         "（与默认一致）；降级只用 --lenient")
+    ap.add_argument("--lenient", action="store_true",
+                    help="gates2 ⑤：唯一显式降级开关——关 strict/require_review 回旧"
+                         "弱语义，并落审计事件（--audit-log）；与 --strict/"
+                         "--require-review 同时给出直接报错")
+    ap.add_argument("--audit-log", default=None,
+                    help="审计事件 JSONL（默认 <root>/audit/fleet_acceptance.jsonl）")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    # gates2 ⑤：默认路径 = strict+require_review（舰队打包/验收不再弱接受）。
+    # --lenient 必须**显式声明**并落审计事件；与显式 --strict/--require-review 冲突。
+    if a.lenient and (a.strict or a.require_review):
+        raise SystemExit("--lenient 与 --strict/--require-review 冲突："
+                         "降级只能单独显式声明")
+    a.strict = not a.lenient
+    a.require_review = not a.lenient
     if a.require_review:
-        a.strict = True
+        a.strict = True   # 人审强制隐含 strict
 
     if a.expect_rules is None:
         vj = os.path.join(REPO, "shared", "versions.json")
@@ -355,8 +622,19 @@ def main():
         print("握手自检：%s ✓（与签发值一致）" % (got or "引擎未报告 rules_sha"))
     root = os.path.abspath(os.path.expanduser(a.root))
     allowed = max(1, min(a.workers, a.mem_budget_mb // a.per_part_mb))
-    rec = Recorder(root, engine, a.expect_rules or rules_sha_of(engine))
+    audit_log = a.audit_log or os.path.join(root, "audit", "fleet_acceptance.jsonl")
+    profile = {"strict": a.strict, "require_review": a.require_review}
+    # gates2 ⑤：验收 profile 是**审计事件**（lenient 每次运行都留痕）。
+    audit_event(audit_log, {"event": "acceptance_profile", "batch": a.batch,
+                            "intake": a.intake, "stages": stages,
+                            "machine": a.machine, "lenient": bool(a.lenient),
+                            "strict": a.strict, "require_review": a.require_review})
+    rec = Recorder(root, engine, a.expect_rules or rules_sha_of(engine), profile)
     todo = pending(rec, a.intake, stages, a.limit)
+    print("验收 profile：%s%s（gates2 默认 strict+require_review；降级只认显式 "
+          "--lenient，审计事件写 %s）"
+          % ("LENIENT（弱接受，已留痕）" if a.lenient else "strict",
+             "" if a.lenient else "+require_review", audit_log))
     print("引擎 %s（%s）\n本波待跑 %d 件（阶段 %s）；生产并发 %d（内存预算 %dMB / 单件 %dMB），package %s"
           % (engine, os.path.basename(freecad), len(todo), ",".join(stages), allowed,
              a.mem_budget_mb, a.per_part_mb,
@@ -376,7 +654,8 @@ def main():
                encoding="utf-8")
     lock = threading.Lock()
     stop = threading.Event()
-    stats = {"ok": 0, "fail": 0, "reviews": 0, "packaged": 0, "done_parts": 0}
+    stats = {"ok": 0, "fail": 0, "reviews": 0, "packaged": 0, "done_parts": 0,
+             "lenient": bool(a.lenient)}      # A4 修订：输出结构里的降级标记
 
     def emit(rec):
         with lock:
@@ -392,7 +671,8 @@ def main():
             for stage in t:
                 r = run_stage(freecad, entry, root, a.batch, pid, stage,
                               a.stage_mem_mb, a.timeout, a.expect_rules,
-                              strict=a.strict, require_review=a.require_review)
+                              strict=a.strict, require_review=a.require_review,
+                              engine_py=engine, audit_log=audit_log)
                 r["lane"] = "produce"
                 r["worker"] = n
                 emit(r)
@@ -460,7 +740,8 @@ def main():
                 try:
                     r = run_stage(freecad, entry, root, a.batch, pid, "package",
                                   a.stage_mem_mb, a.timeout, a.expect_rules,
-                                  strict=a.strict, require_review=a.require_review)
+                                  strict=a.strict, require_review=a.require_review,
+                                  engine_py=engine, audit_log=audit_log)
                 finally:
                     pkg_q.task_done()      # 没有这句，pkg_q.join() 永远返回不了（实测挂死）
                 r["lane"] = "package"
@@ -484,9 +765,14 @@ def main():
     for t in (review_thread, pkg_thread):
         if t:
             t.join(timeout=120)
+    # A4 修订（整合项）：lenient 运行在**输出结构**里显式标记；正式接受计数与
+    # 发布导出链必须按 acceptance_profile.lenient / 记录里的 lenient 字段排除。
     print("完成：件 %d（含 %d 次旧件复检），阶段 ok=%d fail=%d，package=%d；日志 %s"
           % (stats["done_parts"], stats["reviews"], stats["ok"], stats["fail"],
              stats["packaged"], os.path.relpath(log.name, REPO)))
+    print("acceptance_profile: lenient=%s strict=%s require_review=%s "
+          "（lenient 记录不得计入正式接受/发布导出）%s"
+          % (bool(a.lenient), a.strict, a.require_review, audit_log))
     return 1 if stats["fail"] else 0
 
 
