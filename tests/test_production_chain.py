@@ -1296,7 +1296,8 @@ def test_alarms_are_not_cleared_by_resetting_meta(tmp_path):
         blocked = ledger_acceptance_blocks(conn)
         assert "ledger_changed_outside_runner" not in blocked
         assert "schema_tampered" in blocked
-        acknowledge_alarm(conn, "schema_tampered", "upgrade installed the new triggers")
+        acknowledge_alarm(conn, "schema_tampered",
+                          "upgrade 0.5.1: new triggers installed on first open")
         assert "schema_tampered" not in ledger_acceptance_blocks(conn)
     finally:
         conn.close()
@@ -1345,9 +1346,197 @@ def test_concurrent_event_inserts_do_not_fork_the_chain(tmp_path):
     conn = open_ledger(root)
     try:
         assert verify_event_chain(conn) is True
-        assert conn.execute("SELECT COUNT(*) FROM event").fetchone()[0] == 40
+        assert conn.execute(
+            "SELECT COUNT(*) FROM event WHERE kind='note'").fetchone()[0] == 40
+        assert conn.execute(
+            "SELECT COUNT(*) FROM event WHERE kind='event_hash_backfill'"
+        ).fetchone()[0] == 1
     finally:
         conn.close()
+
+
+def test_forged_waiver_is_not_authorization(tmp_path):
+    """A raw INSERT into waiver must not clear a design FAIL or move the job."""
+    import sqlite3
+    from cadkit.ledger import event_unwaived_fail, ledger_acceptance_blocks
+    conn = open_ledger(str(tmp_path))
+    try:
+        job_record(conn, "p", "validate", "in", "rules", "FAIL",
+                   error_class="design")
+        raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+        raw.create_function("cadkit_event_hash", 5, lambda *a: "ab" * 32)
+        raw.create_function("cadkit_job_payload", 10, lambda *a: "{}")
+        raw.execute(
+            "INSERT INTO waiver(project_id, stage, input_sha, rules_sha, "
+            "kind, reason, created) VALUES(?,?,?,?,?,?,?)",
+            ("p", "validate", "in", "rules", "waiver", "forged from cli", 1))
+        raw.commit()
+        assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
+        with pytest.raises(sqlite3.IntegrityError):
+            raw.execute("UPDATE job SET state='WAIVED' WHERE project_id='p'")
+        raw.rollback()
+        raw.close()
+        assert conn.execute(
+            "SELECT state FROM job WHERE project_id='p'").fetchone()[0] == "FAIL"
+        assert "orphan_authorization" in ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+
+
+def test_forged_ack_does_not_clear_the_alarm(tmp_path):
+    import sqlite3
+    from cadkit.ledger import alarm_open, ledger_acceptance_blocks, raise_alarm
+    conn = open_ledger(str(tmp_path))
+    try:
+        raise_alarm(conn, "ledger_sha_mismatch", "backup sha differs")
+        assert alarm_open(conn, "ledger_sha_mismatch") is True
+        raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+        raw.execute(
+            "INSERT INTO ledger_alarm(kind, action, reason, created) "
+            "VALUES('ledger_sha_mismatch', 'ack', 'forged ack', 1)")
+        raw.commit()
+        raw.close()
+        assert alarm_open(conn, "ledger_sha_mismatch") is True
+        blocked = ledger_acceptance_blocks(conn)
+        assert "ledger_changed_outside_runner" in blocked
+        assert "orphan_authorization" in blocked
+    finally:
+        conn.close()
+
+
+def test_deleted_anchor_is_not_a_first_run(tmp_path):
+    """Deleting the anchor and recomputing the chain must still alarm."""
+    import sqlite3
+    from cadkit.ledger import (_event_hash, anchor_holds, ledger_acceptance_blocks,
+                               note_anchor_state, verify_event_chain,
+                               write_chain_anchor)
+    root = str(tmp_path)
+    conn = open_ledger(root)
+    job_record(conn, "p", "build", "h", "r", "FAIL", error_class="design")
+    write_chain_anchor(root, conn)
+    assert anchor_holds(conn, None) is False
+    conn.close()
+    os.remove(os.path.join(root, "ledger.chain.anchor"))
+    raw = sqlite3.connect(os.path.join(root, "ledger.sqlite3"))
+    raw.execute("DROP TRIGGER IF EXISTS event_no_update")
+    raw.execute(
+        "UPDATE event SET payload=? WHERE event_id=("
+        "SELECT MIN(event_id) FROM event)",
+        ('{"sealed":true,"washed":true}',))
+    rows = raw.execute(
+        "SELECT event_id, rev, kind, payload, created FROM event "
+        "ORDER BY event_id").fetchall()
+    prev = ""
+    for event_id, rev, kind, payload, created in rows:
+        digest = _event_hash(prev, rev, kind, payload or "", created)
+        raw.execute(
+            "UPDATE event SET prev_hash=?, row_hash=? WHERE event_id=?",
+            (prev, digest, event_id))
+        prev = digest
+    raw.executescript("""
+        CREATE TRIGGER event_no_update BEFORE UPDATE ON event
+        BEGIN SELECT RAISE(ABORT, 'event rows cannot be rewritten'); END;
+    """)
+    raw.commit()
+    raw.close()
+    conn = open_ledger(root)
+    try:
+        assert verify_event_chain(conn) is True
+        assert anchor_holds(conn, None) is False
+        note_anchor_state(conn, root)
+        assert "chain_anchor_mismatch" in ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+
+
+def test_committed_status_anchor_catches_a_local_rewrite(tmp_path):
+    import subprocess
+    from cadkit.ledger import (chain_head, ledger_acceptance_blocks,
+                               note_anchor_state, read_committed_status_anchor,
+                               write_chain_anchor, write_status_anchor)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.check_call(["git", "init"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "config", "user.email", "anchor@example.com"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "config", "user.name", "anchor-test"], cwd=str(repo))
+    ledger = tmp_path / "ledger"
+    ledger.mkdir()
+    conn = open_ledger(str(ledger))
+    try:
+        job_record(conn, "p", "build", "h", "r", "OK")
+        write_chain_anchor(str(ledger), conn)
+        stale = chain_head(conn)
+        stale["head_hash"] = "0" * 64
+        stale["ledger_end_sha"] = "1" * 64
+        stale["timestamp"] = "2026-11-10T00:00:00Z"
+        status = repo / "status"
+        status.mkdir()
+        (status / "ledger_anchor.json").write_text(
+            json.dumps(stale, sort_keys=True), encoding="utf-8")
+        subprocess.check_call(
+            ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
+        subprocess.check_call(
+            ["git", "commit", "-m", "stale anchor"], cwd=str(repo))
+        committed = read_committed_status_anchor(str(repo))
+        assert committed["head_hash"] == "0" * 64
+        problems = note_anchor_state(
+            conn, str(ledger), repo=str(repo), backup_sha="2" * 64)
+        assert any("committed" in item for item in problems)
+        assert "chain_anchor_mismatch" in ledger_acceptance_blocks(conn)
+        write_status_anchor(str(repo), conn, "2" * 64, timestamp="2026-11-10T00:00:01Z")
+        doc = json.loads((status / "ledger_anchor.json").read_text(encoding="utf-8"))
+        assert doc["head_hash"] == chain_head(conn)["head_hash"]
+        assert doc["ledger_end_sha"] == "2" * 64
+        assert "timestamp" in doc
+    finally:
+        conn.close()
+
+
+def test_push_ledger_anchor_is_explicit(tmp_path):
+    import subprocess
+    script = os.path.join(TOOLS, "push_ledger_anchor.py")
+    runner = open(os.path.join(TOOLS, "fleet_runner.py"), encoding="utf-8").read()
+    assert "push_ledger_anchor.py" in runner
+    assert "git push" not in runner
+    book = open(os.path.join(ROOT, "RUNBOOK.md"), encoding="utf-8").read()
+    assert "python3 tools/push_ledger_anchor.py" in book
+    assert "upgrade 0.5.1" in book
+    bare = tmp_path / "bare.git"
+    repo = tmp_path / "repo"
+    subprocess.check_call(["git", "init", "--bare", str(bare)])
+    subprocess.check_call(["git", "init", str(repo)])
+    subprocess.check_call(
+        ["git", "config", "user.email", "anchor@example.com"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "config", "user.name", "anchor-test"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "remote", "add", "origin", str(bare)], cwd=str(repo))
+    status = repo / "status"
+    status.mkdir()
+    (status / "ledger_anchor.json").write_text("{}\n", encoding="utf-8")
+    (repo / "other.txt").write_text("leave me", encoding="utf-8")
+    dry = subprocess.check_output(
+        [sys.executable, script, "--repo", str(repo), "--dry-run"],
+        text=True)
+    assert "git push" in dry
+    assert "git commit" in dry
+    subprocess.check_call(
+        [sys.executable, script, "--repo", str(repo), "--remote", "origin"])
+    shown = subprocess.check_output(
+        ["git", "show", "HEAD:status/ledger_anchor.json"],
+        cwd=str(repo), text=True)
+    assert shown.strip() == "{}"
+    other = subprocess.run(
+        ["git", "show", "HEAD:other.txt"], cwd=str(repo),
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert other.returncode != 0
+    pushed = subprocess.check_output(
+        ["git", "ls-tree", "-r", "HEAD", "--name-only"],
+        cwd=str(bare), text=True)
+    assert "status/ledger_anchor.json" in pushed
+    assert "other.txt" not in pushed
 
 
 def test_wave_ledger_error_is_a_fail(tmp_path):

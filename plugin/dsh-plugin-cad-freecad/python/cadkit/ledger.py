@@ -91,17 +91,23 @@ CREATE TABLE IF NOT EXISTS rules_rereview(
   rules_sha TEXT NOT NULL,
   reason TEXT NOT NULL,
   created INTEGER NOT NULL,
+  event_id INTEGER,
+  content_hash TEXT,
   PRIMARY KEY(project_id, stage, input_sha, rules_sha));
 CREATE TABLE IF NOT EXISTS quarantine_mark(
   project_id TEXT PRIMARY KEY,
   input_sha TEXT NOT NULL,
-  created INTEGER NOT NULL);
+  created INTEGER NOT NULL,
+  event_id INTEGER,
+  content_hash TEXT);
 CREATE TABLE IF NOT EXISTS review_signoff(
   project_id TEXT NOT NULL,
   input_sha TEXT NOT NULL,
   reviewer TEXT NOT NULL,
   reason TEXT NOT NULL,
   created INTEGER NOT NULL,
+  event_id INTEGER,
+  content_hash TEXT,
   PRIMARY KEY(project_id, input_sha));
 -- Append-only enforcement. The Python WHERE-clause check is only a typo
 -- guard (WHERE 1, comments and CTEs slip through). These triggers fire for
@@ -160,6 +166,8 @@ CREATE TABLE IF NOT EXISTS waiver(
   kind TEXT NOT NULL,
   reason TEXT NOT NULL,
   created INTEGER NOT NULL,
+  event_id INTEGER,
+  content_hash TEXT,
   PRIMARY KEY(project_id, stage, input_sha, rules_sha, kind));
 CREATE TRIGGER IF NOT EXISTS waiver_no_update
 BEFORE UPDATE ON waiver
@@ -218,7 +226,9 @@ CREATE TABLE IF NOT EXISTS ledger_alarm(
   kind TEXT NOT NULL,
   action TEXT NOT NULL,
   reason TEXT,
-  created INTEGER NOT NULL);
+  created INTEGER NOT NULL,
+  event_id INTEGER,
+  content_hash TEXT);
 CREATE INDEX IF NOT EXISTS ledger_alarm_kind
   ON ledger_alarm(kind, alarm_id);
 CREATE TRIGGER IF NOT EXISTS ledger_alarm_no_update
@@ -264,22 +274,45 @@ BEGIN
         OLD.state = 'FAIL'
         AND NEW.state IN ('WAIVED', 'INFEASIBLE')
         AND EXISTS (
-          SELECT 1 FROM waiver
-          WHERE project_id = OLD.project_id AND stage = OLD.stage
-            AND input_sha = OLD.input_sha AND rules_sha = OLD.rules_sha
-            AND kind = CASE NEW.state
-                         WHEN 'WAIVED' THEN 'waiver'
-                         ELSE 'design-infeasible' END)
+          SELECT 1 FROM waiver w
+          JOIN event e ON e.event_id = w.event_id
+            AND e.row_hash = w.content_hash
+          WHERE w.project_id = OLD.project_id AND w.stage = OLD.stage
+            AND w.input_sha = OLD.input_sha AND w.rules_sha = OLD.rules_sha
+            AND w.kind = CASE NEW.state
+                           WHEN 'WAIVED' THEN 'waiver'
+                           ELSE 'design-infeasible' END
+            AND e.kind = w.kind
+            AND e.row_hash = cadkit_event_hash(
+                  IFNULL(e.prev_hash, ''), IFNULL(e.rev, ''), e.kind,
+                  IFNULL(e.payload, ''), e.created)
+            AND json_extract(e.payload, '$.project_id') = w.project_id
+            AND json_extract(e.payload, '$.stage') = w.stage
+            AND json_extract(e.payload, '$.input_sha') = w.input_sha
+            AND json_extract(e.payload, '$.rules_sha') = w.rules_sha
+            AND json_extract(e.payload, '$.kind') = w.kind
+            AND json_extract(e.payload, '$.reason') = w.reason)
       )
       OR (
         OLD.state = 'FAIL'
         AND NEW.state = 'OK'
         AND IFNULL(OLD.error_class, '') LIKE 'inherited:%'
         AND EXISTS (
-          SELECT 1 FROM rules_rereview
-          WHERE project_id = OLD.project_id AND stage = OLD.stage
-            AND input_sha = OLD.input_sha AND rules_sha = OLD.rules_sha
-            AND reason <> '')
+          SELECT 1 FROM rules_rereview r
+          JOIN event e ON e.event_id = r.event_id
+            AND e.row_hash = r.content_hash
+          WHERE r.project_id = OLD.project_id AND r.stage = OLD.stage
+            AND r.input_sha = OLD.input_sha AND r.rules_sha = OLD.rules_sha
+            AND e.kind = 'rules_rereview'
+            AND e.row_hash = cadkit_event_hash(
+                  IFNULL(e.prev_hash, ''), IFNULL(e.rev, ''), e.kind,
+                  IFNULL(e.payload, ''), e.created)
+            AND json_extract(e.payload, '$.project_id') = r.project_id
+            AND json_extract(e.payload, '$.stage') = r.stage
+            AND json_extract(e.payload, '$.input_sha') = r.input_sha
+            AND json_extract(e.payload, '$.rules_sha') = r.rules_sha
+            AND json_extract(e.payload, '$.reason') = r.reason
+            AND IFNULL(r.reason, '') <> '')
       )
     );
 END;
@@ -319,8 +352,13 @@ END;
 
 CHAIN_ANCHOR_NAME = "ledger.chain.anchor"
 END_SHA_NAME = "ledger.end.sha"
-_BACKFILL_FLAG = "event_hash_backfill"
-ALARM_KINDS = ("schema_tampered", "ledger_sha_mismatch", "chain_anchor_mismatch")
+STATUS_ANCHOR_PATH = os.path.join("status", "ledger_anchor.json")
+BACKFILL_EVENT_KIND = "event_hash_backfill"
+# Named in RUNBOOK. A schema_tampered ack for a legacy first open has to
+# include this text so the reason identifies the upgrade, not a blank note.
+UPGRADE_ACK = "upgrade 0.5.1"
+ALARM_KINDS = ("schema_tampered", "ledger_sha_mismatch",
+               "chain_anchor_mismatch", "orphan_authorization")
 
 
 def _ms():
@@ -520,17 +558,18 @@ def _insert_event(conn, rev, kind, payload, created=None):
             "ORDER BY event_id DESC LIMIT 1").fetchone()
         prev_hash = prev[0] if prev and prev[0] else ""
         row_hash = _event_hash(prev_hash, rev, kind, payload, created)
-        conn.execute(
+        cur = conn.execute(
             "INSERT INTO event(rev, kind, payload, created, prev_hash, row_hash) "
             "VALUES(?,?,?,?,?,?)",
             (rev, kind, payload, created, prev_hash, row_hash))
+        event_id = cur.lastrowid
         if own:
             conn.commit()
     except Exception:
         if own:
             conn.rollback()
         raise
-    return row_hash
+    return event_id, row_hash
 
 
 def _record_transition(conn, project_id, stage, input_sha, rules_sha,
@@ -595,26 +634,31 @@ def verify_event_chain(conn):
     return True
 
 
+def _backfill_marked(conn):
+    """True once the insert-only backfill event is on the chain.
+
+    The marker is an event, so it cannot be deleted while ``event_no_delete``
+    is in place. A meta flag could be deleted; this cannot.
+    """
+    row = conn.execute(
+        "SELECT 1 FROM event WHERE kind=? LIMIT 1",
+        (BACKFILL_EVENT_KIND,)).fetchone()
+    return row is not None
+
+
 def _backfill_event_hashes(conn, cad_root):
     """Fill hashes once, for a ledger that predates the chain.
 
-    After ``event_hash_backfill`` is set, a NULL row_hash stays NULL and
-    ``verify_event_chain`` fails. Deleting that meta row is not enough
-    once ``ledger.chain.anchor`` exists beside the database: the anchor
-    is outside the ledger, and its presence means the chain has already
-    been sealed. A NULL hash is then a break, not a migration.
+    After the ``event_hash_backfill`` event is on the chain, a NULL
+    ``row_hash`` stays NULL and ``verify_event_chain`` fails. ``cad_root``
+    is unused; the seal is the event, not a file beside the database.
     """
+    del cad_root
     cols = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
     if "row_hash" not in cols:
         conn.execute("ALTER TABLE event ADD COLUMN prev_hash TEXT")
         conn.execute("ALTER TABLE event ADD COLUMN row_hash TEXT")
-    row = conn.execute(
-        "SELECT v FROM meta WHERE k=?", (_BACKFILL_FLAG,)).fetchone()
-    anchor_sealed = os.path.isfile(os.path.join(cad_root, CHAIN_ANCHOR_NAME))
-    if (row and row[0] == "1") or anchor_sealed:
-        if not (row and row[0] == "1"):
-            set_meta(conn, _BACKFILL_FLAG, "1")
-            conn.commit()
+    if _backfill_marked(conn):
         return
     total = conn.execute("SELECT COUNT(*) FROM event").fetchone()[0]
     nulls = conn.execute(
@@ -638,16 +682,129 @@ def _backfill_event_hashes(conn, cad_root):
               SELECT RAISE(ABORT, 'event rows cannot be rewritten');
             END;
         """)
-    set_meta(conn, _BACKFILL_FLAG, "1")
-    conn.commit()
+    _insert_event(conn, None, BACKFILL_EVENT_KIND, {"sealed": True})
+    if conn.in_transaction:
+        conn.commit()
+
+
+def _authorization_matches(conn, event_id, content_hash, expect, event_kind):
+    """True when this row points at the chain event that records the same content.
+
+    ``content_hash`` is that event's ``row_hash``. The hash has to match the
+    event row, the event row has to hash to itself, and the payload fields
+    have to equal ``expect``. A raw insert that leaves these columns empty,
+    or that copies another event's id, does not match.
+    """
+    if event_id is None or not content_hash:
+        return False
+    row = conn.execute(
+        "SELECT rev, kind, payload, created, prev_hash, row_hash "
+        "FROM event WHERE event_id=?",
+        (event_id,)).fetchone()
+    if not row:
+        return False
+    rev, kind, payload, created, prev_hash, row_hash = row
+    if row_hash != content_hash or kind != event_kind:
+        return False
+    if _event_hash(prev_hash, rev, kind, payload, created) != row_hash:
+        return False
+    try:
+        doc = json.loads(payload or "")
+    except ValueError:
+        return False
+    if not isinstance(doc, dict):
+        return False
+    for key, value in expect.items():
+        if doc.get(key) != value:
+            return False
+    return True
+
+
+def _iter_orphan_authorizations(conn):
+    """Authorization rows whose stored event id and hash do not match the chain."""
+    rows = conn.execute(
+        "SELECT rowid, event_id, content_hash, project_id, stage, input_sha, "
+        "rules_sha, kind, reason FROM waiver").fetchall()
+    for (rowid, event_id, content_hash, project_id, stage, input_sha,
+         rules_sha, kind, reason) in rows:
+        if not _authorization_matches(conn, event_id, content_hash, {
+            "project_id": project_id, "stage": stage, "input_sha": input_sha,
+            "rules_sha": rules_sha, "kind": kind, "reason": reason,
+        }, kind):
+            yield "waiver", rowid
+    rows = conn.execute(
+        "SELECT rowid, event_id, content_hash, project_id, stage, input_sha, "
+        "rules_sha, reason FROM rules_rereview").fetchall()
+    for (rowid, event_id, content_hash, project_id, stage, input_sha,
+         rules_sha, reason) in rows:
+        if not _authorization_matches(conn, event_id, content_hash, {
+            "project_id": project_id, "stage": stage, "input_sha": input_sha,
+            "rules_sha": rules_sha, "reason": reason,
+        }, "rules_rereview"):
+            yield "rules_rereview", rowid
+    rows = conn.execute(
+        "SELECT rowid, event_id, content_hash, project_id, input_sha, "
+        "reviewer, reason FROM review_signoff").fetchall()
+    for (rowid, event_id, content_hash, project_id, input_sha, reviewer,
+         reason) in rows:
+        if not _authorization_matches(conn, event_id, content_hash, {
+            "project_id": project_id, "input_sha": input_sha,
+            "reviewer": reviewer, "reason": reason,
+        }, "signoff"):
+            yield "review_signoff", rowid
+    rows = conn.execute(
+        "SELECT rowid, event_id, content_hash, project_id, input_sha "
+        "FROM quarantine_mark").fetchall()
+    for rowid, event_id, content_hash, project_id, input_sha in rows:
+        if not _authorization_matches(conn, event_id, content_hash, {
+            "project_id": project_id, "input_sha": input_sha,
+        }, "quarantine"):
+            yield "quarantine_mark", rowid
+    rows = conn.execute(
+        "SELECT alarm_id, kind, action, reason, event_id, content_hash "
+        "FROM ledger_alarm").fetchall()
+    for alarm_id, kind, action, reason, event_id, content_hash in rows:
+        reason = reason or ""
+        if action == "ack":
+            ok = _authorization_matches(conn, event_id, content_hash, {
+                "alarm": kind, "reason": reason,
+            }, "alarm_ack")
+        else:
+            ok = _authorization_matches(conn, event_id, content_hash, {
+                "reason": reason,
+            }, kind)
+        if not ok:
+            yield "ledger_alarm", alarm_id
+
+
+def audit_orphan_authorizations(conn):
+    """Ignore is done by the readers. This raises the alarm for the rows they skip.
+
+    One open ``orphan_authorization`` while any unmatched row exists. The
+    next check raises it again after an acknowledgement, because the row
+    cannot be deleted and still does not authorize anything.
+    """
+    orphans = list(_iter_orphan_authorizations(conn))
+    if orphans and not alarm_open(conn, "orphan_authorization"):
+        shown = ",".join("%s:%s" % pair for pair in orphans[:12])
+        raise_alarm(conn, "orphan_authorization",
+                    "unmatched authorization rows: %s" % shown)
+    return orphans
 
 
 def migrate_rules_rereview_from_events(conn):
-    """Copy kind=rules_rereview events into the lookup table. Idempotent."""
+    """Copy kind=rules_rereview events into the lookup table. Idempotent.
+
+    The copied row stores that event's id and row hash. A payload that
+    does not hash to the stored row is not copied.
+    """
     rows = conn.execute(
-        "SELECT payload, created FROM event WHERE kind='rules_rereview'"
+        "SELECT event_id, rev, kind, payload, created, prev_hash, row_hash "
+        "FROM event WHERE kind='rules_rereview'"
     ).fetchall()
-    for payload, created in rows:
+    for event_id, rev, kind, payload, created, prev_hash, row_hash in rows:
+        if _event_hash(prev_hash, rev, kind, payload, created) != row_hash:
+            continue
         try:
             doc = json.loads(payload or "")
         except ValueError:
@@ -658,60 +815,83 @@ def migrate_rules_rereview_from_events(conn):
         if not (doc.get("project_id") and doc.get("stage")
                 and doc.get("input_sha") and doc.get("rules_sha") and reason):
             continue
+        if doc.get("reason") != reason:
+            continue
         conn.execute(
             "INSERT OR IGNORE INTO rules_rereview(project_id, stage, "
-            "input_sha, rules_sha, reason, created) VALUES(?,?,?,?,?,?)",
+            "input_sha, rules_sha, reason, created, event_id, content_hash) "
+            "VALUES(?,?,?,?,?,?,?,?)",
             (doc["project_id"], doc["stage"], doc["input_sha"],
-             doc["rules_sha"], reason, created or _ms()))
+             doc["rules_sha"], reason, created or _ms(), event_id, row_hash))
     conn.commit()
 
 
 def alarm_open(conn, kind):
-    """True when the latest row for ``kind`` is not an ack with a reason."""
-    row = conn.execute(
-        "SELECT action, reason FROM ledger_alarm WHERE kind=? "
-        "ORDER BY alarm_id DESC LIMIT 1",
-        (kind,)).fetchone()
-    if not row:
-        return False
-    action, reason = row
-    if action == "ack" and str(reason or "").strip():
-        return False
-    return True
+    """True when the latest chain-linked row for ``kind`` is not an ack.
+
+    A raw ack insert with no matching event is ignored.
+    """
+    rows = conn.execute(
+        "SELECT action, reason, event_id, content_hash FROM ledger_alarm "
+        "WHERE kind=? ORDER BY alarm_id",
+        (kind,)).fetchall()
+    open_ = False
+    for action, reason, event_id, content_hash in rows:
+        reason = reason or ""
+        if action == "ack":
+            if str(reason).strip() and _authorization_matches(
+                    conn, event_id, content_hash,
+                    {"alarm": kind, "reason": reason}, "alarm_ack"):
+                open_ = False
+        elif _authorization_matches(
+                conn, event_id, content_hash, {"reason": reason}, kind):
+            open_ = True
+    return open_
 
 
 def raise_alarm(conn, kind, reason):
-    """Append an alarm. Does not clear, and does not touch meta flags."""
+    """Append an alarm and the chain event that authorizes it, one transaction."""
     if kind not in ALARM_KINDS:
         raise ValueError("unknown alarm kind %s" % kind)
     reason = str(reason or "").strip()
     now = _ms()
     with conn:
+        event_id, content_hash = _insert_event(
+            conn, None, kind, {"reason": reason}, now)
         conn.execute(
-            "INSERT INTO ledger_alarm(kind, action, reason, created) "
-            "VALUES(?, 'raise', ?, ?)",
-            (kind, reason, now))
-        _insert_event(conn, None, kind, {"reason": reason}, now)
-    return {"kind": kind, "action": "raise"}
+            "INSERT INTO ledger_alarm(kind, action, reason, created, "
+            "event_id, content_hash) VALUES(?, 'raise', ?, ?, ?, ?)",
+            (kind, reason, now, event_id, content_hash))
+    return {"kind": kind, "action": "raise", "event_id": event_id}
 
 
 def acknowledge_alarm(conn, kind, reason):
-    """Clear one alarm kind. ``reason`` is required and is stored, not applied as a flag reset."""
+    """Clear one alarm kind with a chain event. ``reason`` is required.
+
+    A ``schema_tampered`` acknowledgement has to name the upgrade
+    (``upgrade 0.5.1``). That is the expected first open of a ledger
+    created before this trigger set.
+    """
     if kind not in ALARM_KINDS:
         raise ValueError("unknown alarm kind %s" % kind)
     reason = str(reason or "").strip()
     if not reason:
         raise ValueError("acknowledgement requires a reason")
+    if kind == "schema_tampered" and UPGRADE_ACK not in reason:
+        raise ValueError(
+            "schema_tampered acknowledgement must name the upgrade "
+            "(%s)" % UPGRADE_ACK)
     now = _ms()
     with conn:
-        conn.execute(
-            "INSERT INTO ledger_alarm(kind, action, reason, created) "
-            "VALUES(?, 'ack', ?, ?)",
-            (kind, reason, now))
-        _insert_event(conn, None, "alarm_ack", {
+        event_id, content_hash = _insert_event(conn, None, "alarm_ack", {
             "alarm": kind, "reason": reason,
         }, now)
-    return {"kind": kind, "action": "ack", "reason": reason}
+        conn.execute(
+            "INSERT INTO ledger_alarm(kind, action, reason, created, "
+            "event_id, content_hash) VALUES(?, 'ack', ?, ?, ?, ?)",
+            (kind, reason, now, event_id, content_hash))
+    return {"kind": kind, "action": "ack", "reason": reason,
+            "event_id": event_id}
 
 
 def ledger_acceptance_blocks(conn):
@@ -721,6 +901,7 @@ def ledger_acceptance_blocks(conn):
     and remove the triggers; a missing trigger is recorded as an alarm
     event and stays until an acknowledgement with a reason.
     """
+    audit_orphan_authorizations(conn)
     reasons = []
     if alarm_open(conn, "schema_tampered"):
         reasons.append("schema_tampered")
@@ -728,6 +909,8 @@ def ledger_acceptance_blocks(conn):
         reasons.append("ledger_changed_outside_runner")
     if alarm_open(conn, "chain_anchor_mismatch"):
         reasons.append("chain_anchor_mismatch")
+    if alarm_open(conn, "orphan_authorization"):
+        reasons.append("orphan_authorization")
     if not verify_event_chain(conn):
         reasons.append("event_chain_broken")
     return reasons
@@ -748,15 +931,23 @@ def event_unwaived_fail(conn, project_id, stage, input_sha, rules_sha):
         return False
     reviewed = _rules_rereviewed(
         conn, project_id, stage, input_sha, rules_sha)
-    waived = conn.execute(
-        "SELECT 1 FROM waiver WHERE project_id=? AND stage=? AND input_sha=? "
-        "AND rules_sha=? LIMIT 1",
-        (project_id, stage, input_sha, rules_sha)).fetchone()
+    waived = False
+    wrows = conn.execute(
+        "SELECT event_id, content_hash, kind, reason FROM waiver "
+        "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=?",
+        (project_id, stage, input_sha, rules_sha)).fetchall()
+    for event_id, content_hash, kind, reason in wrows:
+        if _authorization_matches(conn, event_id, content_hash, {
+            "project_id": project_id, "stage": stage, "input_sha": input_sha,
+            "rules_sha": rules_sha, "kind": kind, "reason": reason,
+        }, kind):
+            waived = True
+            break
     for (source,) in rows:
         if source == "n45_inherit":
             if not reviewed:
                 return True
-        elif waived is None:
+        elif not waived:
             return True
     return False
 
@@ -785,13 +976,30 @@ def open_ledger(cad_root):
                      (str(SCHEMA_VERSION),))
         conn.commit()
     _migrate(conn)
+    _ensure_auth_link_columns(conn)
     _backfill_event_hashes(conn, cad_root)
     conn.executescript(_JOB_TRIGGERS)
     migrate_rules_rereview_from_events(conn)
     if missing:
         raise_alarm(conn, "schema_tampered",
                     "missing triggers: %s" % ",".join(missing))
+    audit_orphan_authorizations(conn)
     return conn
+
+
+def _ensure_auth_link_columns(conn):
+    """Add event_id and content_hash on ledgers created before this link."""
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    for table in ("waiver", "rules_rereview", "review_signoff",
+                  "quarantine_mark", "ledger_alarm"):
+        if table not in tables:
+            continue
+        have = {r[1] for r in conn.execute("PRAGMA table_info(%s)" % table)}
+        for col, decl in (("event_id", "INTEGER"), ("content_hash", "TEXT")):
+            if col not in have:
+                conn.execute("ALTER TABLE %s ADD COLUMN %s %s" % (
+                    table, col, decl))
 
 
 def _ensure_event_columns(conn):
@@ -1371,10 +1579,15 @@ def _rules_rereviewed(conn, project_id, stage, input_sha, rules_sha):
     primary key is (project, stage, input, rules).
     """
     row = conn.execute(
-        "SELECT reason FROM rules_rereview WHERE project_id=? AND stage=? "
-        "AND input_sha=? AND rules_sha=?",
+        "SELECT reason, event_id, content_hash FROM rules_rereview "
+        "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=?",
         (project_id, stage, input_sha, rules_sha)).fetchone()
-    return bool(row and str(row[0] or "").strip())
+    if not row or not str(row[0] or "").strip():
+        return False
+    return _authorization_matches(conn, row[1], row[2], {
+        "project_id": project_id, "stage": stage, "input_sha": input_sha,
+        "rules_sha": rules_sha, "reason": row[0],
+    }, "rules_rereview")
 
 
 def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
@@ -1388,16 +1601,20 @@ def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
     if not reason:
         raise ValueError("rules re-review requires a reason")
     now = _ms()
+    payload = {
+        "project_id": project_id, "stage": stage,
+        "input_sha": input_sha, "rules_sha": rules_sha,
+        "reason": reason,
+    }
     with conn:
+        event_id, content_hash = _insert_event(
+            conn, None, "rules_rereview", payload, now)
         conn.execute(
             "INSERT INTO rules_rereview(project_id, stage, input_sha, "
-            "rules_sha, reason, created) VALUES(?,?,?,?,?,?)",
-            (project_id, stage, input_sha, rules_sha, reason, now))
-        _insert_event(conn, None, "rules_rereview", {
-            "project_id": project_id, "stage": stage,
-            "input_sha": input_sha, "rules_sha": rules_sha,
-            "reason": reason,
-        }, now)
+            "rules_sha, reason, created, event_id, content_hash) "
+            "VALUES(?,?,?,?,?,?,?,?)",
+            (project_id, stage, input_sha, rules_sha, reason, now,
+             event_id, content_hash))
     return {"applied": True, "reason": reason}
 
 
@@ -1431,22 +1648,27 @@ def mark_quarantine_from_ledger(conn, project_id):
                 "rewritten" % (project_id, existing[0]))
         return {"applied": False, "input_sha": existing[0]}
     now = _ms()
+    payload = {"project_id": project_id, "input_sha": sha}
     with conn:
+        event_id, content_hash = _insert_event(
+            conn, None, "quarantine", payload, now)
         conn.execute(
-            "INSERT INTO quarantine_mark(project_id, input_sha, created) "
-            "VALUES(?,?,?)",
-            (project_id, sha, now))
-        _insert_event(conn, None, "quarantine", {
-            "project_id": project_id, "input_sha": sha,
-        }, now)
+            "INSERT INTO quarantine_mark(project_id, input_sha, created, "
+            "event_id, content_hash) VALUES(?,?,?,?,?)",
+            (project_id, sha, now, event_id, content_hash))
     return {"applied": True, "input_sha": sha}
 
 
 def quarantine_mark(conn, project_id):
     row = conn.execute(
-        "SELECT input_sha, created FROM quarantine_mark WHERE project_id=?",
+        "SELECT input_sha, created, event_id, content_hash "
+        "FROM quarantine_mark WHERE project_id=?",
         (project_id,)).fetchone()
     if not row:
+        return None
+    if not _authorization_matches(conn, row[2], row[3], {
+        "project_id": project_id, "input_sha": row[0],
+    }, "quarantine"):
         return None
     return {"input_sha": row[0], "created": row[1]}
 
@@ -1470,24 +1692,32 @@ def record_signoff(conn, project_id, input_sha, reviewer, reason):
         raise ValueError(
             "sign-off must name a new revision, not the hash frozen at quarantine")
     now = _ms()
+    payload = {
+        "project_id": project_id, "input_sha": input_sha,
+        "reviewer": reviewer, "reason": reason,
+    }
     with conn:
+        event_id, content_hash = _insert_event(
+            conn, None, "signoff", payload, now)
         conn.execute(
             "INSERT INTO review_signoff(project_id, input_sha, reviewer, "
-            "reason, created) VALUES(?,?,?,?,?)",
-            (project_id, input_sha, reviewer, reason, now))
-        _insert_event(conn, None, "signoff", {
-            "project_id": project_id, "input_sha": input_sha,
-            "reviewer": reviewer, "reason": reason,
-        }, now)
+            "reason, created, event_id, content_hash) VALUES(?,?,?,?,?,?,?)",
+            (project_id, input_sha, reviewer, reason, now,
+             event_id, content_hash))
     return {"applied": True, "input_sha": input_sha}
 
 
 def review_signoff(conn, project_id, input_sha):
     row = conn.execute(
-        "SELECT input_sha, reviewer, reason FROM review_signoff "
-        "WHERE project_id=? AND input_sha=?",
+        "SELECT input_sha, reviewer, reason, event_id, content_hash "
+        "FROM review_signoff WHERE project_id=? AND input_sha=?",
         (project_id, input_sha)).fetchone()
     if not row:
+        return None
+    if not _authorization_matches(conn, row[3], row[4], {
+        "project_id": project_id, "input_sha": row[0],
+        "reviewer": row[1], "reason": row[2],
+    }, "signoff"):
         return None
     return {"input_sha": row[0], "reviewer": row[1], "reason": row[2]}
 
@@ -1580,21 +1810,30 @@ def read_chain_anchor(root):
     return doc
 
 
+def _anchor_required(conn):
+    """A missing anchor file is a first run only on an empty, unsealed chain."""
+    if _backfill_marked(conn):
+        return True
+    total = conn.execute("SELECT COUNT(*) FROM event").fetchone()[0]
+    return total > 0
+
+
 def anchor_holds(conn, anchor):
     """True when the event at the anchored position still has that hash.
 
-    A missing anchor is the first run, not a mismatch. A shorter chain,
-    a different event id, or a different hash is a mismatch.
+    A missing anchor is a mismatch once any event exists or the hash
+    backfill event has been written. It is a first run only when both
+    are absent.
     """
     if not anchor:
-        return True
+        return not _anchor_required(conn)
     try:
         count = int(anchor.get("event_count") or 0)
     except (TypeError, ValueError):
         return False
-    if count <= 0:
-        return True
     total = conn.execute("SELECT COUNT(*) FROM event").fetchone()[0]
+    if count <= 0:
+        return total == 0
     if total < count:
         return False
     row = conn.execute(
@@ -1623,6 +1862,63 @@ def read_end_sha(root):
         return None
     text = open(path, encoding="utf-8").read().strip()
     return text or None
+
+
+def write_status_anchor(repo, conn, end_sha=None, timestamp=None):
+    """Write ``status/ledger_anchor.json`` in the repo. Does not commit or push."""
+    doc = chain_head(conn)
+    doc["ledger_end_sha"] = end_sha
+    doc["timestamp"] = timestamp or time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    path = os.path.join(repo, STATUS_ANCHOR_PATH)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    _atomic_text(path, json.dumps(doc, indent=2, sort_keys=True) + "\n")
+    return doc
+
+
+def read_committed_status_anchor(repo):
+    """The anchor committed at ``HEAD:status/ledger_anchor.json``, or None."""
+    import subprocess
+    try:
+        out = subprocess.check_output(
+            ["git", "show", "HEAD:" + STATUS_ANCHOR_PATH.replace(os.sep, "/")],
+            cwd=repo, stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    try:
+        doc = json.loads(out.decode("utf-8"))
+    except ValueError:
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
+def note_anchor_state(conn, root, repo=None, backup_sha=None):
+    """Raise ``chain_anchor_mismatch`` when a local or committed anchor fails.
+
+    Missing ``ledger.chain.anchor`` counts once the chain has events or the
+    backfill event exists. The committed ``status/ledger_anchor.json`` is
+    checked only when ``HEAD`` has that file.
+    """
+    problems = []
+    if not anchor_holds(conn, read_chain_anchor(root)):
+        problems.append(
+            "ledger.chain.anchor missing or does not match the event "
+            "at that position")
+    if repo:
+        doc = read_committed_status_anchor(repo)
+        if doc is not None:
+            if not anchor_holds(conn, doc):
+                problems.append(
+                    "committed status/ledger_anchor.json does not match "
+                    "the chain")
+            elif (doc.get("ledger_end_sha") and backup_sha
+                  and doc.get("ledger_end_sha") != backup_sha):
+                problems.append(
+                    "committed status/ledger_anchor.json end sha does not "
+                    "match the ledger backup")
+    if problems and not alarm_open(conn, "chain_anchor_mismatch"):
+        raise_alarm(conn, "chain_anchor_mismatch", "; ".join(problems))
+    return problems
 
 
 def retire_active_fingerprints(conn, project_id, reason):
@@ -1707,11 +2003,19 @@ def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,
         raise ValueError("waiver kind must be waiver or design-infeasible")
     new_state = "WAIVED" if kind == "waiver" else "INFEASIBLE"
     now = _ms()
+    payload = {
+        "project_id": project_id, "stage": stage,
+        "input_sha": input_sha, "rules_sha": rules_sha,
+        "kind": kind, "reason": reason,
+    }
     with conn:
+        event_id, content_hash = _insert_event(conn, None, kind, payload, now)
         conn.execute(
             "INSERT INTO waiver(project_id, stage, input_sha, rules_sha, "
-            "kind, reason, created) VALUES(?,?,?,?,?,?,?)",
-            (project_id, stage, input_sha, rules_sha, kind, reason, now))
+            "kind, reason, created, event_id, content_hash) "
+            "VALUES(?,?,?,?,?,?,?,?,?)",
+            (project_id, stage, input_sha, rules_sha, kind, reason, now,
+             event_id, content_hash))
         cur = conn.execute(
             "UPDATE job SET state=?, updated=? "
             "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=? "
@@ -1721,11 +2025,6 @@ def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,
             raise ValueError(
                 "waiver applies only to an existing FAIL row for this "
                 "revision")
-        _insert_event(conn, None, kind, {
-            "project_id": project_id, "stage": stage,
-            "input_sha": input_sha, "rules_sha": rules_sha,
-            "reason": reason,
-        }, now)
     return {"applied": True, "state": new_state, "reason": reason}
 
 

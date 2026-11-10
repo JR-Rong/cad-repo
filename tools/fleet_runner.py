@@ -629,8 +629,8 @@ def main():
                                      % (a.batch, time.strftime("%Y%m%d_%H%M"))), "a",
                encoding="utf-8")
     from cadkit.ledger import (alarm_open, anchor_holds, chain_head,
-                               open_ledger, raise_alarm, read_chain_anchor,
-                               read_end_sha)
+                               note_anchor_state, open_ledger,
+                               raise_alarm, read_chain_anchor, read_end_sha)
     snap = backup_ledger(root)
     backup_sha = snap[1] if snap else None
     previous_end = read_end_sha(root)
@@ -641,10 +641,7 @@ def main():
         try:
             chain_doc = read_chain_anchor(root) or chain_head(conn)
             chain_ok = anchor_holds(conn, read_chain_anchor(root))
-            if chain_ok is False and not alarm_open(conn, "chain_anchor_mismatch"):
-                raise_alarm(conn, "chain_anchor_mismatch",
-                            "ledger.chain.anchor does not match the event "
-                            "at that position")
+            note_anchor_state(conn, root, repo=REPO, backup_sha=backup_sha)
             if (previous_end and backup_sha and previous_end != backup_sha
                     and not alarm_open(conn, "ledger_sha_mismatch")):
                 raise_alarm(conn, "ledger_sha_mismatch",
@@ -850,7 +847,8 @@ def main():
     emit_report()
     end = backup_ledger(root)
     end_sha = end[1] if end else None
-    from cadkit.ledger import open_ledger, write_chain_anchor, write_end_sha
+    from cadkit.ledger import (open_ledger, write_chain_anchor, write_end_sha,
+                               write_status_anchor)
     if end_sha:
         write_end_sha(root, end_sha)
     anchor = None
@@ -858,10 +856,15 @@ def main():
         conn = open_ledger(root)
         try:
             anchor = write_chain_anchor(root, conn)
+            write_status_anchor(REPO, conn, end_sha)
         finally:
             conn.close()
     except Exception as exc:
         print("WARN 链锚没有写上：%s" % exc)
+    else:
+        print("仓内锚已写入 status/ledger_anchor.json。"
+              "生产前要单独执行 python3 tools/push_ledger_anchor.py "
+              "把它提交并推上去。这次运行不会自己 push。")
     log.write(json.dumps({
         "lane": "run_footer",
         "run_id": header["run_id"],

@@ -66,11 +66,16 @@ python3 tools/fleet_runner.py --root ~/cad-fleet --batch fleet_b_2026_11 \
 每次实跑会在日志里写一行 `lane=run_header`（`first_line_of_run: true`）。这是**这一次运行的第一行**，不是整个日志文件的第一行（日志是追加的）。行里有本次开头的台账备份 sha256，以及链锚（事件条数和最后一条 `row_hash`）。跑完再写 `lane=run_footer`，同样带结束 sha256 和链锚，并写到两个固定文件里，不写进按分钟命名的日志名：
 
 - `<cadRoot>/ledger.end.sha` — 上次 sqlite `.backup` 的 sha256。下次开跑拿**当前**备份和这个文件比。日志名带分钟，换一分钟就是另一个文件，从日志里读会永远读到空，等于没比。
-- `<cadRoot>/ledger.chain.anchor` — 链头锚，在台账文件**外面**。内容是 `{event_count, head_event_id, head_hash}`。每次开跑核对「第 event_count 条事件的 `row_hash` 仍然是 head_hash」。链本身没有密钥，只改库里的哈希并重算，`verify_event_chain` 仍会通过；锚在库外，重算之后对不上。
+- `<cadRoot>/ledger.chain.anchor` — 链头锚，在台账文件旁边，仍在这台机器上。内容是 `{event_count, head_event_id, head_hash}`。每次开跑核对「第 event_count 条事件的 `row_hash` 仍然是 head_hash」。**文件不在，不是第一次运行**：只要 event 里已经有行，或者链上已经有 `event_hash_backfill` 这条不能删的事件，缺文件就是 `chain_anchor_mismatch`。删掉这个文件再把整条链重算一遍，`verify_event_chain` 仍会通过，但开跑会告警。
+- `status/ledger_anchor.json` — 同一份链头，写在**仓库**里，不在 cadRoot。字段是 `event_count`、`head_event_id`、`head_hash`、`ledger_end_sha`、`timestamp`。跑完会写这份工作区文件，**不会**自动提交。生产前必须单独推上去（见下面的命令）。下次开跑如果 `HEAD` 里已经有这份文件，会拿它再对一次链；对不上同样是 `chain_anchor_mismatch`。仓库里还没有这份文件时跳过这一次，不把「还没提交」当成篡改。
 
 **上 Mac 后先做一次：** 同一份没有改过的台账，连续跑两次。两次的 sqlite `.backup` sha 必须相同。不相同的话，`ledger_sha_mismatch` 会误报（备份字节不稳定），先查这个，不要当成有人改了库。
 
-对不上时追加一条告警，**不会**在下次对上时自动清成 0。`schema_tampered`、`ledger_sha_mismatch`、`chain_anchor_mismatch` 都写在 `ledger_alarm`（只插入）并各有一条 event。要清掉，必须写一条带原因的确认：
+新的空 cadRoot 第一次开跑也会记下 `chain_anchor_mismatch`：回填事件先落在链上，锚文件要等这次跑完才写出来。确认日志里的链头和刚写好的两个锚文件一致之后，用带原因的确认把这一条清掉，然后执行下面的推送。下一次运行起，缺锚或链被重算都会再次告警。
+
+对不上时追加一条告警，**不会**在下次对上时自动清成 0。`schema_tampered`、`ledger_sha_mismatch`、`chain_anchor_mismatch`、`orphan_authorization` 都写在 `ledger_alarm`（只插入）并各有一条链上的 event。要清掉，必须写一条带原因的确认，而且确认行自己也要挂在这条 event 上。直接往 `ledger_alarm` 里插一行 ack，没有对应的 event，清不掉。
+
+旧库第一次被这版打开，会因为新触发器还没装过而记下一次 `schema_tampered`。这条确认的原因**必须写明升级版本** `upgrade 0.5.1`（引擎版本，见 `shared/versions.json` 的 `engine_plugin_version`）。不带这几个字，确认会被拒绝：
 
 ```sh
 python3 - << 'PY'
@@ -78,18 +83,28 @@ import os, sys
 sys.path.insert(0, "plugin/dsh-plugin-cad-freecad/python")
 from cadkit.ledger import acknowledge_alarm, open_ledger
 conn = open_ledger(os.path.expanduser("~/cad-fleet"))
-acknowledge_alarm(conn, "schema_tampered", "看过缺失的触发器，确认是这次升级装上的")
+acknowledge_alarm(
+    conn, "schema_tampered",
+    "upgrade 0.5.1: 旧库第一次打开，新触发器已装上")
 conn.close()
 PY
 ```
 
-`kind` 只能是 `schema_tampered`、`ledger_sha_mismatch`、`chain_anchor_mismatch`。原因空着会拒绝。旧库第一次被这版打开，会因为新加了 `state_transition` / `ledger_alarm` 的触发器而记下一次 `schema_tampered`。看过之后用上面的确认清掉，否则这一波不能 ACCEPT。
+`waiver`、`rules_rereview`、`review_signoff`、`quarantine_mark` 和告警确认，都必须和一条 event 写在同一个事务里，行上记下那条 event 的 `event_id` 和 `row_hash`。验收和 `alarm_open` 只认对得上的行（id、哈希、payload 内容和行一致）。对不上的行当作没有，并且记 `orphan_authorization`。用 sqlite3 命令行直接 INSERT 一条 waiver 或一条 ack，不会生效。这种行删不掉，所以确认过 `orphan_authorization` 之后，下次打开仍会因为该行还在而再次告警；它始终不会变成一次有效的豁免。
+
+生产前，每次实跑结束后执行（这次运行本身不会 push）：
+
+```sh
+python3 tools/push_ledger_anchor.py
+```
+
+它只提交并推送 `status/ledger_anchor.json`。没推之前，下一轮如果 `HEAD` 里的锚还是旧的，链或结束 sha 对不上就会告警。这是上生产之前的必做步骤，不是可选项。
 
 Python 里那个「有没有 WHERE」的检查只防手滑（`WHERE 1`、注释、CTE 都绕得过）。真正挡住的是触发器，而且只挡得住还装着这些触发器的库：`job` / `event` / `fingerprint` / `evidence_seal` / `waiver` / `rules_rereview` / `state_transition` / `ledger_alarm` 不能 DELETE，`event`、`waiver`、`rules_rereview`、`state_transition`、`ledger_alarm` 不能 UPDATE。`job` 可以 UPDATE，但改不了身份列。粘滞状态（FAIL / WAIVED / INFEASIBLE）只允许两条路：FAIL→WAIVED 或 FAIL→INFEASIBLE，且已经有对应的 `waiver` 行；以及 `error_class` 以 `inherited:` 开头的 FAIL→OK，且同一把钥匙上有带原因的 `rules_rereview`。别的都不行，包括 FAIL→PENDING_REVIEW 再改成 OK。粘滞状态下 `error_class` 不能改，`attempt` 只能增加不能减小。合法更新的 event 里记下改之前和改之后的 attempt、error_class。
 
 `rules_rereview` 只解开 **n45_inherit** 记下来的 FAIL。设计 FAIL 只能靠 waiver。这个判断查 `state_transition`（只插入，按 project/stage/input/rules 建了索引），不再对每一件扫整张 event。
 
-event 的 `row_hash` 只在迁移时补一次（meta `event_hash_backfill=1`）。之后谁把 `row_hash` 改成 NULL，再打开也不会重算，`verify_event_chain` 直接失败。写 event 时用 `BEGIN IMMEDIATE`，避免两个写者读到同一个链头再各写一条。有人能改数据库文件的话，可以拆掉触发器；`open_ledger` 会在补回触发器之前发现缺了哪一个，写下 `schema_tampered`，这一波不能 ACCEPT。触发器防的是手滑，不是防一个已经能写这个文件的人。锚文件和 `ledger.end.sha` 也在这个文件旁边，能改库的人通常也能改这两个文件；运行日志里打印的链头是另一份对照。
+event 的 `row_hash` 只在迁移时补一次。补完会在链上写一条 `event_hash_backfill` 事件，这条事件不能删。之后谁把 `row_hash` 改成 NULL，再打开也不会重算，`verify_event_chain` 直接失败。写 event 时用 `BEGIN IMMEDIATE`，避免两个写者读到同一个链头再各写一条。有人能改数据库文件的话，可以拆掉触发器；`open_ledger` 会在补回触发器之前发现缺了哪一个，写下 `schema_tampered`，这一波不能 ACCEPT。触发器防的是手滑，不是防一个已经能写这个文件的人。机器旁边的锚文件和 `ledger.end.sha` 也能被同一个能改库的人改掉；仓库里已推送的 `status/ledger_anchor.json` 和运行日志里打印的链头是另外两份对照。
 
 旧的 `event.kind=rules_rereview` 会在 `open_ledger` 时抄进 `rules_rereview` 表（`INSERT OR IGNORE`，可以重复跑）。也可以单独跑：
 
