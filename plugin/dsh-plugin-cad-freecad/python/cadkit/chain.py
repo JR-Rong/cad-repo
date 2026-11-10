@@ -6,10 +6,12 @@ this file only decides what the chain is allowed to do with evidence.
 """
 from __future__ import annotations
 
+import ctypes
 import errno
 import json
 import os
 import re
+import sys
 import tempfile
 
 
@@ -112,9 +114,67 @@ def assemble_candidates(*sources):
             prev = out.get(pid)
             if prev is None:
                 out[pid] = fp
-            elif prev.get("volume") != fp.get("volume"):
+            elif metric_drift(prev, fp):
+                # Beyond the r_metric tolerance this is a real disagreement.
+                # Float noise and a same-revision rewrite are not conflicts;
+                # a new revision must retire the old ledger row instead of
+                # leaving both active forever.
                 conflicts.append(str(pid))
     return out, conflicts
+
+
+def remove_tree(path):
+    """Delete a directory. Failures propagate; nothing is ignored.
+
+    Lost-CAS cleanup used ``shutil.rmtree(..., ignore_errors=True)``, which
+    reported a restore after the delete had failed.
+    """
+    import shutil
+    shutil.rmtree(path)
+
+
+def rename_noreplace(src, dst):
+    """Rename ``src`` to ``dst`` only if ``dst`` does not exist.
+
+    POSIX ``rename`` replaces an empty directory, so a first publish can
+    clobber a slot created between the exists-check and the rename.
+    Linux uses ``renameat2(RENAME_NOREPLACE)``. macOS uses
+    ``renamex_np(RENAME_EXCL)``. Anywhere else this raises and the
+    caller must not fall back to plain rename.
+    """
+    src_b = os.fsencode(os.fspath(src))
+    dst_b = os.fsencode(os.fspath(dst))
+    if sys.platform == "linux":
+        libc = ctypes.CDLL(None, use_errno=True)
+        renameat2 = libc.renameat2
+        renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p,
+                              ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        renameat2.restype = ctypes.c_int
+        at_fdcwd = -100
+        rename_noreplace_flag = 1
+        rc = renameat2(at_fdcwd, src_b, at_fdcwd, dst_b, rename_noreplace_flag)
+        if rc == 0:
+            return
+        err = ctypes.get_errno()
+        if err in (errno.EEXIST, errno.ENOTEMPTY):
+            raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), dst)
+        raise OSError(err, os.strerror(err) if err else "renameat2 failed", dst)
+    if sys.platform == "darwin":
+        libc = ctypes.CDLL(None, use_errno=True)
+        fn = libc.renamex_np
+        fn.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        fn.restype = ctypes.c_int
+        rename_excl = 0x4
+        rc = fn(src_b, dst_b, rename_excl)
+        if rc == 0:
+            return
+        err = ctypes.get_errno()
+        if err in (errno.EEXIST, errno.ENOTEMPTY):
+            raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), dst)
+        raise OSError(err, os.strerror(err) if err else "renamex_np failed", dst)
+    raise OSError(
+        "no atomic no-replace rename on %s; refusing to publish over "
+        "a path that plain rename might replace" % sys.platform)
 
 
 def merge_probe_windows(dest, incoming):

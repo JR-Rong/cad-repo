@@ -59,6 +59,7 @@
     }
    ],
    "audit_class": "orphan_reexport",
+   "root_cause": "orphan STEP: on-disk STEP matches no recorded native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -89,6 +90,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "不是航空插座轴，也不是 121/161 那种重建后仍 validate FAIL。绑定审计：现行 FCStd 是后重建的，STEP 与 manifest 仍认证重建前的 native（.FCBak 与 manifest.fcstd_sha 一致，112 则对不上）。留下的 FAIL 收据描述的是 V2 特征 trough/cbore/tab，V4 核已删掉这些对象，收据说的修订不在当前文件里。台账 probe 行 receipt_sha='-'，那条 PASS 没有文件哈希。处理：保留原件，按新修订重跑 validate→export，不要用这条旧 FAIL 或占位回执当结论。",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -119,6 +121,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -149,6 +152,7 @@
     }
    ],
    "audit_class": "native_validate_fail",
+   "root_cause": "native validate FAIL on the rebuilt FCStd (121 InvalidCurveOnSurface, 161 SelfIntersect); not the aviation-connector axis",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -179,6 +183,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -209,6 +214,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -239,6 +245,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -269,6 +276,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -299,6 +307,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -329,6 +338,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -359,6 +369,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -389,6 +400,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -419,6 +431,7 @@
     }
    ],
    "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   },
   {
@@ -449,6 +462,7 @@
     }
    ],
    "audit_class": "native_validate_fail",
+   "root_cause": "native validate FAIL on the rebuilt FCStd (121 InvalidCurveOnSurface, 161 SelfIntersect); not the aviation-connector axis",
    "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
   }
  ]

@@ -159,34 +159,61 @@ def iter_ledger_fingerprints(cad_root):
 
 
 def _baseline_fingerprints(cad_root):
-    from .chain import normalize_registry
+    """Union baseline files. The same id with drifting geometry raises.
+
+    A silent ``dict.update`` used to let the later file hide the earlier
+    one. Float noise within ``metric_drift`` is not a conflict.
+    """
+    from .chain import RegistryShapeError, metric_drift, normalize_registry
     roots = []
     env = os.environ.get("CADKIT_BASELINE")
     if env:
         roots.append(env)
     roots.append(os.path.join(cad_root, "registry", "baseline"))
     out = {}
+    origin = {}
     for root in roots:
         if not os.path.isdir(root):
             continue
         for name in sorted(os.listdir(root)):
             if not name.endswith(".json"):
                 continue
-            with open(os.path.join(root, name), encoding="utf-8") as f:
-                out.update(normalize_registry(json.load(f)))
+            path = os.path.join(root, name)
+            with open(path, encoding="utf-8") as f:
+                loaded = normalize_registry(json.load(f))
+            for pid, fp in loaded.items():
+                if pid in out and metric_drift(out[pid], fp):
+                    raise RegistryShapeError(
+                        "baseline id %s disagrees between %s and %s"
+                        % (pid, origin[pid], path))
+                if pid not in out:
+                    origin[pid] = path
+                    out[pid] = fp
     return out
 
 
 def _registry_floor(cad_root):
+    """Minimum registry size, or None when no floor file exists.
+
+    A floor file that cannot be read raises. Returning None here used
+    to skip the check.
+    """
+    from .chain import RegistryShapeError
     path = os.path.join(cad_root, "registry", "floor.json")
-    if not os.path.isfile(path):
+    if not os.path.lexists(path):
         return None
     try:
-        doc = json.load(open(path, encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    val = doc.get("min_entries")
-    return int(val) if isinstance(val, int) and val > 0 else None
+        with open(path, encoding="utf-8") as f:
+            doc = json.load(f)
+    except (OSError, ValueError) as exc:
+        raise RegistryShapeError(
+            "registry floor unreadable (%s); refusing to skip the check"
+            % exc)
+    val = doc.get("min_entries") if isinstance(doc, dict) else None
+    if not isinstance(val, int) or val <= 0:
+        raise RegistryShapeError(
+            "registry floor %s has no positive min_entries" % path)
+    return val
 
 
 def check_and_register(cad_root, project_id, fcstd, register=False):
@@ -205,7 +232,9 @@ def check_and_register(cad_root, project_id, fcstd, register=False):
             registry_path(cad_root)) else {}
         ledger_fp = iter_ledger_fingerprints(cad_root)
         baseline = _baseline_fingerprints(cad_root)
-    except (RegistryShapeError, OSError, ValueError) as exc:
+    except RegistryShapeError:
+        raise
+    except (OSError, ValueError) as exc:
         return {"ok": False, "error": "fingerprint candidates unreadable: %s" % exc,
                 "fingerprint": f, "exact": [], "scaled": [], "series": [],
                 "related": [], "volume_coincidence": [],
@@ -287,12 +316,14 @@ def check_and_register(cad_root, project_id, fcstd, register=False):
                 "registry_size": len(reg)}
     for pid in exact + scaled:
         hit_details[pid] = reg.get(pid)
-    if register:
-        atomic_merge_registry(registry_path(cad_root), project_id, f)
-        reg[project_id] = f
     floor = _registry_floor(cad_root)
     floor_hit = floor is not None and len(reg) < floor
     ok = not exact and not scaled and not conflicts and not floor_hit
+    # A failed dedupe must not land in the registry. Only a clean result
+    # is merged, and the previous active ledger row for this part is
+    # retired so the new revision does not conflict with itself.
+    if commit_registration(cad_root, project_id, f, ok=ok, register=register):
+        reg[project_id] = f
     error = None
     if conflicts:
         error = "candidate volume conflict: %s" % ",".join(conflicts[:6])
@@ -306,6 +337,23 @@ def check_and_register(cad_root, project_id, fcstd, register=False):
             "ledger_unbacked": ledger_unbacked,
             "hit_details": hit_details,
             "candidate_conflicts": conflicts,
-            # backward-compatible keys
             "similar_series": exact + scaled + series, "possible_exact": exact,
             "registry_size": len(reg)}
+
+
+def commit_registration(cad_root, project_id, fingerprint, *, ok, register):
+    """Write the registry only when dedupe passed. Returns whether it wrote."""
+    from .chain import atomic_merge_registry
+    if not (ok and register):
+        return False
+    atomic_merge_registry(registry_path(cad_root), project_id, fingerprint)
+    lp = os.path.join(cad_root, "ledger.sqlite3")
+    if os.path.exists(lp):
+        from .ledger import open_ledger, retire_active_fingerprints
+        conn = open_ledger(cad_root)
+        try:
+            retire_active_fingerprints(
+                conn, project_id, "new revision registered")
+        finally:
+            conn.close()
+    return True

@@ -54,12 +54,12 @@ python3 tools/registry_sync.py --root ~/cad-fleet --machine B
 python3 tools/fleet_runner.py --root ~/cad-fleet --batch fleet_b_2026_11 \
     --intake intake/waves/fleet_b_2026_11_w1.json \
     --stages build,validate,probe,dedupe,export --package \
-    --package-workers 2 \
+    --package-workers 1 \
     --workers 3 --mem-budget-mb 6144 --per-part-mb 600 \
     --machine B --freecad-bin /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 ```
 
-`--package-workers 2` 可以开：每个零件单独加锁；读交付目录时只有「文件确实不存在」才当作没有更新的修订，其他 I/O 错误会停下并保留现场。内存紧就改回 `--package-workers 1`。
+`--package-workers` 默认 **1**。按件锁和 0.5.0 / `driver.py` 的批级 `.publisher.lock` **互不排斥**。调度器若发现那个旧锁正被占用，会直接退出。在新 tarball 于 FreeCAD 1.1.1 上验证过并发之前，不要加大这个数。读交付目录时只有「文件确实不存在」才当作没有更新的修订；第一次放入用 `renameat2(RENAME_NOREPLACE)` / macOS `renamex_np(RENAME_EXCL)`，避免普通 `rename` 换掉一个空目录。
 
 同一条命令可以反复跑。已验收（证据文件里的哈希和磁盘一致）的阶段会跳过。超时 / 没有 JSON 这类瞬时失败最多试 `--max-attempts`（默认 3）次，记为 `RETRY`，还没变成粘滞 FAIL 之前可以被同一次修订上的成功盖过。一旦记成 FAIL，后来的 PASS **不能**抹掉它；要嘛换了字节（新的 input hash，即新修订），要嘛写明原因的豁免：
 
@@ -104,9 +104,16 @@ python3 tools/merge_check.py --mine <A 的 cadRoot> \
 |---|---|---|
 | 航空插座轴 | 082、112、125、128、132、136、140、144、148、154、158 | 拓扑签名的第 4 轴都是「三孔 + 航空插座座」。128–148 每隔 4 个件号，是因为壳体五轴按 (坐标和, 坐标) 排序后，这一轴停在该取值上、别的轴在变，**不是** sz 尺寸档（尺寸档长度是 8，这些件的尺寸并不相同）。审计上它们多半是旧 STEP 绑了旧 native，或 082 那种孤儿重导出。 |
 | 原生校验失败 | 121、161 | 重建之后 validate 仍 FAIL（曲线/自交）。不在航空插座那一轴上。 |
-| 另一进线孔 | 097 | 「单进线孔」，导出过期，不要并进上面两组。 |
+| 097 单独 | 097 | 不是航空插座，也不是 121/161。现行 FCStd 是后重建的；STEP/manifest 仍认证重建前的 native（.FCBak 对得上）。留下的 FAIL 收据说的是 V2 的 trough/cbore/tab，V4 核已经删了这些对象。台账里那条 probe PASS 的 `receipt_sha` 是 `-`，没有文件哈希。保留原件，按新修订重跑，不要拿旧收据当结论。 |
 
-这 14 件在验收报告里标 `quarantined`，直到新修订走完整条链并且证据哈希对得上。不要在台账里把它们标成 design-infeasible，除非你看过新几何、确认这个轴组合做不出来，并用上面的 waiver 写下原因。
+这 14 件在验收报告里标 `quarantined`，同一批字节重跑也不会变成 accepted。要离开隔离，必须同时满足：`~/cad-fleet/quarantine/<件号>.json` 里的 `input_sha` 和现在的构建输入哈希不同，并且有人签字（`sign_off.reviewer` + `sign_off.reason`）或写了 waiver。不要在台账里把它们标成 design-infeasible，除非你看过新几何、确认这个轴组合做不出来，并用上面的 waiver 写下原因。
+
+隔离记录例：
+
+```json
+{"input_sha": "<隔离时的 build input_sha>",
+ "sign_off": {"reviewer": "你的名字", "reason": "新修订已目检"}}
+```
 
 只重跑这 14 件：
 
@@ -114,7 +121,7 @@ python3 tools/merge_check.py --mine <A 的 cadRoot> \
 python3 tools/fleet_runner.py --root ~/cad-fleet --batch fleet_b_2026_11 \
     --intake intake/waves/fleet_b_2026_11_w1.json \
     --stages build,validate,probe,dedupe,export --package \
-    --package-workers 2 --machine B --repair-failed \
+    --package-workers 1 --machine B --repair-failed \
     --only b_in01_082,b_in01_097,b_in01_112,b_in01_121,b_in01_125,b_in01_128,b_in01_132,b_in01_136,b_in01_140,b_in01_144,b_in01_148,b_in01_154,b_in01_158,b_in01_161 \
     --freecad-bin /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 ```
@@ -133,7 +140,7 @@ python3 tools/scaffold_wave.py --machine A --root <.../default-workspace/cad> \
 python3 tools/fleet_runner.py --root <.../default-workspace/cad> \
     --batch fleet_a_2026_11 --intake intake/waves/fleet_a_2026_11_w1.json \
     --stages build,validate,probe,dedupe,export --package \
-    --package-workers 2 --machine A \
+    --package-workers 1 --machine A \
     --freecad-bin /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 ```
 
@@ -158,13 +165,15 @@ python3 tools/emit_members.py --machine E --wave 1 > intake/waves/fleet_e_2026_1
 3. 172 件在修好的判定上重跑 validate 和 probe。任一窗口记录是 FAIL，整件就是 FAIL；后来的 PASS 作废不了它。
 4. 用修好的指纹重跑 dedupe（候选 = 已交付 ∪ 本波已生成 ∪ 五机底表，缺 volume 或信封形状直接失败，不再把注册表缩成一行）。
 5. 第 2 节的 14 件有根因记录（见 quarantine 文件）；`b_in01_002` 的已交付包要用清单里的文件哈希再核一遍，对不上就重做，不要沿用旧检查表。
-6. 抽件：在 FreeCAD 里打开，并按冻结核重跑 build，对比体积/步数（字节级 FCStd 哈希不必相等，见审计里的 r_metric；体积相对差大于 1e-12 或步数变化，证据里会标 `recompute_drift`，不能验收）。
-7. 对账：每个族 `accepted + quarantined + design-infeasible = 400`。未验证的件既不是 accepted，也不要为了凑 400 改状态。
+6. 人工复核是验收的一部分，不是可选项。包装阶段一律带 `CADKIT_REQUIRE_REVIEW=1`：没有 L1/L2 回执，`review_status` 不是 `complete`，件就不会 accepted。抽件还要在 FreeCAD 里打开，并按冻结核重跑 build，对比体积/步数（字节级 FCStd 哈希不必相等；体积相对差大于 1e-12 或步数变化会标 `recompute_drift`，不能验收）。
+7. `ACCEPTANCE.json` 里按族计算 `accepted + quarantined + infeasible`。不等于 400，或者还有 unverified / needs_repair，结论就是 `NOT_ACCEPTED`。不要为了凑 400 改状态。
+
+另外：验收要六段都 OK（build、validate、probe、dedupe、export、package），并且 FCStd、STEP、族核三个哈希都非空。`chain_evidence.json` 的 sha256 写在台账 `evidence_seal` 里；手改这份 JSON 对不上印章，就不算数。换了 `rules_sha` 不会洗掉旧 FAIL，除非对这一件写了 `record_rules_rereview` 的原因。
 
 ## 5. 仍然要人决定的事
 
 - 族核历史版本（尤其 in01 丢过的中间代）找不回来。冻结的是**你现在磁盘上的那一版**。旧件不能声称由那一版生成，除非重跑对得上。
 - 121 / 161 是修几何还是宣布 design-infeasible，看过新修订再写 waiver。不要凭这份分组提前宣布。
-- 渲染长边、人工目检、STEP 往返的采购口径，文档和引擎仍不完全同一套。检查表现在带文件哈希，但没有自动的人工视觉签字。`CADKIT_REQUIRE_REVIEW=1` 会在没有 L1/L2 回执时拒绝包装；默认仍不强制，避免无人值守时全军覆没。要强制就显式打开。
+- 渲染长边和 STEP 往返容差仍然不是自动签字。人工复核已经是验收门：没有回执就不能 accepted。STEP 往返本身还要你在抽件时做。
 - 全局发号/租约服务仍然没有。不要自造 `f3_` 新件号。
 - 本机若装的是旧 tarball，而仓库引擎的 `rules_sha` 已经不同：以仓库 `plugin/` 为准，并让 `shared/versions.json` 跟上。

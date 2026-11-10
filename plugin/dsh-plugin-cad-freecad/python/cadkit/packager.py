@@ -1154,7 +1154,8 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
                 kept_newer = decision == "keep"
                 if not kept_newer:
                     if trash:
-                        shutil.rmtree(final, ignore_errors=True)
+                        from .chain import remove_tree
+                        remove_tree(final)
                         try:
                             os.rename(trash, final)
                             fsync_dir(os.path.dirname(final))
@@ -1177,7 +1178,10 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
                     else:
                         # rejected FIRST publication: our own bytes must
                         # not linger unledgered on the delivery path.
-                        shutil.rmtree(final, ignore_errors=True)
+                        # ignore_errors used to hide a failed delete and
+                        # let the attempt report a cleanup it did not do.
+                        from .chain import remove_tree
+                        remove_tree(final)
             finally:
                 _pu8(_fd8)
             return {"ok": False, "stage": "publish",
@@ -1273,18 +1277,20 @@ def _rollback_drift(trash, final, conn, batch, project_id, rev,
     from .ledger import fsync_dir, reinstate_previous
     restored = False
     if trash:
-        shutil.rmtree(final, ignore_errors=True)
+        from .chain import remove_tree
+        remove_tree(final)
         try:
             os.rename(trash, final)
             fsync_dir(os.path.dirname(final))
             restored = True
         except OSError:
-            pass
+            raise
     else:
         # N2 round 5: a REJECTED first publication has no previous
         # folder to restore - remove the bad bytes so disk does not
-        # hold an unledgered delivery.
-        shutil.rmtree(final, ignore_errors=True)
+        # hold an unledgered delivery. A failed delete stops the attempt.
+        from .chain import remove_tree
+        remove_tree(final)
     note = ""
     try:
         from .ledger import withdraw

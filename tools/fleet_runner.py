@@ -6,7 +6,9 @@ probe → dedupe → export → package。本文件是唯一支持的入口；�
 ``cad-b-prep/driver.py`` 不再使用。
 
 包装在 N43 修好之后可以并行：每个零件一把锁，读不到交付物就放弃而不是删除，
-只有确定的「文件不存在」才当作没有更新的修订。``--package-workers`` 默认 2。
+只有确定的「文件不存在」才当作没有更新的修订。``--package-workers`` 默认 1，
+直到新 tarball 在 FreeCAD 1.1.1 上验证过并发。旧的 ``.publisher.lock``
+和按件锁互不排斥，发现旧锁被占用就停。
 探针结果按窗口追加，任何一条 FAIL 都是否决。
 
 断点续跑看 ``build/chain_evidence.json`` 里重新读过的哈希，不看台账里
@@ -207,6 +209,19 @@ def pending(rec, intake, stages, limit=None, repair_failed=False,
     out = []
     for pid in pids:
         ev = acceptance.load_evidence(rec.root, pid)
+        ev_path = acceptance.evidence_path(rec.root, pid)
+        if ev and os.path.isfile(ev_path):
+            try:
+                from cadkit.ledger import evidence_seal, open_ledger
+                conn = open_ledger(rec.root)
+                try:
+                    sealed = evidence_seal(conn, pid)
+                finally:
+                    conn.close()
+            except Exception:
+                sealed = None
+            if sealed != acceptance.sha256_file(ev_path):
+                ev = None
         _fam, fam_path = _family_file(rec.root, pid)
         hashes = acceptance.disk_hashes(rec.root, pid, fam_path)
         todo = []
@@ -313,6 +328,10 @@ def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
     except OSError:
         pass
     env["CADKIT_OUT"] = out
+    # Gate 6: acceptance requires a human review. Package refuses without
+    # L1/L2 receipts even if the operator left CADKIT_REQUIRE_REVIEW unset.
+    if stage == "package":
+        env["CADKIT_REQUIRE_REVIEW"] = "1"
     t0 = time.time()
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
@@ -355,8 +374,8 @@ def main():
     ap.add_argument("--stages", default="build,validate,probe,export")
     ap.add_argument("--package", action="store_true",
                     help="阶段通过后包装。N43 已 fail-closed，可与 --package-workers 并行")
-    ap.add_argument("--package-workers", type=int, default=2,
-                    help="并行包装数。每件一把锁；默认 2")
+    ap.add_argument("--package-workers", type=int, default=1,
+                    help="并行包装数。默认 1，直到 1.1.1 上的新 tarball 验证过并发")
     ap.add_argument("--max-attempts", type=int, default=3,
                     help="同一修订上瞬时失败的重试上限；设计 FAIL 不因后来的 PASS 被抹掉")
     ap.add_argument("--repair-failed", action="store_true",
@@ -442,22 +461,44 @@ def main():
                 for st in (ev.get("stages") or {}).values():
                     if isinstance(st, dict) and st.get("fingerprint"):
                         fp = st["fingerprint"]
-            if (acceptance.evidence_is_accepted(ev, hashes)
-                    and fam_status == "ok"):
-                status = "accepted"
-            elif pid in QUARANTINE_PIDS:
-                status = "quarantined"
-            elif ev and ev.get("n45_conflict"):
-                status = "n45_conflict"
-            elif ev and any((s or {}).get("state") == "FAIL"
-                            for s in (ev.get("stages") or {}).values()):
-                status = "needs_repair"
-            else:
-                status = "unverified"
+            qpath = os.path.join(root, "quarantine", pid + ".json")
+            qrec = None
+            if os.path.isfile(qpath):
+                try:
+                    qrec = json.load(open(qpath, encoding="utf-8"))
+                except (OSError, ValueError):
+                    qrec = {"input_sha": None, "unreadable": True}
+            current_input = (((ev or {}).get("stages") or {}).get("build") or {}
+                             ).get("input_sha")
+            file_sha = None
+            sealed = None
+            ev_path = acceptance.evidence_path(root, pid)
+            if os.path.isfile(ev_path):
+                file_sha = acceptance.sha256_file(ev_path)
+            try:
+                from cadkit.ledger import evidence_seal, open_ledger
+                conn = open_ledger(root)
+                try:
+                    sealed = evidence_seal(conn, pid)
+                finally:
+                    conn.close()
+            except Exception:
+                sealed = None
+            sign_off = (qrec or {}).get("sign_off")
+            status, why = acceptance.classify_part(
+                pid, ev, hashes,
+                quarantined=pid in QUARANTINE_PIDS or bool(qrec),
+                quarantine_record=qrec,
+                current_input_sha=current_input,
+                sign_off=sign_off,
+                waiver=bool((qrec or {}).get("waiver")),
+                file_sha=file_sha, sealed_sha=sealed)
+            if status == "accepted" and fam_status != "ok":
+                status, why = "unverified", "family core unfrozen"
             rows.append({"project_id": pid, "status": status,
                          "family": acceptance.family_key(pid),
                          "fingerprint": fp if status == "accepted" else None,
-                         "detail": (ev or {}).get("accept_reason")})
+                         "detail": why or (ev or {}).get("accept_reason")})
         return rows
 
     def emit_report():
@@ -476,6 +517,14 @@ def main():
         print("dry-run，未执行")
         emit_report()
         return 0
+
+    from cadkit.ledger import legacy_publisher_busy
+    old_lock = os.path.join(root, "delivery", a.batch, ".publisher.lock")
+    if legacy_publisher_busy(old_lock):
+        print("BLOCK 旧引擎正在占用 %s" % old_lock)
+        print("      0.5.0 tarball / driver.py 的批锁和本引擎的按件锁互不排斥。"
+              "先停掉旧进程，再跑。")
+        return 2
 
     q = queue.Queue()
     for pid, t in todo:
@@ -529,6 +578,8 @@ def main():
             ih = rec.input_hash(pid, stage)
         except Exception:
             ih = None
+        if stage == "package" and isinstance(payload, dict):
+            ev["review_status"] = payload.get("review_status") or "pending"
         acceptance.note_stage(
             ev, stage, ok=r.get("ok"), input_sha=ih, error_class=klass,
             hashes=hashes, fingerprint=fp, max_attempts=a.max_attempts,
@@ -538,7 +589,13 @@ def main():
         if fam_status != "ok":
             ev["accepted"] = False
             ev["accept_reason"] = "family core unfrozen"
-        acceptance.save_evidence(root, pid, ev)
+        path = acceptance.save_evidence(root, pid, ev)
+        conn = rec._open(root)
+        try:
+            from cadkit.ledger import seal_evidence
+            seal_evidence(conn, pid, acceptance.sha256_file(path))
+        finally:
+            conn.close()
         if klass == "design":
             design_fails[fam] = design_fails.get(fam, 0) + 1
             if design_fails[fam] >= 3:

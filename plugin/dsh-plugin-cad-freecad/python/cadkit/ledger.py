@@ -79,6 +79,10 @@ CREATE TABLE IF NOT EXISTS event(
 CREATE TABLE IF NOT EXISTS intake(
   batch_id TEXT NOT NULL, project_id TEXT NOT NULL, required TEXT,
   PRIMARY KEY(batch_id, project_id));
+CREATE TABLE IF NOT EXISTS evidence_seal(
+  project_id TEXT PRIMARY KEY,
+  sha TEXT NOT NULL,
+  updated INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS buyer_stock(
   buyer_id TEXT NOT NULL, external_id TEXT NOT NULL, signature TEXT,
   eligibility TEXT NOT NULL, receipt_sha TEXT,
@@ -166,9 +170,50 @@ def _migrate(conn):
             pass  # columns exist
 
 
+class _GuardedConnection:
+    """sqlite3.Connection proxy. ``execute`` is read-only on 3.12, so the
+    guard has to live on a wrapper that every ledger caller actually uses.
+    """
+
+    def __init__(self, conn):
+        from .chain import assert_scoped_sql, sql_is_unscoped_mutation
+        self._conn = conn
+        self._assert = assert_scoped_sql
+        self._bad = sql_is_unscoped_mutation
+
+    def execute(self, sql, parameters=()):
+        self._assert(sql)
+        return self._conn.execute(sql, parameters)
+
+    def executemany(self, sql, seq):
+        self._assert(sql)
+        return self._conn.executemany(sql, seq)
+
+    def executescript(self, script):
+        for stmt in (script or "").split(";"):
+            if self._bad(stmt):
+                self._assert(stmt)
+        return self._conn.executescript(script)
+
+    def __enter__(self):
+        self._conn.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return self._conn.__exit__(exc_type, exc, tb)
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+def _install_sql_guard(conn):
+    """Refuse unscoped DELETE/UPDATE on every statement this handle runs."""
+    return _GuardedConnection(conn)
+
+
 def open_ledger(cad_root):
     path = os.path.join(cad_root, "ledger.sqlite3")
-    conn = sqlite3.connect(path, timeout=30)
+    conn = _install_sql_guard(sqlite3.connect(path, timeout=30))
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=FULL")
@@ -359,7 +404,8 @@ def publish(staging, final, conn=None):
         if _status == "absent" and not os.path.lexists(final):
             # Definite file-not-found of the delivery slot: create by
             # rename onto a path that does not exist (no-overwrite).
-            os.rename(staging, final)
+            from .chain import rename_noreplace
+            rename_noreplace(staging, final)
         elif _status == "ready" and os.path.lexists(final):
             # Bytes were hashed under the lock. Move the known folder
             # aside, then rename staging in. A failed second rename
@@ -367,7 +413,8 @@ def publish(staging, final, conn=None):
             trash = final + ".superseded." + str(_ms())
             os.rename(final, trash)
             try:
-                os.rename(staging, final)
+                from .chain import rename_noreplace
+                rename_noreplace(staging, final)
             except OSError:
                 if trash is not None and not os.path.lexists(final):
                     os.rename(trash, final)
@@ -661,6 +708,41 @@ def job_record(conn, project_id, stage, input_sha, rules_sha, state,
         old_state = row[0] if row else ""
         old_attempt = row[1] if row else 0
         old_error = row[2] if row else None
+        # A rules_sha change is a different unique key, which used to let a
+        # later OK hide a FAIL recorded under the previous engine. Inherit
+        # that FAIL unless a per-part re-review event names this new rules.
+        if (state or "").upper() in ("OK", "PASS", "DONE"):
+            prior = conn.execute(
+                "SELECT rules_sha FROM job WHERE project_id=? AND stage=? "
+                "AND input_sha=? AND rules_sha<>? AND state='FAIL'",
+                (project_id, stage, input_sha, rules_sha)).fetchall()
+            reviewed = _rules_rereviewed(
+                conn, project_id, stage, input_sha, rules_sha)
+            if prior and not reviewed:
+                inherited = "inherited:" + ",".join(r[0] for r in prior)
+                if row is None:
+                    conn.execute(
+                        "INSERT INTO job(rev,project_id,stage,input_sha,"
+                        "rules_sha,state,attempt,error_class,updated) "
+                        "VALUES(?,?,?,?,?,'FAIL',1,?,?)",
+                        (rev, project_id, stage, input_sha, rules_sha,
+                         inherited, now))
+                conn.execute(
+                    "INSERT INTO event(rev,kind,payload,created) "
+                    "VALUES(?,?,?,?)",
+                    (rev, "n45_inherit", json.dumps({
+                        "project_id": project_id, "stage": stage,
+                        "input_sha": input_sha, "rules_sha": rules_sha,
+                        "prior_rules": [r[0] for r in prior],
+                    }, ensure_ascii=False), now))
+                return {"applied": False, "state": "FAIL",
+                        "reason": "N45: FAIL under previous rules_sha "
+                                  "still stands; per-part re-review required"}
+            if (prior and reviewed and row is not None
+                    and str(old_error or "").startswith("inherited:")):
+                # The inherited marker is not a new design FAIL. The
+                # re-review event is what allows this rules_sha to pass.
+                old_state = ""
         # When the new call is a pass, stickiness depends on the stored
         # failure class, not on the empty error of the passing call.
         kind = old_error if (state or "").upper() in ("OK", "PASS", "DONE") \
@@ -697,6 +779,112 @@ def job_record(conn, project_id, stage, input_sha, rules_sha, state,
                 "from": old_state or None, "to": decided,
             }, ensure_ascii=False), now))
         return {"applied": True, "state": decided}
+
+
+def _rules_rereviewed(conn, project_id, stage, input_sha, rules_sha):
+    rows = conn.execute(
+        "SELECT payload FROM event WHERE kind='rules_rereview'").fetchall()
+    for (payload,) in rows:
+        try:
+            doc = json.loads(payload or "")
+        except ValueError:
+            continue
+        if (doc.get("project_id") == project_id and doc.get("stage") == stage
+                and doc.get("input_sha") == input_sha
+                and doc.get("rules_sha") == rules_sha
+                and str(doc.get("reason") or "").strip()):
+            return True
+    return False
+
+
+def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
+                          reason):
+    """Allow a later OK under a new rules_sha. Does not erase the old FAIL.
+
+    ``reason`` is required. The event is per part, per stage, per input
+    hash, per new rules hash.
+    """
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValueError("rules re-review requires a reason")
+    now = _ms()
+    with conn:
+        conn.execute(
+            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
+            (None, "rules_rereview", json.dumps({
+                "project_id": project_id, "stage": stage,
+                "input_sha": input_sha, "rules_sha": rules_sha,
+                "reason": reason,
+            }, ensure_ascii=False), now))
+    return {"applied": True, "reason": reason}
+
+
+def retire_active_fingerprints(conn, project_id, reason):
+    """Withdraw active fingerprint rows for one part.
+
+    A new revision must not leave the previous active row in the
+    candidate set, or assemble_candidates reports a permanent conflict
+    (the 121/161 rebuild case). Other parts are untouched. The UPDATE
+    is scoped.
+    """
+    from .chain import assert_scoped_sql
+    reason = (reason or "").strip() or "new revision"
+    sql = ("UPDATE fingerprint SET state='withdrawn' WHERE project_id=? "
+           "AND state='active'")
+    assert_scoped_sql(sql)
+    now = _ms()
+    with conn:
+        cur = conn.execute(sql, (project_id,))
+        n = cur.rowcount
+        if n:
+            conn.execute(
+                "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
+                (None, "fingerprint_retired", json.dumps({
+                    "project_id": project_id, "rows": n, "reason": reason,
+                }, ensure_ascii=False), now))
+    return n
+
+
+def seal_evidence(conn, project_id, sha):
+    """Record the sha256 of chain_evidence.json. A later hand-edit mismatches."""
+    if not project_id or not sha or len(str(sha)) < 32:
+        raise ValueError("evidence seal needs a project id and a sha256")
+    now = _ms()
+    with conn:
+        conn.execute(
+            "INSERT INTO evidence_seal(project_id, sha, updated) VALUES(?,?,?) "
+            "ON CONFLICT(project_id) DO UPDATE SET sha=excluded.sha, "
+            "updated=excluded.updated",
+            (project_id, sha, now))
+    return sha
+
+
+def evidence_seal(conn, project_id):
+    row = conn.execute(
+        "SELECT sha FROM evidence_seal WHERE project_id=?",
+        (project_id,)).fetchone()
+    return row[0] if row else None
+
+
+def legacy_publisher_busy(lock_path):
+    """True when another process holds the 0.5.0 batch ``.publisher.lock``.
+
+    The new per-part ``.locks/<pid>.lock`` does not exclude that flock, so
+    the runner must stop instead of publishing beside the old engine.
+    """
+    import fcntl
+    if not lock_path or not os.path.exists(lock_path):
+        return False
+    fd = os.open(lock_path, os.O_RDWR)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return False
+    finally:
+        os.close(fd)
 
 
 def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,

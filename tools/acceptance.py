@@ -16,8 +16,7 @@ REQUIRED_STAGES = ("build", "validate", "probe", "dedupe", "export", "package")
 TRANSIENT_PREFIXES = ("timeout", "nojson", "rc", "spawn", "oserror")
 
 
-def evidence_is_accepted(ev, disk_hashes):
-    """Re-export of the engine predicate (host Python, no FreeCAD)."""
+def _engine_evidence_ok(ev, disk_hashes):
     import sys
     here = os.path.dirname(os.path.abspath(__file__))
     vendored = os.path.join(os.path.dirname(here),
@@ -26,6 +25,88 @@ def evidence_is_accepted(ev, disk_hashes):
         sys.path.insert(0, vendored)
     from cadkit.chain import evidence_is_accepted as _impl
     return _impl(ev, disk_hashes)
+
+
+def evidence_is_accepted(ev, disk_hashes, *, file_sha=None, sealed_sha=None):
+    """True only when the file bytes match the ledger seal.
+
+    ``chain_evidence.json`` lives in the build directory and can be
+    hand-edited. Without a matching ``evidence_seal`` row it is not
+    acceptance, even if the JSON says ``accepted: true``.
+    """
+    if not file_sha or not sealed_sha or file_sha != sealed_sha:
+        return False
+    return _engine_evidence_ok(ev, disk_hashes)
+
+
+def may_leave_quarantine(record, current_input_sha, *, sign_off=None,
+                         waiver=False):
+    """Release only on a new input hash plus a human sign-off or waiver.
+
+    Identical bytes stay quarantined. A new hash with no sign-off stays
+    quarantined. ``sign_off`` is a dict with non-empty ``reviewer`` and
+    ``reason``, or any truthy waiver flag.
+    """
+    old = (record or {}).get("input_sha")
+    if not old or not current_input_sha or old == current_input_sha:
+        return False, "quarantine holds this revision"
+    signed = (isinstance(sign_off, dict) and str(sign_off.get("reviewer") or "").strip()
+              and str(sign_off.get("reason") or "").strip())
+    if not signed and not waiver:
+        return False, "new bytes need a human sign-off or a waiver"
+    return True, "released"
+
+
+def classify_part(pid, ev, hashes, *, quarantined, quarantine_record,
+                  current_input_sha, sign_off=None, waiver=False,
+                  file_sha=None, sealed_sha=None):
+    """Quarantine is decided before 'accepted'.
+
+    A re-run of the same bytes must not flip a quarantined part to
+    accepted just because the six stages are green.
+    """
+    if quarantined or quarantine_record:
+        released, why = may_leave_quarantine(
+            quarantine_record, current_input_sha, sign_off=sign_off,
+            waiver=waiver)
+        if not released:
+            return "quarantined", why
+    if evidence_is_accepted(ev, hashes, file_sha=file_sha, sealed_sha=sealed_sha):
+        return "accepted", (ev or {}).get("accept_reason")
+    if ev and ev.get("n45_conflict"):
+        return "n45_conflict", ev.get("accept_reason")
+    if ev and any((s or {}).get("state") == "INFEASIBLE"
+                  for s in (ev.get("stages") or {}).values()):
+        return "infeasible", "design-infeasible"
+    if ev and any((s or {}).get("state") == "FAIL"
+                  for s in (ev.get("stages") or {}).values()):
+        return "needs_repair", (ev or {}).get("accept_reason")
+    return "unverified", (ev or {}).get("accept_reason")
+
+
+def reconciliation(part_rows, expect=400):
+    """accepted + quarantined + infeasible per family. Other statuses do not count."""
+    fams = {}
+    for row in part_rows or []:
+        fam = row.get("family") or "?"
+        slot = fams.setdefault(fam, {
+            "accepted": 0, "quarantined": 0, "infeasible": 0, "other": 0})
+        st = row.get("status")
+        if st == "accepted":
+            slot["accepted"] += 1
+        elif st == "quarantined":
+            slot["quarantined"] += 1
+        elif st in ("infeasible", "design-infeasible"):
+            slot["infeasible"] += 1
+        else:
+            slot["other"] += 1
+    ok = bool(fams)
+    for slot in fams.values():
+        slot["sum"] = (slot["accepted"] + slot["quarantined"]
+                       + slot["infeasible"])
+        slot["ok"] = slot["sum"] == expect and slot["other"] == 0
+        ok = ok and slot["ok"]
+    return {"families": fams, "ok": ok, "expect": expect}
 
 
 def evidence_path(root, pid):
@@ -169,18 +250,21 @@ def note_stage(ev, stage, *, ok, input_sha, error_class, hashes, fingerprint=Non
     return ev
 
 
-def mark_acceptance(ev, hashes, stages):
-    """Set accepted only when every requested stage is OK and hashes match.
+def mark_acceptance(ev, hashes, stages=None):
+    """Accept only the full six-stage chain with three hashes and a review.
 
-    Drift, an N45 conflict, or a missing hash clears acceptance even if
-    every stage row says OK.
+    ``stages`` is ignored. Passing ``--stages build,validate`` must not
+    mark a part accepted. FCStd, STEP and the family-core hash all have
+    to be non-empty. Human review is required here even when
+    ``CADKIT_REQUIRE_REVIEW`` was left unset for an earlier engine.
     """
+    del stages
     if ev.get("n45_conflict") or ev.get("recompute_drift"):
         ev["accepted"] = False
         ev["accept_reason"] = "n45 or recompute drift"
         ev["hashes"] = {}
         return ev
-    for stage in stages:
+    for stage in REQUIRED_STAGES:
         st = (ev.get("stages") or {}).get(stage) or {}
         if st.get("state") != "OK" or st.get("source") != "fleet_runner":
             ev["accepted"] = False
@@ -188,12 +272,17 @@ def mark_acceptance(ev, hashes, stages):
             ev["hashes"] = {}
             return ev
     bound = {}
-    for key, val in (hashes or {}).items():
-        if val:
-            bound[key] = val
-    if "fcstd_sha256" not in bound:
+    for key in ("fcstd_sha256", "step_sha256", "family_core_sha256"):
+        val = (hashes or {}).get(key)
+        if not val:
+            ev["accepted"] = False
+            ev["accept_reason"] = "missing %s" % key
+            ev["hashes"] = {}
+            return ev
+        bound[key] = val
+    if ev.get("review_status") != "complete":
         ev["accepted"] = False
-        ev["accept_reason"] = "FCStd hash missing"
+        ev["accept_reason"] = "human review required"
         ev["hashes"] = {}
         return ev
     ev["hashes"] = bound
@@ -231,12 +320,19 @@ def write_wave_report(repo, batch, part_rows, *, intake=None, root=None,
     out = os.path.join(repo, "outbox", batch)
     os.makedirs(out, exist_ok=True)
     accepted = [r for r in part_rows if r.get("status") == "accepted"]
+    recon = reconciliation(part_rows)
+    all_accepted = bool(part_rows) and len(accepted) == len(part_rows)
+    verdict = "ACCEPT" if all_accepted and recon["ok"] else "NOT_ACCEPTED"
     ack = lessons_ack(repo)
     summary = {
         "batch": batch,
-        "verdict": "ACCEPT" if part_rows and len(accepted) == len(part_rows) else "NOT_ACCEPTED",
+        "verdict": verdict,
         "accepted": len(accepted),
+        "quarantined": sum(1 for r in part_rows if r.get("status") == "quarantined"),
+        "infeasible": sum(1 for r in part_rows
+                          if r.get("status") in ("infeasible", "design-infeasible")),
         "total": len(part_rows),
+        "reconciliation": recon,
         "lessons_ack": ack,
         "ledger_job_ok_is_not_acceptance": True,
         "parts": part_rows,

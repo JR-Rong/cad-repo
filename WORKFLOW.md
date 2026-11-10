@@ -143,7 +143,7 @@ python3 tools/fingerprint_merge.py --machine B      # 增量并进 shared/finger
 **为什么不能一味拉满**（三条约束已写进调度器）：
 1. 单件峰值 RSS 430–530 MB，插件每进程 cap 2048 MB、**进程组 cap 6144 MB** ⇒
    并发 = `min(--workers, --mem-budget-mb / --per-part-mb)`，默认取 3 路；
-2. **N43/N44 已是门禁**：`package` 按件加锁，`--package-workers` 默认 2，仍受内存预算约束。
+2. **N43/N44 已是门禁**：`package` 按件加锁，`--package-workers` 默认 1（旧批锁和按件锁互不排斥；1.1.1 上的新包验证过之前不要加大）。
    探针记录追加，后到的 PASS 不会抹掉先到的 FAIL；同一修订的台账 FAIL 同样粘滞。
 3. `--package` 必须与 `build,validate,probe,export` 同时给出，否则调度器直接拒绝 ——
    跳过阶段直接包装等于用调度器绕过 §3 的顺序约束（这条是调度器自己踩出来的，见错题本）。

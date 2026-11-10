@@ -33,6 +33,20 @@ PIDS = [
 ]
 NATIVE_FAIL = {"b_in01_121", "b_in01_161"}
 ORPHAN_EXPORT = {"b_in01_082"}
+# 097 is the only BROKEN index that is neither the aviation-connector
+# cluster nor a native validate failure. Binding audit: STEP/manifest
+# still certify the pre-rebuild native (FCBak sha matches the manifest),
+# the surviving FAIL receipt names V2 objects the V4 core deleted
+# (trough/cbore/tab), and the ledger probe PASS has receipt_sha='-'.
+ROOT_097 = (
+    "不是航空插座轴，也不是 121/161 那种重建后仍 validate FAIL。"
+    "绑定审计：现行 FCStd 是后重建的，STEP 与 manifest 仍认证重建前的 native"
+    "（.FCBak 与 manifest.fcstd_sha 一致，112 则对不上）。"
+    "留下的 FAIL 收据描述的是 V2 特征 trough/cbore/tab，V4 核已删掉这些对象，"
+    "收据说的修订不在当前文件里。台账 probe 行 receipt_sha='-'，"
+    "那条 PASS 没有文件哈希。处理：保留原件，按新修订重跑 validate→export，"
+    "不要用这条旧 FAIL 或占位回执当结论。"
+)
 
 
 def rows_for():
@@ -53,6 +67,16 @@ def rows_for():
                 "native_validate_fail" if pid in NATIVE_FAIL
                 else "orphan_reexport" if pid in ORPHAN_EXPORT
                 else "stale_export"),
+            "root_cause": (
+                ROOT_097 if pid == "b_in01_097"
+                else "native validate FAIL on the rebuilt FCStd "
+                     "(121 InvalidCurveOnSurface, 161 SelfIntersect); "
+                     "not the aviation-connector axis"
+                if pid in NATIVE_FAIL
+                else "orphan STEP: on-disk STEP matches no recorded native"
+                if pid in ORPHAN_EXPORT
+                else "stale export on the aviation-connector axis: "
+                     "STEP/manifest still bind an older native"),
             "action": "rebuild as a new revision through the full chain; "
                       "do not delete or patch the existing FCStd/STEP",
         })

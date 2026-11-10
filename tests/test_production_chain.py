@@ -450,6 +450,301 @@ def test_wave_report_does_not_accept_unverified(tmp_path):
     assert delta["entries"] == {}
 
 
+def _stage_ok():
+    return {"state": "OK", "source": "fleet_runner"}
+
+
+def _full_evidence():
+    return {
+        "source": "fleet_runner",
+        "review_status": "complete",
+        "stages": {name: _stage_ok() for name in (
+            "build", "validate", "probe", "dedupe", "export", "package")},
+    }
+
+
+def _three_hashes():
+    return {"fcstd_sha256": "aa", "step_sha256": "bb",
+            "family_core_sha256": "cc"}
+
+
+def test_acceptance_requires_all_six_stages_and_review():
+    import acceptance
+    ev = _full_evidence()
+    hashes = _three_hashes()
+    assert acceptance.mark_acceptance(ev, hashes, ["build", "validate"])["accepted"]
+    short = _full_evidence()
+    del short["stages"]["package"]
+    missed = acceptance.mark_acceptance(short, hashes, ["build", "validate"])
+    assert missed["accepted"] is False
+    assert "package" in missed["accept_reason"]
+    no_review = _full_evidence()
+    no_review["review_status"] = "pending"
+    blocked = acceptance.mark_acceptance(no_review, hashes)
+    assert blocked["accepted"] is False
+    assert "review" in blocked["accept_reason"]
+
+
+def test_acceptance_requires_step_and_family_hashes():
+    import acceptance
+    ev = _full_evidence()
+    only_fcstd = {"fcstd_sha256": "aa"}
+    out = acceptance.mark_acceptance(ev, only_fcstd)
+    assert out["accepted"] is False
+    assert "step_sha256" in out["accept_reason"]
+    missing_core = {"fcstd_sha256": "aa", "step_sha256": "bb"}
+    out = acceptance.mark_acceptance(_full_evidence(), missing_core)
+    assert out["accepted"] is False
+    assert "family_core" in out["accept_reason"]
+
+
+def test_quarantine_same_bytes_cannot_become_accepted():
+    import acceptance
+    ev = _full_evidence()
+    ev["accepted"] = True
+    ev["hashes"] = _three_hashes()
+    record = {"input_sha": "same"}
+    status, _why = acceptance.classify_part(
+        "b_in01_082", ev, _three_hashes(), quarantined=True,
+        quarantine_record=record, current_input_sha="same",
+        file_sha="file", sealed_sha="file")
+    assert status == "quarantined"
+    status, why = acceptance.classify_part(
+        "b_in01_082", ev, _three_hashes(), quarantined=True,
+        quarantine_record=record, current_input_sha="new-hash",
+        file_sha="file", sealed_sha="file")
+    assert status == "quarantined" and "sign-off" in why
+    status, _why = acceptance.classify_part(
+        "b_in01_082", ev, _three_hashes(), quarantined=True,
+        quarantine_record=record, current_input_sha="new-hash",
+        sign_off={"reviewer": "owner", "reason": "rebuilt"},
+        file_sha="file", sealed_sha="file")
+    assert status == "accepted"
+
+
+def test_evidence_seal_rejects_hand_edit(tmp_path):
+    import acceptance
+    from cadkit.ledger import evidence_seal, open_ledger, seal_evidence
+    ev = {"accepted": True, "source": "fleet_runner",
+          "hashes": _three_hashes()}
+    assert acceptance.evidence_is_accepted(
+        ev, _three_hashes(), file_sha="abc", sealed_sha="abc") is True
+    assert acceptance.evidence_is_accepted(
+        ev, _three_hashes(), file_sha="edited", sealed_sha="abc") is False
+    conn = open_ledger(str(tmp_path))
+    try:
+        seal_evidence(conn, "b_in01_001", "a" * 64)
+        assert evidence_seal(conn, "b_in01_001") == "a" * 64
+    finally:
+        conn.close()
+
+
+def test_failed_dedupe_does_not_enter_registry(tmp_path):
+    import types
+    sys.modules.setdefault("FreeCAD", types.ModuleType("FreeCAD"))
+    import importlib
+    fp = importlib.import_module("cadkit.fingerprint")
+    reg = tmp_path / "registry"
+    reg.mkdir()
+    path = reg / "fingerprints.json"
+    path.write_text("{}", encoding="utf-8")
+    # registry_path joins cad_root/registry. commit uses that.
+    assert fp.commit_registration(
+        str(tmp_path), "p", {"volume": 1.0, "solids": 1, "faces": 1,
+                             "edges": 1, "bbox": [1, 1, 1]},
+        ok=False, register=True) is False
+    assert json.loads(path.read_text()) == {}
+    assert fp.commit_registration(
+        str(tmp_path), "p", {"volume": 1.0, "solids": 1, "faces": 1,
+                             "edges": 1, "bbox": [1, 1, 1]},
+        ok=True, register=True) is True
+    assert "p" in json.loads(path.read_text())
+
+
+def test_floor_and_baseline_fail_closed(tmp_path):
+    import types
+    sys.modules.setdefault("FreeCAD", types.ModuleType("FreeCAD"))
+    import importlib
+    fp = importlib.import_module("cadkit.fingerprint")
+    from cadkit.chain import RegistryShapeError
+    bad = tmp_path / "registry"
+    bad.mkdir()
+    (bad / "floor.json").write_text("{", encoding="utf-8")
+    with pytest.raises(RegistryShapeError):
+        fp._registry_floor(str(tmp_path))
+    base = tmp_path / "registry" / "baseline"
+    base.mkdir()
+    body = {"entries": {"p": {"volume": 1.0, "steps": 1, "solids": 1,
+                              "faces": 1, "edges": 1, "bbox": [1, 1, 1]}}}
+    (base / "a.json").write_text(json.dumps(body), encoding="utf-8")
+    body["entries"]["p"]["volume"] = 9.0
+    (base / "b.json").write_text(json.dumps(body), encoding="utf-8")
+    with pytest.raises(RegistryShapeError):
+        fp._baseline_fingerprints(str(tmp_path))
+
+
+def test_assemble_tolerates_float_noise_and_retire_clears_old_row(tmp_path):
+    a = {"volume": 1.0, "steps": 4}
+    b = {"volume": 1.0 + 1e-16, "steps": 4}
+    _out, conflicts = assemble_candidates({"p": a}, {"p": b})
+    assert conflicts == []
+    far = {"volume": 2.0, "steps": 4}
+    _out, conflicts = assemble_candidates({"p": a}, {"p": far})
+    assert conflicts == ["p"]
+    conn = open_ledger(str(tmp_path))
+    try:
+        conn.execute(
+            "INSERT INTO model(model_id, buyer_id, project_id) VALUES(?,?,?)",
+            ("local:p", "internal", "p"))
+        conn.execute(
+            "INSERT INTO revision(rev, model_id, fcstd_sha, rules_sha, created) "
+            "VALUES(?,?,?,?,?)",
+            ("rev1", "local:p", "sha", "rules", 1))
+        conn.execute(
+            "INSERT INTO fingerprint(rev, version, project_id, structure_sha, "
+            "shape_bucket, state, created, data) VALUES(?,?,?,?,?,?,?,?)",
+            ("rev1", 2, "p", "s", "b", "active", 1, "{}"))
+        conn.commit()
+        from cadkit.ledger import retire_active_fingerprints
+        assert retire_active_fingerprints(conn, "p", "new revision") == 1
+        state = conn.execute(
+            "SELECT state FROM fingerprint WHERE project_id='p'").fetchone()[0]
+        assert state == "withdrawn"
+    finally:
+        conn.close()
+
+
+def test_rules_change_inherits_fail_until_rereview(tmp_path):
+    conn = open_ledger(str(tmp_path))
+    try:
+        from cadkit.ledger import record_rules_rereview
+        job_record(conn, "p", "validate", "input", "rules-old", "FAIL",
+                   error_class="design")
+        blocked = job_record(conn, "p", "validate", "input", "rules-new", "OK")
+        assert blocked["applied"] is False
+        assert blocked["state"] == "FAIL"
+        row = conn.execute(
+            "SELECT state FROM job WHERE rules_sha='rules-new'").fetchone()
+        assert row[0] == "FAIL"
+        with pytest.raises(ValueError):
+            record_rules_rereview(conn, "p", "validate", "input", "rules-new", " ")
+        record_rules_rereview(
+            conn, "p", "validate", "input", "rules-new",
+            "owner re-checked this part under the new rules")
+        allowed = job_record(conn, "p", "validate", "input", "rules-new", "OK")
+        assert allowed["applied"] is True and allowed["state"] == "OK"
+        old = conn.execute(
+            "SELECT state FROM job WHERE rules_sha='rules-old'").fetchone()
+        assert old[0] == "FAIL"
+    finally:
+        conn.close()
+
+
+def test_open_ledger_rejects_unscoped_delete(tmp_path):
+    conn = open_ledger(str(tmp_path))
+    try:
+        with pytest.raises(ValueError):
+            conn.execute("DELETE FROM job")
+        with pytest.raises(ValueError):
+            conn.executescript("DELETE FROM evidence;")
+    finally:
+        conn.close()
+
+
+def test_rename_noreplace_does_not_clobber_empty_dir(tmp_path):
+    from cadkit.chain import remove_tree, rename_noreplace
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("new", encoding="utf-8")
+    dst = tmp_path / "dst"
+    dst.mkdir()
+    (dst / "keep.txt").write_text("old", encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        rename_noreplace(str(src), str(dst))
+    assert (dst / "keep.txt").read_text() == "old"
+    assert (src / "a.txt").exists()
+    missing = tmp_path / "missing"
+    with pytest.raises(FileNotFoundError):
+        remove_tree(str(missing))
+
+
+def test_legacy_publisher_lock_blocks_new_runner(tmp_path):
+    import subprocess
+    import time
+    from cadkit.ledger import legacy_publisher_busy
+    lock = tmp_path / ".publisher.lock"
+    lock.write_text("", encoding="utf-8")
+    holder = subprocess.Popen(
+        [sys.executable, "-c",
+         "import fcntl,os,sys,time\n"
+         "fd=os.open(sys.argv[1], os.O_RDWR)\n"
+         "fcntl.flock(fd, fcntl.LOCK_EX)\n"
+         "sys.stdout.write('ready\\n'); sys.stdout.flush()\n"
+         "time.sleep(30)\n",
+         str(lock)],
+        stdout=subprocess.PIPE, text=True)
+    try:
+        assert holder.stdout.readline().strip() == "ready"
+        assert legacy_publisher_busy(str(lock)) is True
+    finally:
+        holder.kill()
+        holder.wait(timeout=5)
+    time.sleep(0.05)
+    assert legacy_publisher_busy(str(lock)) is False
+
+
+def test_package_workers_default_is_one_until_tarball_verified():
+    import re
+    text = open(os.path.join(TOOLS, "fleet_runner.py"), encoding="utf-8").read()
+    match = re.search(r'--package-workers", type=int, default=(\d+)', text)
+    assert match and match.group(1) == "1"
+
+
+def test_reconciliation_must_equal_400(tmp_path):
+    import acceptance
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "LESSONS.md").write_text("lessons\n", encoding="utf-8")
+    rows = [{"project_id": "b_in01_%03d" % i, "family": "in01",
+             "status": "accepted"} for i in range(1, 400)]
+    rows.append({"project_id": "b_in01_400", "family": "in01",
+                 "status": "unverified"})
+    short = acceptance.write_wave_report(str(repo), "b", rows)
+    doc = json.loads(open(short["acceptance"], encoding="utf-8").read())
+    assert doc["verdict"] == "NOT_ACCEPTED"
+    assert doc["reconciliation"]["families"]["in01"]["sum"] == 399
+    full = [{"project_id": "b_in01_%03d" % i, "family": "in01",
+             "status": "accepted"} for i in range(1, 401)]
+    repo2 = tmp_path / "repo2"
+    repo2.mkdir()
+    (repo2 / "LESSONS.md").write_text("lessons\n", encoding="utf-8")
+    ok = acceptance.write_wave_report(str(repo2), "b", full)
+    doc = json.loads(open(ok["acceptance"], encoding="utf-8").read())
+    assert doc["verdict"] == "ACCEPT"
+    assert doc["reconciliation"]["ok"] is True
+    mixed = full[:-1] + [{"project_id": "b_in01_400", "family": "in01",
+                          "status": "quarantined"}]
+    repo3 = tmp_path / "repo3"
+    repo3.mkdir()
+    (repo3 / "LESSONS.md").write_text("lessons\n", encoding="utf-8")
+    held = acceptance.write_wave_report(str(repo3), "b", mixed)
+    doc = json.loads(open(held["acceptance"], encoding="utf-8").read())
+    assert doc["reconciliation"]["families"]["in01"]["sum"] == 400
+    assert doc["verdict"] == "NOT_ACCEPTED"
+
+
+def test_b_in01_097_root_cause_is_not_the_cable_axis():
+    doc = json.load(open(os.path.join(ROOT, "status", "quarantine_b_in01.json"),
+                         encoding="utf-8"))
+    by = {r["project_id"]: r for r in doc["parts"]}
+    cause = by["b_in01_097"]["root_cause"]
+    assert "FCBak" in cause or "V2" in cause
+    assert "三孔" not in by["b_in01_097"]["topo_signature"]
+    assert by["b_in01_097"]["audit_class"] == "stale_export"
+    assert by["b_in01_121"]["audit_class"] == "native_validate_fail"
+    assert "三孔 + 航空插座座" in by["b_in01_128"]["topo_signature"]
+
+
 def test_probe_and_packager_call_the_fail_closed_helpers():
     probe = open(os.path.join(PY, "cadkit", "probe.py"), encoding="utf-8").read()
     assert "results.update(" not in probe
