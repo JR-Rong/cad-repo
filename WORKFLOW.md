@@ -32,7 +32,7 @@ recall → new → design.md（先数到目标步数）→ build → validate �
 
 - `recall`（新增，强制）：`python3 tools/recall.py --machine <X>`，打印教训 + 记忆 + 版本握手 + 你的切片 + 未修缺陷。
 - `design.md` 是"非逆向生成"的证据（2.4 真实可辨识 + 加分项设计说明），不是事后补的说明文。
-- `package` **串行、一次一件**（N43/N44 未修期间的硬约束）。
+- `package` 在 N43 门禁落地后可以 `--package-workers` 并行（每件一把锁）。读失败不得删除交付目录。细节见 `RUNBOOK.md`。
 - 回传物齐备才允许 push：`delivery/<批次>/`、`ledger.jsonl`、`fingerprints.delta.json`、`versions.json`、
   `REPORT.md`（**必须含 `LESSONS_ACK: <sha8>`**）、豁免文件。自己先跑 `merge_check`，`ACCEPT` 才 push。
 
@@ -143,8 +143,8 @@ python3 tools/fingerprint_merge.py --machine B      # 增量并进 shared/finger
 **为什么不能一味拉满**（三条约束已写进调度器）：
 1. 单件峰值 RSS 430–530 MB，插件每进程 cap 2048 MB、**进程组 cap 6144 MB** ⇒
    并发 = `min(--workers, --mem-budget-mb / --per-part-mb)`，默认取 3 路；
-2. **N43(P1)/N44(P2) 未修** ⇒ `package` 只能**一个槽位、一次一件**（单消费者队列实现，
-   不靠"记得串行"）；同一件也不许跨窗口重复跑（后到的 PASS 会抹掉先到的 FAIL）；
+2. **N43/N44 已是门禁**：`package` 按件加锁，`--package-workers` 默认 1（旧批锁和按件锁互不排斥；1.1.1 上的新包验证过之前不要加大）。
+   探针记录追加，后到的 PASS 不会抹掉先到的 FAIL；同一修订的台账 FAIL 同样粘滞。
 3. `--package` 必须与 `build,validate,probe,export` 同时给出，否则调度器直接拒绝 ——
    跳过阶段直接包装等于用调度器绕过 §3 的顺序约束（这条是调度器自己踩出来的，见错题本）。
 
@@ -162,7 +162,8 @@ python3 tools/fleet_runner.py --root <cadRoot> --batch fleet_b_2026_11 \
   调度器因此解析 JSON 并把 `checks[]` 里任何 FAIL 记为不过（曾把 8 条"通过"记在零交付物上）；
 - **握手前置自检**：启动时用即将执行的引擎算一次 `rules_sha` 与 `shared/versions.json` 比对，
   不一致直接 exit 2 —— 用错引擎生产的那一波整波返工；
-- **断点续跑**靠台账幂等键：调度器先读 `ledger.sqlite3`，只排 `state != OK` 的阶段，崩了重跑同一条命令；
+- **断点续跑**看 `projects/<id>/build/chain_evidence.json` 里重新读过的哈希。
+  台账 `job=OK` 单独不算跳过（2026-10-31 回填的 172 件必须重验）；
 - **复检采样**：每完成 `--review-every` 件插一次旧件 `review_scan`（发现即写自己的 inbox）；
   全量复检留给每班一次，别和生产抢窗口；
 - 日志 `status/runner_<batch>_<ts>.jsonl` 每行 `{lane,pid,stage,ok,seconds,degraded}`，

@@ -446,6 +446,10 @@ def probe_project(proj, limit=40, delta=0.01, workers=None):
                             # their window (teardown crash, not a cell fault)
 
     viol = [0]   # N29/N30 round 7: protocol-violating worker records
+    history = []  # N44/N45: append-only, one record per observation
+    import threading
+    _tls = threading.local()
+    _tls.window = "boot"
     _gidx = {}   # N39 round 9: GLOBAL index -> cell agreement (run_span
                  # local by_idx lets bootstrap A1@0 and tail A5000@0
                  # coexist; the orchestrator must not double-book an
@@ -488,10 +492,17 @@ def probe_project(proj, limit=40, delta=0.01, workers=None):
         # SET of validated indices, not the last record seen, so a
         # REVERSED transcript cannot fake window completion or hide a
         # nonzero exit behind an early-looking last line.
+        from .chain import keep_cell_record
         prev = results.get(rec["cell"])
-        if prev is not None and prev.get("status") == "FAIL" \
-                and rec.get("status") == "PASS":
+        # Append-only: every observation is kept, including a PASS that
+        # arrives after a FAIL. The cell map stays FAIL-sticky.
+        logged = dict(rec)
+        logged["window"] = getattr(_tls, "window", "boot")
+        history.append(logged)
+        kept = keep_cell_record(prev, rec)
+        if prev is not None and kept is prev and rec.get("status") != "FAIL":
             return
+        rec = kept
         idx = _idx_of(rec, addrs[0])
         # N35 round 8 / N39 round 9: two DIFFERENT cells claiming one
         # index is a collision - same-window AND across windows. The
@@ -506,7 +517,7 @@ def probe_project(proj, limit=40, delta=0.01, workers=None):
                 return
             if idx not in _gidx:
                 _gidx[idx] = rec["cell"]
-        results[rec["cell"]] = rec
+        results[rec["cell"]] = rec if isinstance(rec, dict) else rec
         if idx is not None:
             by_idx[idx] = rec
 
@@ -596,6 +607,7 @@ def probe_project(proj, limit=40, delta=0.01, workers=None):
         """Probe driving-cell LIST INDICES lo..hi inclusive (N5 scale fix:
         index-based, so sparse sheets cannot probe or backfill the wrong
         cell). Returns (results, nosheet)."""
+        _tls.window = "span-%d-%d" % (lo, hi)
         env = dict(base_env)
         results = {}
         by_idx = {}            # index -> record (contiguous-prefix proof)
@@ -687,8 +699,10 @@ def probe_project(proj, limit=40, delta=0.01, workers=None):
     results = {}
     nosheet = False
     boot_hi = min(2, max_steps - 1)
+    _tls.window = "boot"
     boot, nosheet = run_span(0, boot_hi)
-    results.update(boot)
+    from .chain import merge_probe_windows
+    merge_probe_windows(results, boot)
     if not nosheet:
         n_total = len(addrs[0]) if addrs[0] else 0
         if n_total:
@@ -710,7 +724,7 @@ def probe_project(proj, limit=40, delta=0.01, workers=None):
             with ThreadPoolExecutor(
                     max_workers=min(nspans, len(spans))) as ex:
                 for res_part, ns in ex.map(lambda t: run_span(*t), spans):
-                    results.update(res_part)
+                    merge_probe_windows(results, res_part)
                     nosheet = nosheet or ns
     if nosheet and not results:
         _sh.rmtree(_snapdir, ignore_errors=True)
@@ -742,9 +756,15 @@ def probe_project(proj, limit=40, delta=0.01, workers=None):
     src_moved = _sha(proj.fcstd_path) != _src_sha0
     snap_final = _sha(_snap) if os.path.exists(_snap) else ""
     snap_ok = snap_final == _snap_sha
-    ok = bool(details) and n_fail == 0 and not src_moved and snap_ok \
+    from .chain import verdict_append_only
+    _cells_required = [c for c in known if not str(c).startswith("__")]
+    if not _cells_required:
+        _cells_required = list(known)
+    _append_ok, _append_why = verdict_append_only(history, _cells_required)
+    ok = bool(_append_ok) and not src_moved and snap_ok \
         and viol[0] == 0 \
-        and dupes == 0 and len(details) >= n_rows
+        and dupes == 0 and len(details) >= n_rows \
+        and abnormal[0] == 0
     _sh.rmtree(_snapdir, ignore_errors=True)
     from . import version as _ver
     report = dict(_ver.stamp())
@@ -764,6 +784,9 @@ def probe_project(proj, limit=40, delta=0.01, workers=None):
         "mem": mem.status(why),
         "failed": n_fail,
         "crashes": sum(1 for r in details if "CRASH" in r.get("note", "")),
+        "append_only_records": len(history),
+        "append_only_reason": _append_why,
+        "worker_windows": len({r.get("window") for r in history}),
         "details": details,
         "note": "perturbed %.0f%% of %d driving parameters in isolated "
                 "workers against immutable snapshot" % (delta * 100,

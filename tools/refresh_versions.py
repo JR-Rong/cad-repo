@@ -66,11 +66,10 @@ def main():
         "freecad_version_local": ver[:120],
         "handoff_batch": BATCH,
         "known_plugin_defects": {
-            "N43 (P1, 未修)": "packager.py 所有权读失败被当作“无更新者”，会删除/覆盖别人更新的交付"
-                              " —— package 必须串行、一次一件",
-            "N44 (P2, 未修)": "probe.py 跨窗口 results.update() 让后到 PASS 抹掉先前 FAIL"
-                              " —— 同一件不要跨窗口重复上报，重跑整件",
-            "N1/N2/N16/N18/N20/N23": "部分通过：异常路径与合并语义未收敛（与上面两条同源）"},
+            "N43": "已修：只有确定的文件不存在才表示没有更新修订；其他 I/O 失败保持现场",
+            "N44": "已修：探针记录按窗口追加，任一 FAIL 即 FAIL",
+            "N45": "已修：同一修订的 FAIL 不能被后来的 PASS 覆盖",
+        },
         "role": "machine-A issues this; machine B echoes the same keys into its return",
     }
     dest = os.path.join(WORKSPACE, "handoff", "shared", "versions.json")

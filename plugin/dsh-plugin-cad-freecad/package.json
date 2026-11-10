@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-plugin-cad-freecad",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "description": "Generate and QA-verify FreeCAD CAD parts (build / validate / edit-probe / STEP+render export / delivery packaging) against the CAD data purchase spec.",

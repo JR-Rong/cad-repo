@@ -108,6 +108,8 @@ def act_validate(root, pid, opts=None):
     proj = load_project(root, pid)
     _sb = (opts or {}).get("strict_bop")
     rep = validate_project(proj, strict_bop=None if _sb is None else bool(_sb))
+    from cadkit.ledger import sha256_file
+    rep["fcstd_sha256"] = sha256_file(proj.fcstd_path)
     with open(os.path.join(proj.build_dir, "report.json"), "w",
               encoding="utf-8") as f:
         json.dump(rep, f, ensure_ascii=False, indent=2)
@@ -134,6 +136,19 @@ def act_export(root, pid, opts, wd=None):
     from cadkit import version as ver
     from cadkit.ledger import sha256_file
     proj = load_project(root, pid)
+    from cadkit.chain import export_precondition
+    from cadkit.ledger import sha256_file
+    report_path = os.path.join(proj.build_dir, "report.json")
+    report = None
+    if os.path.isfile(report_path):
+        try:
+            with open(report_path, encoding="utf-8") as f:
+                report = json.load(f)
+        except (OSError, ValueError):
+            report = None
+    blocked = export_precondition(report, sha256_file(proj.fcstd_path))
+    if blocked:
+        return {"ok": False, "stage": "pre_export", "error": blocked}
     long_side = int(opts.get("long_side", "2400"))
     max_tri = opts.get("max_triangles")
     step = export_step(proj.fcstd_path, proj.step_path)

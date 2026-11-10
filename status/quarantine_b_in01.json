@@ -1,0 +1,469 @@
+{
+ "family": "in01",
+ "arch": "壳体",
+ "axis_names": [
+  "卡扣 2 …",
+  "光滑壁 …",
+  "无散热 …",
+  "单进线孔 …",
+  "无附件 …"
+ ],
+ "do_not_delete": true,
+ "design_infeasible": [],
+ "note": "No part is marked design-infeasible here. 121 and 161 failed validate on the rebuilt native; the other twelve are evidence-chain breaks (stale or orphan STEP). A waiver requires an explicit reason in the ledger.",
+ "shared_axis": {
+  "axis": 3,
+  "value": "三孔 + 航空插座座",
+  "pids": [
+   "b_in01_082",
+   "b_in01_112",
+   "b_in01_125",
+   "b_in01_128",
+   "b_in01_132",
+   "b_in01_136",
+   "b_in01_140",
+   "b_in01_144",
+   "b_in01_148",
+   "b_in01_154",
+   "b_in01_158"
+  ],
+  "count": 11,
+  "why_it_looks_periodic": "128..148 step 4, plus 154 and 158, are neighbours in the sorted 5-axis product while axis 3 stays on the aviation-connector value. Size is not constant (sz ladder modulo 8)."
+ },
+ "parts": [
+  {
+   "project_id": "b_in01_082",
+   "index": 82,
+   "size": "50",
+   "topo_signature": "卡扣 2；井字筋 3×3；无散热；三孔 + 航空插座座；无附件",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "井字筋 3×3"
+    },
+    {
+     "axis": 2,
+     "value": "无散热"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "无附件"
+    }
+   ],
+   "audit_class": "orphan_reexport",
+   "root_cause": "orphan STEP: on-disk STEP matches no recorded native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_097",
+   "index": 97,
+   "size": "40",
+   "topo_signature": "卡扣 4；光滑壁；散热齿 16；单进线孔；接地螺柱",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 4"
+    },
+    {
+     "axis": 1,
+     "value": "光滑壁"
+    },
+    {
+     "axis": 2,
+     "value": "散热齿 16"
+    },
+    {
+     "axis": 3,
+     "value": "单进线孔"
+    },
+    {
+     "axis": 4,
+     "value": "接地螺柱"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "不是航空插座轴，也不是 121/161 那种重建后仍 validate FAIL。绑定审计：现行 FCStd 是后重建的，STEP 与 manifest 仍认证重建前的 native（.FCBak 与 manifest.fcstd_sha 一致，112 则对不上）。留下的 FAIL 收据描述的是 V2 特征 trough/cbore/tab，V4 核已删掉这些对象，收据说的修订不在当前文件里。台账 probe 行 receipt_sha='-'，那条 PASS 没有文件哈希。处理：保留原件，按新修订重跑 validate→export，不要用这条旧 FAIL 或占位回执当结论。",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_112",
+   "index": 112,
+   "size": "200",
+   "topo_signature": "螺柱 4；光滑壁；无散热；三孔 + 航空插座座；无附件",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "螺柱 4"
+    },
+    {
+     "axis": 1,
+     "value": "光滑壁"
+    },
+    {
+     "axis": 2,
+     "value": "无散热"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "无附件"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_121",
+   "index": 121,
+   "size": "40",
+   "topo_signature": "螺柱 6 + 卡扣 2；光滑壁；无散热；双进线孔；无附件",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "螺柱 6 + 卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "光滑壁"
+    },
+    {
+     "axis": 2,
+     "value": "无散热"
+    },
+    {
+     "axis": 3,
+     "value": "双进线孔"
+    },
+    {
+     "axis": 4,
+     "value": "无附件"
+    }
+   ],
+   "audit_class": "native_validate_fail",
+   "root_cause": "native validate FAIL on the rebuilt FCStd (121 InvalidCurveOnSurface, 161 SelfIntersect); not the aviation-connector axis",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_125",
+   "index": 125,
+   "size": "100",
+   "topo_signature": "卡扣 2；光滑壁；无散热；三孔 + 航空插座座；铅封位",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "光滑壁"
+    },
+    {
+     "axis": 2,
+     "value": "无散热"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "铅封位"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_128",
+   "index": 128,
+   "size": "200",
+   "topo_signature": "卡扣 2；光滑壁；散热齿 8；三孔 + 航空插座座；铭牌凹台",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "光滑壁"
+    },
+    {
+     "axis": 2,
+     "value": "散热齿 8"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "铭牌凹台"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_132",
+   "index": 132,
+   "size": "80",
+   "topo_signature": "卡扣 2；光滑壁；散热齿 16；三孔 + 航空插座座；接地螺柱",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "光滑壁"
+    },
+    {
+     "axis": 2,
+     "value": "散热齿 16"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "接地螺柱"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_136",
+   "index": 136,
+   "size": "200",
+   "topo_signature": "卡扣 2；光滑壁；百叶 6；三孔 + 航空插座座；无附件",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "光滑壁"
+    },
+    {
+     "axis": 2,
+     "value": "百叶 6"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "无附件"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_140",
+   "index": 140,
+   "size": "80",
+   "topo_signature": "卡扣 2；纵筋 4；无散热；三孔 + 航空插座座；铭牌凹台",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "纵筋 4"
+    },
+    {
+     "axis": 2,
+     "value": "无散热"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "铭牌凹台"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_144",
+   "index": 144,
+   "size": "200",
+   "topo_signature": "卡扣 2；纵筋 4；散热齿 8；三孔 + 航空插座座；接地螺柱",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "纵筋 4"
+    },
+    {
+     "axis": 2,
+     "value": "散热齿 8"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "接地螺柱"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_148",
+   "index": 148,
+   "size": "80",
+   "topo_signature": "卡扣 2；纵筋 4；散热齿 16；三孔 + 航空插座座；无附件",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "纵筋 4"
+    },
+    {
+     "axis": 2,
+     "value": "散热齿 16"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "无附件"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_154",
+   "index": 154,
+   "size": "50",
+   "topo_signature": "卡扣 2；井字筋 3×3；无散热；三孔 + 航空插座座；接地螺柱",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "井字筋 3×3"
+    },
+    {
+     "axis": 2,
+     "value": "无散热"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "接地螺柱"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_158",
+   "index": 158,
+   "size": "125",
+   "topo_signature": "卡扣 2；井字筋 3×3；散热齿 8；三孔 + 航空插座座；无附件",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "井字筋 3×3"
+    },
+    {
+     "axis": 2,
+     "value": "散热齿 8"
+    },
+    {
+     "axis": 3,
+     "value": "三孔 + 航空插座座"
+    },
+    {
+     "axis": 4,
+     "value": "无附件"
+    }
+   ],
+   "audit_class": "stale_export",
+   "root_cause": "stale export on the aviation-connector axis: STEP/manifest still bind an older native",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  },
+  {
+   "project_id": "b_in01_161",
+   "index": 161,
+   "size": "40",
+   "topo_signature": "卡扣 2；井字筋 3×3；百叶 6；单进线孔；无附件",
+   "axes": [
+    {
+     "axis": 0,
+     "value": "卡扣 2"
+    },
+    {
+     "axis": 1,
+     "value": "井字筋 3×3"
+    },
+    {
+     "axis": 2,
+     "value": "百叶 6"
+    },
+    {
+     "axis": 3,
+     "value": "单进线孔"
+    },
+    {
+     "axis": 4,
+     "value": "无附件"
+    }
+   ],
+   "audit_class": "native_validate_fail",
+   "root_cause": "native validate FAIL on the rebuilt FCStd (121 InvalidCurveOnSurface, 161 SelfIntersect); not the aviation-connector axis",
+   "action": "rebuild as a new revision through the full chain; do not delete or patch the existing FCStd/STEP"
+  }
+ ]
+}

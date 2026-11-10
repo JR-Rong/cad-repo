@@ -88,8 +88,8 @@ def render(machine, wave, cat, ver, ack, delivered_cnt):
       --review-every 6 --review-interval-secs 900 --machine {M}{RVLINE}
 {RVNOTE}
   · 它启动时会用**即将执行的引擎**自校 rules_sha，不一致直接 exit 2 —— 那是它在救你整波。
-  · 断点续跑靠台账幂等键：崩了重跑同一条命令，已 OK 的阶段自动跳过。
-  · `package` 只有一个槽位（N43/N44 未修，并发发布会毁掉别人的交付），必须与四个阶段一起给。
+  · 断点续跑看 chain_evidence.json 的哈希，不看历史 job=OK。崩了重跑同一条命令。
+  · `package` 用 `--package-workers`（默认 1；旧 .publisher.lock 被占用就停）。必须与四个阶段一起给。
   · 别自己拼 freecadcmd 命令行：freecadcmd 会把 `--action` 吃掉，参数得走 CADKIT_* 环境（调度器已处理）。
   · 判断阶段是否通过只看 `CADKIT>> {{"ok": true, "checks": [...]}}`：**引擎失败时退出码仍然是 0**。
 

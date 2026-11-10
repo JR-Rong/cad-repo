@@ -39,15 +39,23 @@ else:
 
 
 def load_files(dirpath):
+    """Load baseline files. Unknown shapes and missing volume fail closed.
+
+    Silent ``continue`` used to drop every B fingerprint that had no
+    volume, so the fleet baseline received nothing.
+    """
+    sys.path.insert(0, os.path.join(REPO, "plugin", "dsh-plugin-cad-freecad", "python"))
+    from cadkit.chain import RegistryShapeError, normalize_registry
     out = {}
     src = {}
     for path in sorted(glob.glob(os.path.join(dirpath, "*.json"))):
         machine = os.path.splitext(os.path.basename(path))[0]
         doc = json.load(open(path, encoding="utf-8"))
-        entries = doc.get("entries", doc)
+        try:
+            entries = normalize_registry(doc)
+        except RegistryShapeError as exc:
+            raise SystemExit("底表 %s 形状不合格：%s" % (path, exc))
         for pid, fp in entries.items():
-            if not isinstance(fp, dict) or "volume" not in fp:
-                continue
             if pid in out and out[pid].get("structure_sha") != fp.get("structure_sha"):
                 raise SystemExit("冲突：%s 同时出现在 %s 与 %s 且几何不同 —— 两台机器做了同一个 id，"
                                  "先人工裁定再同步" % (pid, src[pid], machine))
@@ -106,12 +114,15 @@ def main():
     merged = dict(entries)
     local_path = os.path.join(a.root, "registry", "fingerprints.json")
     if os.path.exists(local_path):
+        from cadkit.chain import RegistryShapeError, normalize_registry
         try:
-            local = json.load(open(local_path, encoding="utf-8"))
-            for pid, fp in local.items():
-                merged.setdefault(pid, fp)
-        except (ValueError, OSError) as exc:
-            print("本机 registry 读不动（%s），用底表覆盖" % exc)
+            local = normalize_registry(json.load(open(local_path, encoding="utf-8")))
+        except (RegistryShapeError, ValueError, OSError) as exc:
+            raise SystemExit("本机 registry 读不动（%s），拒绝用底表覆盖" % exc)
+        for pid, fp in local.items():
+            if pid in merged and merged[pid].get("volume") != fp.get("volume"):
+                raise SystemExit("本机 %s 与底表体积不一致，拒绝合并" % pid)
+            merged.setdefault(pid, fp)
 
     print("底表: %d 件（来自 %s）； predicates=%s%s"
           % (len(entries), ",".join(sorted(set(src.values()))) or "-", MODE,
@@ -127,8 +138,13 @@ def main():
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(merged, f, ensure_ascii=False, indent=1, sort_keys=True)
     os.replace(tmp, local_path)
+    if merged:
+        floor_path = os.path.join(os.path.dirname(local_path), "floor.json")
+        with open(floor_path, "w", encoding="utf-8") as f:
+            json.dump({"min_entries": len(merged), "source": "registry_sync"},
+                      f, indent=1)
     print("写入 %s：%d 件（含本机历史 %d 件）"
-          % (local_path, len(merged), len(merged) - len(entries)))
+          % (local_path, len(merged), max(0, len(merged) - len(entries))))
     return 1 if dupes else 0
 
 

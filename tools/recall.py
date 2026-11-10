@@ -114,7 +114,7 @@ def main():
         print("  " + line)
     print("\n--- 单件顺序 ---")
     print("  new → design.md（把拓扑签名落成特征数）→ build → validate → probe → dedupe → export → package")
-    print("  package 串行一次一件；push 前 git pull --rebase；merge_check 必须 ACCEPT")
+    print("  生产只走 tools/fleet_runner.py（见 RUNBOOK.md）；push 前 git pull --rebase")
     print("\n发现新问题（自己踩的、审查抓的、买方退的）：")
     print("  python3 tools/lesson_add.py --machine %s --source self --severity P1 \\"
           " --title \"症状\" --where \"file:line 或件号\" --detail \"证据\"" % a.machine)
