@@ -101,6 +101,33 @@ def sha256_file(path, limit=None):
     return h.hexdigest()
 
 
+def inspect_native(path):
+    """('absent'|'ready'|'io-error', sha-or-None).
+
+    Only a definite ENOENT is 'absent' — that is the sole reading of
+    "no newer revision's file". Permission errors, EIO, and anything
+    else are 'io-error' and must fail closed.
+    """
+    import errno
+    try:
+        if not os.path.lexists(path):
+            return "absent", None
+    except OSError as exc:
+        if getattr(exc, "errno", None) == errno.ENOENT:
+            return "absent", None
+        return "io-error", None
+    if os.path.islink(path):
+        return "io-error", None
+    try:
+        return "ready", sha256_file(path)
+    except FileNotFoundError:
+        return "absent", None
+    except OSError as exc:
+        if getattr(exc, "errno", None) == errno.ENOENT:
+            return "absent", None
+        return "io-error", None
+
+
 def _fp_blob(fp):
     """Canonical invariant snapshot stored with every fingerprint row so
     dedupe can run from the ledger alone (N10)."""
@@ -212,28 +239,27 @@ _PUB_STACK = _PubStack()
 
 
 def _pub_lock(target):
-    """N20 round 6: cross-process serialization of the
-    stale-check -> folder-swap -> mark critical section for one batch
-    delivery directory. The lock file lives in the batch directory
-    (never inside a part folder, so artifact inventories are untouched).
-    Reentrant WITHIN a thread (audit hooks may nest publishes on the
-    same or a nested directory): the OS-level flock is acquired by the
-    outermost frame of each directory and released LIFO by its own
-    matching unlock. A process that mutates disk or flips delivered
-    WITHOUT taking this lock can still be caught downstream:
-    mark_published re-reads the actual on-disk native bytes as the
-    final arbiter."""
+    """Per-part publisher lock (N43).
+
+    The critical section is one delivery folder, not the whole batch,
+    so two parts may publish at the same time. The lock file lives in
+    ``<batch>/.locks/<pid>.lock`` and is never inside the folder that
+    gets swapped. Reentrant within a thread: the outermost frame holds
+    the flock. A publisher that mutates disk without this lock is still
+    caught by mark_published re-reading the native bytes."""
     import fcntl
-    key = os.path.dirname(os.path.abspath(str(target)))
+    target = os.path.abspath(str(target))
+    parent = os.path.dirname(target)
+    pid = os.path.basename(target)
+    key = os.path.join(parent, ".locks", pid)
     stack = _PUB_STACK.stack
     if stack is None:
         stack = _PUB_STACK.stack = []
     if key in stack:
-        stack.append(key)  # same-thread reentry; outer holds the flock
+        stack.append(key)
         return key
-    os.makedirs(key, exist_ok=True)
-    fd = os.open(os.path.join(key, ".publisher.lock"),
-                 os.O_CREAT | os.O_RDWR, 0o644)
+    os.makedirs(os.path.dirname(key), exist_ok=True)
+    fd = os.open(key + ".lock", os.O_CREAT | os.O_RDWR, 0o644)
     fcntl.flock(fd, fcntl.LOCK_EX)
     _PUB_FDS[key] = fd
     stack.append(key)
@@ -307,20 +333,50 @@ def publish(staging, final, conn=None):
                 if _own and _con is not None and False:
                     pass
         os.makedirs(os.path.dirname(final), exist_ok=True)
+        # N43: re-read the native under the per-part lock immediately
+        # before any rename. ENOENT means the slot is empty. Any other
+        # I/O error aborts with the folder untouched. A ledger refresh
+        # that fails is the same: we do not guess "not stale".
+        _native = os.path.join(_f, _pid + ".FCStd")
+        _status, _sha = inspect_native(_native)
+        if _status == "io-error":
+            raise ValueError(
+                "N43: cannot read %s; refusing to replace the delivery "
+                "folder" % _native)
+        if _rev and _con is not None:
+            try:
+                _con.commit()
+            except Exception as exc:
+                raise ValueError(
+                    "N43: ledger refresh failed before publish (%s); "
+                    "folder left untouched" % exc)
+            if is_stale_attempt(_con, _b, _pid, _rev):
+                raise ValueError(
+                    "refusing to publish stale attempt %s over a "
+                    "newer delivered revision of %s (re-check, N43)"
+                    % (_rev[:12], _pid))
         trash = None
-        if os.path.exists(final):
+        if _status == "absent" and not os.path.lexists(final):
+            # Definite file-not-found of the delivery slot: create by
+            # rename onto a path that does not exist (no-overwrite).
+            os.rename(staging, final)
+        elif _status == "ready" and os.path.lexists(final):
+            # Bytes were hashed under the lock. Move the known folder
+            # aside, then rename staging in. A failed second rename
+            # puts the hashed folder back.
             trash = final + ".superseded." + str(_ms())
             os.rename(final, trash)
-        try:
-            os.rename(staging, final)
-        except OSError:
-            # N1 recheck round 4: a failed second rename used to leave the
-            # ACTIVE folder in the trash with nothing on the delivery path.
-            # Roll the previous delivery back before re-raising.
-            if trash is not None:
-                os.rename(trash, final)
-                fsync_dir(os.path.dirname(final))
-            raise
+            try:
+                os.rename(staging, final)
+            except OSError:
+                if trash is not None and not os.path.lexists(final):
+                    os.rename(trash, final)
+                    fsync_dir(os.path.dirname(final))
+                raise
+        else:
+            raise ValueError(
+                "N43: delivery path %s is not a definite absence and "
+                "was not hashed; left untouched" % final)
         fsync_dir(os.path.dirname(final))
         if _rev and _con is not None:
             # N20 round 6: post-swap re-check under the SAME lock. If a
@@ -328,11 +384,20 @@ def publish(staging, final, conn=None):
             # possible via a lockless legacy caller), undo our swap -
             # the trash holds exactly the folder the newer delivery put
             # on disk - and refuse, so disk can never diverge from the
-            # delivered row.
+            # delivered row. A failed refresh undoes the swap too (N43):
+            # we will not leave our bytes in place on an unknown ledger.
             try:
                 _con.commit()
-            except Exception:
-                pass
+            except Exception as exc:
+                bad = final + ".stale." + str(_ms())
+                os.rename(final, bad)
+                if trash is not None:
+                    os.rename(trash, final)
+                    trash = None
+                fsync_dir(os.path.dirname(final))
+                raise ValueError(
+                    "N43: ledger refresh failed after swap (%s); "
+                    "previous folder restored" % exc)
             if is_stale_attempt(_con, _b, _pid, _rev):
                 bad = final + ".stale." + str(_ms())
                 os.rename(final, bad)
@@ -577,18 +642,97 @@ def job_state(conn, project_id, stage, input_sha, rules_sha):
 
 
 def job_record(conn, project_id, stage, input_sha, rules_sha, state,
-               error_class=None, rev=None):
+               error_class=None, rev=None, max_attempts=3):
+    """Append a stage result. A FAIL for this input hash is not overwritten.
+
+    The unique key is the revision identity (project, stage, input hash,
+    rules). A later OK on that same key is rejected and an event row is
+    written. A different input hash is a new revision and gets its own
+    row. Transient failures stay RETRY until ``max_attempts``, then FAIL.
+    Returns ``{"applied": bool, "state": ...}``.
+    """
+    from .chain import job_transition
     now = _ms()
     with conn:
+        row = conn.execute(
+            "SELECT state, attempt, error_class FROM job WHERE project_id=? "
+            "AND stage=? AND input_sha=? AND rules_sha=?",
+            (project_id, stage, input_sha, rules_sha)).fetchone()
+        old_state = row[0] if row else ""
+        old_attempt = row[1] if row else 0
+        old_error = row[2] if row else None
+        # When the new call is a pass, stickiness depends on the stored
+        # failure class, not on the empty error of the passing call.
+        kind = old_error if (state or "").upper() in ("OK", "PASS", "DONE") \
+            else error_class
+        action, decided = job_transition(
+            old_state, state, error_class=kind, attempt=old_attempt,
+            max_attempts=max_attempts)
+        if action == "keep":
+            conn.execute(
+                "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
+                (rev, "n45_reject", json.dumps({
+                    "project_id": project_id, "stage": stage,
+                    "input_sha": input_sha, "kept": old_state,
+                    "rejected": state, "reason": decided,
+                }, ensure_ascii=False), now))
+            return {"applied": False, "state": old_state, "reason": decided}
+        if row is None:
+            conn.execute(
+                "INSERT INTO job(rev,project_id,stage,input_sha,rules_sha,"
+                "state,attempt,error_class,updated) VALUES(?,?,?,?,?,?,1,?,?)",
+                (rev, project_id, stage, input_sha, rules_sha, decided,
+                 error_class, now))
+        else:
+            conn.execute(
+                "UPDATE job SET state=?, attempt=?, error_class=?, updated=?, "
+                "rev=COALESCE(?, rev) WHERE project_id=? AND stage=? AND "
+                "input_sha=? AND rules_sha=?",
+                (decided, old_attempt + 1, error_class, now, rev,
+                 project_id, stage, input_sha, rules_sha))
         conn.execute(
-            "INSERT INTO job(rev,project_id,stage,input_sha,rules_sha,state,"
-            "attempt,error_class,updated) VALUES(?,?,?,?,?,?,1,?,?) "
-            "ON CONFLICT(project_id,stage,input_sha,rules_sha) DO UPDATE "
-            "SET state=excluded.state, attempt=job.attempt+1, "
-            "error_class=excluded.error_class, updated=excluded.updated, "
-            "rev=COALESCE(excluded.rev, job.rev)",
-            (rev, project_id, stage, input_sha, rules_sha, state,
-             error_class, now))
+            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
+            (rev, "job_state", json.dumps({
+                "project_id": project_id, "stage": stage,
+                "from": old_state or None, "to": decided,
+            }, ensure_ascii=False), now))
+        return {"applied": True, "state": decided}
+
+
+def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,
+                  kind="waiver"):
+    """Explicit waiver of a sticky FAIL. Requires a non-empty reason.
+
+    Does not delete the history: the job row moves FAIL → WAIVED or
+    INFEASIBLE and an event stores the reason. A later PASS still cannot
+    erase it (see job_transition). ``kind`` is ``waiver`` or
+    ``design-infeasible``.
+    """
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValueError("waiver requires a reason")
+    if kind not in ("waiver", "design-infeasible"):
+        raise ValueError("waiver kind must be waiver or design-infeasible")
+    new_state = "WAIVED" if kind == "waiver" else "INFEASIBLE"
+    now = _ms()
+    with conn:
+        cur = conn.execute(
+            "UPDATE job SET state=?, error_class=?, updated=? "
+            "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=? "
+            "AND state='FAIL'",
+            (new_state, reason[:120], now, project_id, stage, input_sha,
+             rules_sha))
+        if cur.rowcount != 1:
+            raise ValueError(
+                "waiver applies only to an existing FAIL row for this "
+                "revision")
+        conn.execute(
+            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
+            (None, kind, json.dumps({
+                "project_id": project_id, "stage": stage,
+                "input_sha": input_sha, "reason": reason,
+            }, ensure_ascii=False), now))
+    return {"applied": True, "state": new_state, "reason": reason}
 
 
 def is_committed(conn, batch, project_id, fcstd_sha=None):

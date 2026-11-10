@@ -515,8 +515,12 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
         sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     # R3 recheck: a receipt certifies THIS project's design - identity is
     # verified, not assumed. L2 must bind the exact render digests it saw.
+    _mod = proj.field("family_module") or (
+        str(proj.field("family", "")) + ".py")
+    if _mod and not str(_mod).endswith(".py"):
+        _mod = str(_mod) + ".py"
     _family_file = os.path.join(cad_root, "family",
-                                str(proj.field("family", "")) + ".py")
+                                os.path.basename(str(_mod))) if _mod else ""
     _family_sha = (sha256_file(_family_file)
                    if os.path.exists(_family_file) else None)
     _render_digests = {}
@@ -586,7 +590,13 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
         cl0 = _load_json(os.path.join(d0, "DELIVERY_CHECKLIST.json")) or {}
         okd = okd and cl0.get("acceptance_overall") == "PASS"
         if okd:
-            okd = sha256_file(os.path.join(d0, pid + ".FCStd")) == fcstd_sha
+            from .chain import verify_delivery_hashes
+            _hash_ok, _hash_why = verify_delivery_hashes(
+                cl0, d0, sha256_file)
+            okd = _hash_ok and sha256_file(
+                os.path.join(d0, pid + ".FCStd")) == fcstd_sha
+            if not _hash_ok:
+                warnings.append("checklist byte identity failed: " + _hash_why)
         # W17 recheck: the DELIVERED claim is the ledger's artifact digest
         # table - verify every committed byte, not just the native, before
         # honouring "already delivered" (post-delivery render tampering is
@@ -810,6 +820,8 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
         repro.pop("ts", None)          # deterministic artifact (N1 r5)
         repro.update({
             "project_id": pid, "batch": batch, "fcstd_sha256": fcstd_sha,
+            "family": proj.field("family") or "",
+            "family_sha256": _family_sha,
             "cadkit_files_sha256": hsrc.hexdigest(),
             "files": {rel: sha256_file(os.path.join(staging, rel))
                       for rel in sorted(copied)},
@@ -936,14 +948,24 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
             "files": len(copied), "bad_paths": path_issue,
             "folder_named_project_id": True,
             "ok": not path_issue}
+        file_hashes = {rel: sha256_file(os.path.join(staging, rel))
+                       for rel in sorted(set(copied))}
         chk["7_evidence_provenance"] = {
             "rules_sha": rules_sha,
+            "family_sha256": _family_sha,
             "validate_report": bool(gate.get("engine") or gate.get("rules_sha")),
             "probe_bound": True, "export_manifest": bool(manifest0),
             "waivers": len(waiver_shas), "warnings": warnings,
-            "ok": True}
+            "file_count": len(file_hashes),
+            "ok": bool(file_hashes) and bool(rules_sha)}
+        review_ok = (review_status == "complete") if require_review else True
         chk["8_review_receipts"] = {"status": review_status,
-                                    "receipts": rinfo, "ok": True}
+                                    "receipts": rinfo,
+                                    "required": bool(require_review),
+                                    "review_satisfied": review_status == "complete",
+                                    "ok": review_ok}
+        chk["9_byte_identity"] = {"files": file_hashes,
+                                  "ok": bool(file_hashes)}
         all_ok = all(c["ok"] for c in chk.values())
         # N1 round 5: artifact files must be PURE functions of content -
         # a wall-clock stamp here made an identical re-package of a
@@ -955,6 +977,8 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
                              "acceptance_overall": "PASS" if all_ok else "FAIL",
                              "review_status": review_status,
                              "superseded_rev": superseded_rev,
+                             "family_sha256": _family_sha,
+                             "files": file_hashes,
                              "checklist": chk}
         with _safe_open_w(os.path.join(staging,
                               "DELIVERY_CHECKLIST.json")) as f:
@@ -1088,30 +1112,46 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
             # publisher B slip in between: A then deleted or replaced
             # B's freshly delivered folder while B's row stayed
             # delivered+published.
-            from .ledger import _pub_lock as _pl8, _pub_unlock as _pu8
+            from .ledger import (_pub_lock as _pl8, _pub_unlock as _pu8,
+                                 inspect_native)
+            from .chain import cleanup_decision
             _fd8 = _pl8(final)
             kept_newer = False
             note2 = ""
             try:
                 _nat = os.path.join(final, pid + ".FCStd")
-                on_disk = sha256_file(_nat) if os.path.exists(_nat) \
-                    else None
-                if on_disk is not None and on_disk != fcstd_sha:
+                _status, on_disk = inspect_native(_nat)
+                query_error = None
+                winner_sha = None
+                if _status == "ready" and on_disk != fcstd_sha:
                     try:
                         conn.commit()
-                    except Exception:
-                        pass
-                    winner = conn.execute(
-                        "SELECT r.fcstd_sha FROM delivery d JOIN model m "
-                        "ON m.model_id=d.model_id JOIN revision r "
-                        "ON r.rev=d.rev WHERE d.batch_id=? AND "
-                        "m.project_id=? AND d.state='delivered' AND "
-                        "d.rev<>? ORDER BY d.rowid DESC LIMIT 1",
-                        (batch, pid, rev)).fetchone()
-                    kept_newer = bool(winner) and winner[0] == on_disk
-            except Exception:
-                kept_newer = False
-            try:
+                        winner = conn.execute(
+                            "SELECT r.fcstd_sha FROM delivery d JOIN model m "
+                            "ON m.model_id=d.model_id JOIN revision r "
+                            "ON r.rev=d.rev WHERE d.batch_id=? AND "
+                            "m.project_id=? AND d.state='delivered' AND "
+                            "d.rev<>? ORDER BY d.rowid DESC LIMIT 1",
+                            (batch, pid, rev)).fetchone()
+                        winner_sha = winner[0] if winner else None
+                    except Exception as exc:
+                        query_error = str(exc)
+                # Re-read immediately before any destructive call. A
+                # second I/O error is unknown even if the first read worked.
+                _status2, _sha2 = inspect_native(_nat)
+                if _status2 == "io-error":
+                    query_error = query_error or "re-check io-error"
+                    _status = "io-error"
+                decision = cleanup_decision(
+                    native_status=_status, native_sha=on_disk,
+                    our_sha=fcstd_sha, winner_sha=winner_sha,
+                    query_error=query_error,
+                    final_exists=os.path.lexists(final))
+                if decision == "unknown":
+                    return {"ok": False, "stage": "publish",
+                            "error": "ownership unreadable; delivery folder "
+                                     "left intact (N43)"}
+                kept_newer = decision == "keep"
                 if not kept_newer:
                     if trash:
                         shutil.rmtree(final, ignore_errors=True)
@@ -1181,7 +1221,13 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
             from .ledger import _pub_lock as _pl, _pub_unlock as _pu
             _fd7 = _pl(final)
             try:
-                owner = _delivered_owns_disk(conn, batch, pid, final)
+                from .chain import OwnershipUnknown
+                try:
+                    owner = _delivered_owns_disk(conn, batch, pid, final)
+                except OwnershipUnknown as own_err:
+                    return {"ok": False, "stage": "publish",
+                            "error": str(own_err)[:180] +
+                            " - disk and ledger left intact (N43)"}
                 if owner is not None and owner != rev:
                     return {"ok": False, "stage": "publish",
                             "error": str(e2)[:180] +
@@ -1288,15 +1334,21 @@ def _delivered_owns_disk(conn, batch, project_id, final):
     """N31 round 7: whose bytes, if anybody's, currently sit on the
     delivery path? Returns the rev of a DELIVERED revision whose
     committed native digest matches the folder's FCStd, else None."""
-    from .ledger import sha256_file
+    from .ledger import inspect_native
     nat = os.path.join(final, project_id + ".FCStd")
-    if not os.path.exists(nat):
+    status, dsha = inspect_native(nat)
+    if status == "io-error":
+        from .chain import OwnershipUnknown
+        raise OwnershipUnknown(
+            "cannot hash %s; refusing to decide ownership (N43)" % nat)
+    if status != "ready":
         return None
     try:
         conn.commit()  # end our read snapshot; see the freshest ledger
-    except Exception:
-        pass
-    dsha = sha256_file(nat)
+    except Exception as exc:
+        from .chain import OwnershipUnknown
+        raise OwnershipUnknown(
+            "ledger refresh failed during ownership read (N43): %s" % exc)
     row = conn.execute(
         "SELECT d.rev FROM delivery d JOIN model m "
         "ON m.model_id=d.model_id JOIN revision r ON r.rev=d.rev "

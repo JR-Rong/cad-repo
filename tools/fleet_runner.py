@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""双通道调度器：新件生产与旧件审查并行，包装（package）严格串行。
+"""双通道调度器：新件生产与旧件审查并行。
 
-为什么不能一味拉满：
-  * 单件峰值 RSS ~430–530 MB（实测），插件每进程 cap 2048 MB、进程组 6144 MB；
-  * N43(P1)/N44(P2) 都在并发发布/跨窗口合并上触发，出厂包未修 ⇒ `package` 必须独占；
-  * 探针自带并发上限（probe worker 2）。
-所以这里是**资源准入 + 单一 package 槽位**的池：生产跑 N 路 build/validate/probe/export，
-审查通道同时跑（它只做只读复检，很轻），要 package 的件排队进那一个槽位。
+一条产线：族谱核（一张图纸）→ 波次 intake 里的参数变体 → build → validate →
+probe → dedupe → export → package。本文件是唯一支持的入口；仓外的
+``cad-b-prep/driver.py`` 不再使用。
+
+包装在 N43 修好之后可以并行：每个零件一把锁，读不到交付物就放弃而不是删除，
+只有确定的「文件不存在」才当作没有更新的修订。``--package-workers`` 默认 2。
+探针结果按窗口追加，任何一条 FAIL 都是否决。
+
+断点续跑看 ``build/chain_evidence.json`` 里重新读过的哈希，不看台账里
+历史的 job=OK。那 172 条回填不会被当成已验收。
 
   python3 tools/fleet_runner.py --root ../cad --batch fleet_a_2026_11 \\
       --intake intake/waves/fleet_a_2026_11_w1.json --stages build,validate,probe,export \\
@@ -30,6 +34,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import plugin_source                                                # noqa: E402
+import acceptance                                                    # noqa: E402
+import family_freeze                                                 # noqa: E402
+sys.path.insert(0, plugin_source.VENDORED)
+from cadkit.chain import metric_drift                               # noqa: E402
 
 ENTRY = "entry.py"
 
@@ -142,24 +150,80 @@ class Recorder:
         finally:
             conn.close()
 
-    def record(self, pid, stage, ok, error_class=None):
+    def record(self, pid, stage, ok, error_class=None, max_attempts=3):
         conn = self._open(self.root)
         try:
-            self._rec(conn, pid, stage, self.input_hash(pid, stage),
-                      self.rules, "OK" if ok else "FAIL", error_class)
+            return self._rec(conn, pid, stage, self.input_hash(pid, stage),
+                             self.rules, "OK" if ok else "FAIL", error_class,
+                             max_attempts=max_attempts)
         finally:
             conn.close()
 
 
-def pending(rec, intake, stages, limit=None):
-    """Only queue what the ledger has not already accepted **for these very
-    inputs**（旧版按 (pid,stage) 查任意 input_sha 的 OK，改了模型也能续跑过去，
-    这是错的；现在是 pilotctl 的严格语义）。"""
+# b_in01 parts the 2026-11-01 binding audit marked BROKEN. They stay
+# quarantined until a new revision's evidence hashes match. Nothing here
+# deletes or rewrites their files.
+QUARANTINE_PIDS = {
+    "b_in01_082", "b_in01_097", "b_in01_112", "b_in01_121", "b_in01_125",
+    "b_in01_128", "b_in01_132", "b_in01_136", "b_in01_140", "b_in01_144",
+    "b_in01_148", "b_in01_154", "b_in01_158", "b_in01_161",
+}
+
+
+def _family_file(root, pid):
+    yml = os.path.join(root, "projects", pid, "project.yml")
+    module = None
+    family = acceptance.family_key(pid)
+    try:
+        doc = json.load(open(yml, encoding="utf-8"))
+        module = doc.get("family_module")
+        family = doc.get("family") or family
+    except (OSError, ValueError):
+        doc = {}
+    if not module and family:
+        module = family + ".py" if not str(family).endswith(".py") else family
+    path = os.path.join(root, "family", module) if module else None
+    if path and not os.path.isfile(path):
+        alt = os.environ.get("CADKIT_FAMILY_SRC")
+        if alt:
+            cand = os.path.join(os.path.expanduser(alt), os.path.basename(module))
+            if os.path.isfile(cand):
+                path = cand
+    return family, path if path and os.path.isfile(path) else None
+
+
+def pending(rec, intake, stages, limit=None, repair_failed=False,
+            max_attempts=3, only=None):
+    """Queue stages that do not have re-verified evidence for these bytes.
+
+    A ledger job row of OK is not enough — the 172 backfilled b_in01
+    parts have no chain_evidence.json and are queued again.
+    """
     doc = json.load(open(intake, encoding="utf-8"))
-    pids = doc.get("parts", [])
+    pids = list(doc.get("parts", []))
+    if only:
+        want = set(only)
+        pids = [p for p in pids if p in want]
     out = []
     for pid in pids:
-        todo = [s for s in stages if rec.state(pid, s) != "OK"]
+        ev = acceptance.load_evidence(rec.root, pid)
+        _fam, fam_path = _family_file(rec.root, pid)
+        hashes = acceptance.disk_hashes(rec.root, pid, fam_path)
+        todo = []
+        for stage in stages:
+            try:
+                ih = rec.input_hash(pid, stage)
+            except SystemExit:
+                raise
+            except Exception:
+                ih = None
+            if ih and acceptance.stage_skippable(ev, stage, ih, hashes):
+                continue
+            st = ((ev or {}).get("stages") or {}).get(stage) or {}
+            if (not repair_failed and st.get("state") == "FAIL"
+                    and acceptance.attempts_of(ev, stage) >= max_attempts):
+                continue
+            todo.append(stage)
         if todo:
             out.append((pid, todo))
     return out[:limit] if limit else out
@@ -232,6 +296,8 @@ def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
         opts["batch"] = batch
     if stage == "export":
         opts["long_side"] = 2400
+    if stage == "dedupe":
+        opts["register"] = "1"
     env.update({"CADKIT_ACTION": stage, "CADKIT_ROOT": root, "CADKIT_PROJECT": pid,
                 "CADKIT_MEM_MB": str(mem_mb), "CADKIT_OPTS": json.dumps(opts)})
     # 修（B 机 08:30 报告②，代码复核成立）：FreeCAD 的进度条与 CADKIT JSON
@@ -287,7 +353,16 @@ def main():
     ap.add_argument("--batch", required=True)
     ap.add_argument("--intake", required=True, help="emit_members.py 生成的本波 intake")
     ap.add_argument("--stages", default="build,validate,probe,export")
-    ap.add_argument("--package", action="store_true", help="本波结束后串行包装")
+    ap.add_argument("--package", action="store_true",
+                    help="阶段通过后包装。N43 已 fail-closed，可与 --package-workers 并行")
+    ap.add_argument("--package-workers", type=int, default=2,
+                    help="并行包装数。每件一把锁；默认 2")
+    ap.add_argument("--max-attempts", type=int, default=3,
+                    help="同一修订上瞬时失败的重试上限；设计 FAIL 不因后来的 PASS 被抹掉")
+    ap.add_argument("--repair-failed", action="store_true",
+                    help="已耗尽次数的 FAIL 再排队（新修订或人工修复之后）")
+    ap.add_argument("--only", default=None,
+                    help="只跑这些件号，逗号分隔（例如 14 件隔离重修）")
     ap.add_argument("--workers", type=int, default=3, help="生产并发（按内存预算取）")
     ap.add_argument("--mem-budget-mb", type=int, default=6144)
     ap.add_argument("--per-part-mb", type=int, default=600,
@@ -336,16 +411,70 @@ def main():
         print("握手自检：%s ✓（与签发值一致）" % (got or "引擎未报告 rules_sha"))
     root = os.path.abspath(os.path.expanduser(a.root))
     allowed = max(1, min(a.workers, a.mem_budget_mb // a.per_part_mb))
+    fam_status, fam_detail = "missing", "no manifest"
+    if a.machine:
+        fam_status, fam_detail = family_freeze.check(
+            a.machine, os.path.join(root, "family"))
+        if fam_status == "mismatch":
+            print("BLOCK 族谱核与 family_src/%s 不一致：%s" % (a.machine, fam_detail))
+            print("      先 tools/family_freeze.py，或把活核恢复成冻结字节。不要边跑边改核。")
+            return 2
+        if fam_status != "ok":
+            print("WARN 族谱核未冻结（%s）。本波可以跑，验收不能 ACCEPT。" % fam_detail)
     rec = Recorder(root, engine, a.expect_rules or rules_sha_of(engine))
-    todo = pending(rec, a.intake, stages, a.limit)
+    only = [p.strip() for p in a.only.split(",")] if a.only else None
+    todo = pending(rec, a.intake, stages, a.limit,
+                   repair_failed=a.repair_failed, max_attempts=a.max_attempts,
+                   only=only)
     print("引擎 %s（%s）\n本波待跑 %d 件（阶段 %s）；生产并发 %d（内存预算 %dMB / 单件 %dMB），package %s"
           % (engine, os.path.basename(freecad), len(todo), ",".join(stages), allowed,
              a.mem_budget_mb, a.per_part_mb,
-             "串行单槽" if a.package else "本次不做"))
+             ("并行 %d" % a.package_workers) if a.package else "本次不做"))
+    def wave_rows():
+        doc = json.load(open(a.intake, encoding="utf-8"))
+        rows = []
+        for pid in doc.get("parts", []):
+            ev = acceptance.load_evidence(root, pid)
+            _fam, fam_path = _family_file(root, pid)
+            hashes = acceptance.disk_hashes(root, pid, fam_path)
+            fp = None
+            if ev:
+                for st in (ev.get("stages") or {}).values():
+                    if isinstance(st, dict) and st.get("fingerprint"):
+                        fp = st["fingerprint"]
+            if (acceptance.evidence_is_accepted(ev, hashes)
+                    and fam_status == "ok"):
+                status = "accepted"
+            elif pid in QUARANTINE_PIDS:
+                status = "quarantined"
+            elif ev and ev.get("n45_conflict"):
+                status = "n45_conflict"
+            elif ev and any((s or {}).get("state") == "FAIL"
+                            for s in (ev.get("stages") or {}).values()):
+                status = "needs_repair"
+            else:
+                status = "unverified"
+            rows.append({"project_id": pid, "status": status,
+                         "family": acceptance.family_key(pid),
+                         "fingerprint": fp if status == "accepted" else None,
+                         "detail": (ev or {}).get("accept_reason")})
+        return rows
+
+    def emit_report():
+        paths = acceptance.write_wave_report(
+            REPO, a.batch, wave_rows(), intake=a.intake, root=root,
+            extra={"family_core": fam_status, "family_detail": fam_detail,
+                   "quarantine_pids": sorted(QUARANTINE_PIDS),
+                   "note": "accepted + quarantined + infeasible should equal "
+                           "400 per family before the next wave"})
+        print("验收报告 %s  VERDICT %s" % (paths["report"], paths["verdict"]))
+        return paths
+
     if a.dry_run:
         for pid, t in todo[:5]:
             print("  %s: %s" % (pid, ",".join(t)))
         print("dry-run，未执行")
+        emit_report()
         return 0
 
     q = queue.Queue()
@@ -358,6 +487,63 @@ def main():
     lock = threading.Lock()
     stop = threading.Event()
     stats = {"ok": 0, "fail": 0, "reviews": 0, "packaged": 0, "done_parts": 0}
+    paused = set()
+    design_fails = {}
+
+    def remember(pid, stage, r):
+        """Ledger + evidence. A sticky FAIL beats a later engine PASS."""
+        klass = None if r.get("ok") else acceptance.classify_failure(r.get("error"))
+        stored = rec.record(pid, stage, r.get("ok"), klass,
+                            max_attempts=a.max_attempts)
+        if r.get("ok") and isinstance(stored, dict) and not stored.get("applied"):
+            r["ok"] = False
+            r["error"] = stored.get("reason") or "N45 sticky FAIL"
+            klass = "n45_sticky"
+        fam, fam_path = _family_file(root, pid)
+        hashes = acceptance.disk_hashes(root, pid, fam_path)
+        ev = acceptance.load_evidence(root, pid) or acceptance.fresh_evidence(
+            pid, fam, hashes.get("family_core_sha256"), rec.rules)
+        payload = None
+        outp = os.path.join(root, "projects", pid, "build",
+                            "runner_%s.json" % stage)
+        try:
+            payload = json.load(open(outp, encoding="utf-8"))
+        except (OSError, ValueError):
+            payload = None
+        fp = None
+        drift = False
+        if isinstance(payload, dict):
+            raw = payload.get("fingerprint")
+            if isinstance(raw, dict) and "volume" in raw:
+                fp = raw
+            elif isinstance(raw, dict) and isinstance(raw.get("fingerprint"), dict):
+                fp = raw["fingerprint"]
+        prev_fp = None
+        for st in (ev.get("stages") or {}).values():
+            if isinstance(st, dict) and isinstance(st.get("fingerprint"), dict):
+                prev_fp = st["fingerprint"]
+        if (fp and prev_fp and hashes.get("family_core_sha256")
+                and ev.get("family_core_sha256") == hashes.get("family_core_sha256")):
+            drift = metric_drift(prev_fp, fp)
+        try:
+            ih = rec.input_hash(pid, stage)
+        except Exception:
+            ih = None
+        acceptance.note_stage(
+            ev, stage, ok=r.get("ok"), input_sha=ih, error_class=klass,
+            hashes=hashes, fingerprint=fp, max_attempts=a.max_attempts,
+            drift=drift)
+        want = list(stages) + (["package"] if a.package else [])
+        acceptance.mark_acceptance(ev, hashes, want)
+        if fam_status != "ok":
+            ev["accepted"] = False
+            ev["accept_reason"] = "family core unfrozen"
+        acceptance.save_evidence(root, pid, ev)
+        if klass == "design":
+            design_fails[fam] = design_fails.get(fam, 0) + 1
+            if design_fails[fam] >= 3:
+                paused.add(fam)
+        return r
 
     def emit(rec):
         with lock:
@@ -370,26 +556,32 @@ def main():
                 pid, t = q.get_nowait()
             except queue.Empty:
                 return
+            if acceptance.family_key(pid) in paused:
+                emit({"lane": "produce", "pid": pid, "ok": False,
+                      "error": "family paused after 3 design FAILs"})
+                q.task_done()
+                continue
             for stage in t:
                 r = run_stage(freecad, entry, root, a.batch, pid, stage,
                               a.stage_mem_mb, a.timeout, a.expect_rules)
                 r["lane"] = "produce"
                 r["worker"] = n
-                emit(r)
                 with lock:
-                    rec.record(pid, stage, r["ok"],
-                               (r.get("error") or "")[:40] or None)
+                    remember(pid, stage, r)
                     stats["ok" if r["ok"] else "fail"] += 1
-                    print("%-7s [%d] %-18s %-8s %s%s" % ("ok" if r["ok"] else "FAIL", n, pid,
-                          stage, "%5.1fs" % r["seconds"], "  " + str(r["error"])[:90] if not r["ok"]
-                          else ("  degraded" if r["degraded"] else "")), flush=True)
+                emit(r)
+                print("%-7s [%d] %-18s %-8s %s%s" % (
+                    "ok" if r["ok"] else "FAIL", n, pid, stage,
+                    "%5.1fs" % r["seconds"],
+                    "  " + str(r["error"])[:90] if not r["ok"]
+                    else ("  degraded" if r["degraded"] else "")), flush=True)
                 if not r["ok"]:
                     break                        # 任一 FAIL 不再往下走（工单 §3）
             else:
                 with lock:
                     stats["done_parts"] += 1
                     if a.package:
-                        pkg_q.put(pid)          # 单一消费者 ⇒ 包装天然串行
+                        pkg_q.put(pid)
                     if a.review_batch and stats["done_parts"] % a.review_every == 0:
                         review_q.put_nowait(stats["done_parts"])   # 与 package 无关
             q.task_done()
@@ -427,7 +619,7 @@ def main():
     threads = [threading.Thread(target=worker, args=(i,), daemon=True) for i in range(allowed)]
     for t in threads:
         t.start()
-    pkg_thread = None
+    pkg_threads = []
     if a.package:
         def do_package():
             while not stop.is_set():
@@ -443,26 +635,30 @@ def main():
                 finally:
                     pkg_q.task_done()      # 没有这句，pkg_q.join() 永远返回不了（实测挂死）
                 r["lane"] = "package"
-                emit(r)
                 with lock:
-                    rec.record(pid, "package", r["ok"],
-                               (r.get("error") or "")[:40] or None)
+                    remember(pid, "package", r)
                     stats["packaged" if r["ok"] else "fail"] += 1
                     print("PACKAGE %-18s %s%s" % (pid, "ok" if r["ok"] else "FAIL",
                           "  " + str(r["error"])[:90] if not r["ok"] else ""), flush=True)
-        pkg_thread = threading.Thread(target=do_package, daemon=True)
-        pkg_thread.start()
+                emit(r)
+        n_pkg = max(1, a.package_workers)
+        for _i in range(n_pkg):
+            th = threading.Thread(target=do_package, daemon=True)
+            th.start()
+            pkg_threads.append(th)
 
     for t in threads:
         t.join()
     # 生产线程结束后必须把包装队列排空再停：半途 stop 会静默丢掉交付，
     # 在 20 万件规模上就是"台账说做了 2 万件、盘上只有 1.9 万件"。
-    if pkg_thread:
+    if pkg_threads:
         pkg_q.join()
     stop.set()
-    for t in (review_thread, pkg_thread):
-        if t:
-            t.join(timeout=120)
+    if review_thread:
+        review_thread.join(timeout=120)
+    for t in pkg_threads:
+        t.join(timeout=120)
+    emit_report()
     print("完成：件 %d（含 %d 次旧件复检），阶段 ok=%d fail=%d，package=%d；日志 %s"
           % (stats["done_parts"], stats["reviews"], stats["ok"], stats["fail"],
              stats["packaged"], os.path.relpath(log.name, REPO)))

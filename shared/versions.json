@@ -1,8 +1,9 @@
 {
-  "engine_plugin_version": "0.5.0",
+  "engine_plugin_version": "0.5.1",
   "tarball": "local-dsh-plugin-cad-freecad-0.5.0.tgz",
   "tarball_sha256": "2c20ed9df517259616d3b22e4e8ce382ce491d7fef9e81adfdc3974b9f19a872",
-  "rules_sha": "1d835a8f3d2ef4f1",
+  "tarball_note": "releases/0.5.0.tgz 不含 2026-11-10 的 N43/N44/N45 门禁。生产用仓库 plugin/dsh-plugin-cad-freecad/python，不要用旧包覆盖。新 tarball 需在 Mac 上重打。",
+  "rules_sha": "738ed327ead2108c",
   "engine_source": "handoff/plugin/dsh-plugin-cad-freecad/python（与 releases/*.tgz 同源）",
   "rules_sha_dev_checkout": "64a95367ef997904",
   "family_iec_endcap_sha256": "687e6cebde82d3e0d2665a6761dfeed129c352d9c52fa43e71c5750a169fa303",
@@ -10,9 +11,9 @@
   "freecad_version_local": "FreeCAD 1.1.1 Revision: 20260414 (Git shallow)",
   "handoff_batch": "fleet_b_2026_11",
   "known_plugin_defects": {
-    "N43 (P1, 未修)": "packager.py 所有权读失败被当作“无更新者”，会删除/覆盖别人更新的交付 —— package 必须串行、一次一件",
-    "N44 (P2, 未修)": "probe.py 跨窗口 results.update() 让后到 PASS 抹掉先前 FAIL —— 同一件不要跨窗口重复上报，重跑整件",
-    "N1/N2/N16/N18/N20/N23": "部分通过：异常路径与合并语义未收敛（与上面两条同源）"
+    "N43": "已修：只有确定的文件不存在才表示没有更新修订；其他 I/O 失败保持现场。每件一把锁。",
+    "N44": "已修：探针记录按窗口追加，任一 FAIL 即 FAIL。",
+    "N45": "已修：同一修订的 FAIL 不能被后来的 PASS 覆盖；要新修订或带原因的 waiver。"
   },
   "role": "machine-A issues this; machine B echoes the same keys into its return"
 }
