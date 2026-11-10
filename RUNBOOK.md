@@ -63,9 +63,33 @@ python3 tools/fleet_runner.py --root ~/cad-fleet --batch fleet_b_2026_11 \
 
 包装会读 `projects/<件号>/review/receipts.json` 交给打包器，并把这份文件的 sha256 算进 package 的 input hash。文件不在，或回执不完整，记 **PENDING_REVIEW**，不是设计 FAIL，也不计入「一族 3 次设计 FAIL 就停族」。补上合格回执后同一件可以再跑。没有 `review_status=complete` 仍然不能 accepted。
 
-每次实跑会在日志里写一行 `lane=run_header`（`first_line_of_run: true`）。这是**这一次运行的第一行**，不是整个日志文件的第一行（日志是追加的）。行里有本次开头的台账备份 sha256。跑完再写 `lane=run_footer` 的结束 sha256。下次启动会拿当前台账和上次的结束 sha256 比，对不上就在台账里记下，这一波不能 ACCEPT。
+每次实跑会在日志里写一行 `lane=run_header`（`first_line_of_run: true`）。这是**这一次运行的第一行**，不是整个日志文件的第一行（日志是追加的）。行里有本次开头的台账备份 sha256，以及链锚（事件条数和最后一条 `row_hash`）。跑完再写 `lane=run_footer`，同样带结束 sha256 和链锚，并写到两个固定文件里，不写进按分钟命名的日志名：
 
-Python 里那个「有没有 WHERE」的检查只防手滑（`WHERE 1`、注释、CTE 都绕得过）。真正挡住的是触发器，而且只挡得住还装着这些触发器的库：`job` / `event` / `fingerprint` / `evidence_seal` / `waiver` / `rules_rereview` 不能 DELETE，`event` 和 `waiver`、`rules_rereview` 不能 UPDATE。`job` 可以 UPDATE，但改不了身份列，FAIL 不能改成 OK（除非同一把钥匙上已经有 `rules_rereview` 行），FAIL 改成 WAIVED 之前必须先有 `waiver` 行。`job` 每次合法更新都会自动补一条 `旧状态 -> 新状态` 的 event。event 才是账，job 是缓存。有人能改数据库文件的话，可以拆掉触发器；`open_ledger` 会在补回触发器之前发现缺了哪一个，写下 `schema_tampered`，这一波不能 ACCEPT。触发器防的是手滑，不是防一个已经能写这个文件的人。
+- `<cadRoot>/ledger.end.sha` — 上次 sqlite `.backup` 的 sha256。下次开跑拿**当前**备份和这个文件比。日志名带分钟，换一分钟就是另一个文件，从日志里读会永远读到空，等于没比。
+- `<cadRoot>/ledger.chain.anchor` — 链头锚，在台账文件**外面**。内容是 `{event_count, head_event_id, head_hash}`。每次开跑核对「第 event_count 条事件的 `row_hash` 仍然是 head_hash」。链本身没有密钥，只改库里的哈希并重算，`verify_event_chain` 仍会通过；锚在库外，重算之后对不上。
+
+**上 Mac 后先做一次：** 同一份没有改过的台账，连续跑两次。两次的 sqlite `.backup` sha 必须相同。不相同的话，`ledger_sha_mismatch` 会误报（备份字节不稳定），先查这个，不要当成有人改了库。
+
+对不上时追加一条告警，**不会**在下次对上时自动清成 0。`schema_tampered`、`ledger_sha_mismatch`、`chain_anchor_mismatch` 都写在 `ledger_alarm`（只插入）并各有一条 event。要清掉，必须写一条带原因的确认：
+
+```sh
+python3 - << 'PY'
+import os, sys
+sys.path.insert(0, "plugin/dsh-plugin-cad-freecad/python")
+from cadkit.ledger import acknowledge_alarm, open_ledger
+conn = open_ledger(os.path.expanduser("~/cad-fleet"))
+acknowledge_alarm(conn, "schema_tampered", "看过缺失的触发器，确认是这次升级装上的")
+conn.close()
+PY
+```
+
+`kind` 只能是 `schema_tampered`、`ledger_sha_mismatch`、`chain_anchor_mismatch`。原因空着会拒绝。旧库第一次被这版打开，会因为新加了 `state_transition` / `ledger_alarm` 的触发器而记下一次 `schema_tampered`。看过之后用上面的确认清掉，否则这一波不能 ACCEPT。
+
+Python 里那个「有没有 WHERE」的检查只防手滑（`WHERE 1`、注释、CTE 都绕得过）。真正挡住的是触发器，而且只挡得住还装着这些触发器的库：`job` / `event` / `fingerprint` / `evidence_seal` / `waiver` / `rules_rereview` / `state_transition` / `ledger_alarm` 不能 DELETE，`event`、`waiver`、`rules_rereview`、`state_transition`、`ledger_alarm` 不能 UPDATE。`job` 可以 UPDATE，但改不了身份列。粘滞状态（FAIL / WAIVED / INFEASIBLE）只允许两条路：FAIL→WAIVED 或 FAIL→INFEASIBLE，且已经有对应的 `waiver` 行；以及 `error_class` 以 `inherited:` 开头的 FAIL→OK，且同一把钥匙上有带原因的 `rules_rereview`。别的都不行，包括 FAIL→PENDING_REVIEW 再改成 OK。粘滞状态下 `error_class` 不能改，`attempt` 只能增加不能减小。合法更新的 event 里记下改之前和改之后的 attempt、error_class。
+
+`rules_rereview` 只解开 **n45_inherit** 记下来的 FAIL。设计 FAIL 只能靠 waiver。这个判断查 `state_transition`（只插入，按 project/stage/input/rules 建了索引），不再对每一件扫整张 event。
+
+event 的 `row_hash` 只在迁移时补一次（meta `event_hash_backfill=1`）。之后谁把 `row_hash` 改成 NULL，再打开也不会重算，`verify_event_chain` 直接失败。写 event 时用 `BEGIN IMMEDIATE`，避免两个写者读到同一个链头再各写一条。有人能改数据库文件的话，可以拆掉触发器；`open_ledger` 会在补回触发器之前发现缺了哪一个，写下 `schema_tampered`，这一波不能 ACCEPT。触发器防的是手滑，不是防一个已经能写这个文件的人。锚文件和 `ledger.end.sha` 也在这个文件旁边，能改库的人通常也能改这两个文件；运行日志里打印的链头是另一份对照。
 
 旧的 `event.kind=rules_rereview` 会在 `open_ledger` 时抄进 `rules_rereview` 表（`INSERT OR IGNORE`，可以重复跑）。也可以单独跑：
 
@@ -208,5 +232,19 @@ python3 tools/emit_members.py --machine E --wave 1 > intake/waves/fleet_e_2026_1
 
 **并发试验通过之前，`--package-workers` 保持 1。**
 
-1. 两路包装试验：大约 20 件，`--package-workers 2`，其中一件的件号故意提交两次。日志要能证明走的是 `renamex_np`（macOS）那条不覆盖的改名；目录里不能剩下 `.stale.` / `.superseded.`；每一件的台账和磁盘要对得上。试验进行到一半，用**正在安装的那份 0.5.0 引擎**对同一个 cadRoot、同一个批次再发一次 package。它必须堵在 `.publisher.lock` 上，不能把文件发出去。这几条都成立，才可以把 `--package-workers` 调到大于 1。
+1. 两路包装试验：大约 20 件，`--package-workers 2`，其中一件的件号故意提交两次。日志要能证明走的是 `renamex_np`（macOS）那条不覆盖的改名；目录里不能剩下 `.stale.` / `.superseded.`；每一件的台账和磁盘要对得上。试验进行到一半，用**正在安装的那份 0.5.0 引擎**对同一个 cadRoot、同一个批次再发一次 package。它必须堵在 `.publisher.lock` 上，不能把文件发出去。试验收尾再跑一次 `verify_event_chain`，必须为真（两个包装线程同时写 event，链不能分叉）：
+
+```sh
+python3 - << 'PY'
+import os, sys
+sys.path.insert(0, "plugin/dsh-plugin-cad-freecad/python")
+from cadkit.ledger import open_ledger, verify_event_chain
+conn = open_ledger(os.path.expanduser("~/cad-fleet"))
+print("verify_event_chain", verify_event_chain(conn))
+assert verify_event_chain(conn)
+conn.close()
+PY
+```
+
+这几条都成立，才可以把 `--package-workers` 调到大于 1。另外对同一份没改过的台账连续跑两次，`<cadRoot>/ledger.end.sha` 和两次 `.backup` 的 sha 必须一致，否则会误报。
 2. 097 结案：用 1.1.1 打开当前 FCStd，确认没有 trough/cbore/tab；比较当前 FCStd、`.FCBak`、`manifest.fcstd_sha` 三份哈希并归档。在此之前，门禁 5 对 097 保持「暂时闭合」。

@@ -314,19 +314,18 @@ def job_transition(old_state, new_state, *, error_class=None,
     old = (old_state or "").upper()
     if not new:
         return ("keep", "empty job state")
-    # Missing review receipts are not a design failure and are not sticky.
-    if new == "PENDING_REVIEW":
-        if old in ("FAIL", "WAIVED", "INFEASIBLE"):
-            return ("keep",
-                    "N45: %s sticks; missing review does not replace it" % old)
-        return ("write", "PENDING_REVIEW")
-    if old == "PENDING_REVIEW" and new in ("OK", "PASS", "DONE", "RETRY"):
-        return ("write", new)
-    if old in ("FAIL", "WAIVED", "INFEASIBLE") and new in (
-            "OK", "PASS", "DONE", "RETRY"):
+    # Sticky rows are not rewritten here. The only writers that may leave
+    # FAIL are record_waiver and the inherited-FAIL re-review path, and
+    # both of those are checked again by the job UPDATE trigger.
+    if old in ("FAIL", "WAIVED", "INFEASIBLE"):
         return ("keep",
                 "N45: %s sticks for this revision; new revision or waiver"
                 % old)
+    # Missing review receipts are not a design failure and are not sticky.
+    if new == "PENDING_REVIEW":
+        return ("write", "PENDING_REVIEW")
+    if old == "PENDING_REVIEW" and new in ("OK", "PASS", "DONE", "RETRY"):
+        return ("write", new)
     kind = (error_class or "").split(":")[0].lower()
     if new == "FAIL" and kind in TRANSIENT_CLASSES:
         used = int(attempt or 0) + 1

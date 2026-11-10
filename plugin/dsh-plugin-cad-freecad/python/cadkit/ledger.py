@@ -181,12 +181,70 @@ BEFORE DELETE ON rules_rereview
 BEGIN
   SELECT RAISE(ABORT, 'rules_rereview rows cannot be deleted');
 END;
--- job is a cache of the event log. Identity columns never change.
--- FAIL/WAIVED/INFEASIBLE cannot become OK/PASS/DONE/RETRY.
--- FAIL becomes WAIVED or INFEASIBLE only after a waiver row exists.
--- A rules_rereview row authorizes FAIL -> OK for that exact key
--- (the previous review's re-review path).
-CREATE TRIGGER IF NOT EXISTS job_update_guard
+-- Indexed, insert-only copy of job/inherit transitions. Acceptance reads
+-- this instead of json_extract-scanning event. The event row is still
+-- the hash-chained log; this table is the lookup.
+CREATE TABLE IF NOT EXISTS state_transition(
+  transition_id INTEGER PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  input_sha TEXT NOT NULL,
+  rules_sha TEXT NOT NULL,
+  old_state TEXT,
+  new_state TEXT NOT NULL,
+  old_attempt INTEGER,
+  new_attempt INTEGER,
+  old_error TEXT,
+  new_error TEXT,
+  source TEXT NOT NULL,
+  created INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS state_transition_lookup
+  ON state_transition(project_id, stage, input_sha, rules_sha, new_state);
+CREATE TRIGGER IF NOT EXISTS state_transition_no_update
+BEFORE UPDATE ON state_transition
+BEGIN
+  SELECT RAISE(ABORT, 'state_transition rows cannot be rewritten');
+END;
+CREATE TRIGGER IF NOT EXISTS state_transition_no_delete
+BEFORE DELETE ON state_transition
+BEGIN
+  SELECT RAISE(ABORT, 'state_transition rows cannot be deleted');
+END;
+-- Alarms are append-only. action is 'raise' or 'ack'. A later ack with a
+-- non-empty reason is the only way to clear one. Nothing writes these
+-- back to 0.
+CREATE TABLE IF NOT EXISTS ledger_alarm(
+  alarm_id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL,
+  action TEXT NOT NULL,
+  reason TEXT,
+  created INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS ledger_alarm_kind
+  ON ledger_alarm(kind, alarm_id);
+CREATE TRIGGER IF NOT EXISTS ledger_alarm_no_update
+BEFORE UPDATE ON ledger_alarm
+BEGIN
+  SELECT RAISE(ABORT, 'ledger_alarm rows cannot be rewritten');
+END;
+CREATE TRIGGER IF NOT EXISTS ledger_alarm_no_delete
+BEFORE DELETE ON ledger_alarm
+BEGIN
+  SELECT RAISE(ABORT, 'ledger_alarm rows cannot be deleted');
+END;
+CREATE TABLE IF NOT EXISTS buyer_stock(
+  buyer_id TEXT NOT NULL, external_id TEXT NOT NULL, signature TEXT,
+  eligibility TEXT NOT NULL, receipt_sha TEXT,
+  PRIMARY KEY(buyer_id, external_id));
+"""
+
+# Reinstalled on every open so a ledger created by an older engine cannot
+# keep the trigger that treated any rules_rereview row as permission to
+# turn a design FAIL into OK. Names are checked before this runs; a missing
+# name is an alarm. A same-named body is replaced with this one.
+_JOB_TRIGGERS = """
+DROP TRIGGER IF EXISTS job_update_guard;
+DROP TRIGGER IF EXISTS job_update_event;
+CREATE TRIGGER job_update_guard
 BEFORE UPDATE ON job
 BEGIN
   SELECT RAISE(ABORT, 'job identity columns are immutable')
@@ -194,26 +252,38 @@ BEGIN
      OR OLD.stage IS NOT NEW.stage
      OR OLD.input_sha IS NOT NEW.input_sha
      OR OLD.rules_sha IS NOT NEW.rules_sha;
-  SELECT RAISE(ABORT, 'sticky job state cannot become OK')
+  SELECT RAISE(ABORT, 'attempt may only increase')
+  WHERE NEW.attempt < OLD.attempt;
+  SELECT RAISE(ABORT, 'error_class is immutable in a sticky state')
   WHERE OLD.state IN ('FAIL', 'WAIVED', 'INFEASIBLE')
-    AND NEW.state IN ('OK', 'PASS', 'DONE', 'RETRY')
-    AND NOT EXISTS (
-      SELECT 1 FROM rules_rereview
-      WHERE project_id = OLD.project_id AND stage = OLD.stage
-        AND input_sha = OLD.input_sha AND rules_sha = OLD.rules_sha
-        AND reason <> '');
-  SELECT RAISE(ABORT, 'FAIL to WAIVED/INFEASIBLE requires a waiver row')
-  WHERE OLD.state = 'FAIL'
-    AND NEW.state IN ('WAIVED', 'INFEASIBLE')
-    AND NOT EXISTS (
-      SELECT 1 FROM waiver
-      WHERE project_id = OLD.project_id AND stage = OLD.stage
-        AND input_sha = OLD.input_sha AND rules_sha = OLD.rules_sha
-        AND kind = CASE NEW.state
-                     WHEN 'WAIVED' THEN 'waiver'
-                     ELSE 'design-infeasible' END);
+    AND OLD.error_class IS NOT NEW.error_class;
+  SELECT RAISE(ABORT, 'sticky job state has no legal transition')
+  WHERE OLD.state IN ('FAIL', 'WAIVED', 'INFEASIBLE')
+    AND NOT (
+      (
+        OLD.state = 'FAIL'
+        AND NEW.state IN ('WAIVED', 'INFEASIBLE')
+        AND EXISTS (
+          SELECT 1 FROM waiver
+          WHERE project_id = OLD.project_id AND stage = OLD.stage
+            AND input_sha = OLD.input_sha AND rules_sha = OLD.rules_sha
+            AND kind = CASE NEW.state
+                         WHEN 'WAIVED' THEN 'waiver'
+                         ELSE 'design-infeasible' END)
+      )
+      OR (
+        OLD.state = 'FAIL'
+        AND NEW.state = 'OK'
+        AND IFNULL(OLD.error_class, '') LIKE 'inherited:%'
+        AND EXISTS (
+          SELECT 1 FROM rules_rereview
+          WHERE project_id = OLD.project_id AND stage = OLD.stage
+            AND input_sha = OLD.input_sha AND rules_sha = OLD.rules_sha
+            AND reason <> '')
+      )
+    );
 END;
-CREATE TRIGGER IF NOT EXISTS job_update_event
+CREATE TRIGGER job_update_event
 AFTER UPDATE ON job
 BEGIN
   INSERT INTO event(rev, kind, payload, created, prev_hash, row_hash)
@@ -221,22 +291,36 @@ BEGIN
     NEW.rev,
     'job_transition',
     cadkit_job_payload(OLD.project_id, OLD.stage, OLD.input_sha,
-                       OLD.rules_sha, OLD.state, NEW.state),
+                       OLD.rules_sha, OLD.state, NEW.state,
+                       OLD.attempt, NEW.attempt,
+                       OLD.error_class, NEW.error_class),
     NEW.updated,
-    COALESCE((SELECT row_hash FROM event ORDER BY event_id DESC LIMIT 1), ''),
+    COALESCE((SELECT row_hash FROM event WHERE row_hash IS NOT NULL
+              ORDER BY event_id DESC LIMIT 1), ''),
     cadkit_event_hash(
-      COALESCE((SELECT row_hash FROM event ORDER BY event_id DESC LIMIT 1), ''),
+      COALESCE((SELECT row_hash FROM event WHERE row_hash IS NOT NULL
+                ORDER BY event_id DESC LIMIT 1), ''),
       COALESCE(NEW.rev, ''),
       'job_transition',
       cadkit_job_payload(OLD.project_id, OLD.stage, OLD.input_sha,
-                         OLD.rules_sha, OLD.state, NEW.state),
+                         OLD.rules_sha, OLD.state, NEW.state,
+                         OLD.attempt, NEW.attempt,
+                         OLD.error_class, NEW.error_class),
       NEW.updated));
+  INSERT INTO state_transition(
+    project_id, stage, input_sha, rules_sha, old_state, new_state,
+    old_attempt, new_attempt, old_error, new_error, source, created)
+  VALUES (
+    OLD.project_id, OLD.stage, OLD.input_sha, OLD.rules_sha,
+    OLD.state, NEW.state, OLD.attempt, NEW.attempt,
+    OLD.error_class, NEW.error_class, 'job', NEW.updated);
 END;
-CREATE TABLE IF NOT EXISTS buyer_stock(
-  buyer_id TEXT NOT NULL, external_id TEXT NOT NULL, signature TEXT,
-  eligibility TEXT NOT NULL, receipt_sha TEXT,
-  PRIMARY KEY(buyer_id, external_id));
 """
+
+CHAIN_ANCHOR_NAME = "ledger.chain.anchor"
+END_SHA_NAME = "ledger.end.sha"
+_BACKFILL_FLAG = "event_hash_backfill"
+ALARM_KINDS = ("schema_tampered", "ledger_sha_mismatch", "chain_anchor_mismatch")
 
 
 def _ms():
@@ -329,6 +413,8 @@ class _GuardedConnection:
         self._conn = conn
         self._assert = assert_scoped_sql
         self._bad = sql_is_unscoped_mutation
+        self._tx_depth = 0
+        self._own_tx = False
 
     def execute(self, sql, parameters=()):
         self._assert(sql)
@@ -345,11 +431,27 @@ class _GuardedConnection:
         return self._conn.executescript(script)
 
     def __enter__(self):
-        self._conn.__enter__()
+        # Default sqlite3 ``with`` starts a deferred transaction on the
+        # first statement. Two writers can both read the chain head, then
+        # both insert. IMMEDIATE takes the write lock before that read.
+        if self._tx_depth == 0:
+            if not self._conn.in_transaction:
+                self._conn.execute("BEGIN IMMEDIATE")
+                self._own_tx = True
+            else:
+                self._own_tx = False
+        self._tx_depth += 1
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        return self._conn.__exit__(exc_type, exc, tb)
+        self._tx_depth -= 1
+        if self._tx_depth == 0 and self._own_tx:
+            self._own_tx = False
+            if exc_type:
+                self._conn.rollback()
+            else:
+                self._conn.commit()
+        return False
 
     def __getattr__(self, name):
         return getattr(self._conn, name)
@@ -374,8 +476,18 @@ def _event_hash(prev_hash, rev, kind, payload, created):
     return h.hexdigest()
 
 
-def _job_payload(project_id, stage, input_sha, rules_sha, old_state, new_state):
+def _job_payload(project_id, stage, input_sha, rules_sha, old_state, new_state,
+                 old_attempt, new_attempt, old_error, new_error):
+    def _num(value):
+        if value is None or value == "":
+            return None
+        return int(value)
+
     return json.dumps({
+        "attempt_after": _num(new_attempt),
+        "attempt_before": _num(old_attempt),
+        "error_class_after": new_error,
+        "error_class_before": old_error,
         "input_sha": input_sha,
         "project_id": project_id,
         "rules_sha": rules_sha,
@@ -386,25 +498,50 @@ def _job_payload(project_id, stage, input_sha, rules_sha, old_state, new_state):
 
 def _register_sql_functions(conn):
     conn.create_function("cadkit_event_hash", 5, _event_hash)
-    conn.create_function("cadkit_job_payload", 6, _job_payload)
+    conn.create_function("cadkit_job_payload", 10, _job_payload)
 
 
 def _insert_event(conn, rev, kind, payload, created=None):
-    """Append one event and extend the hash chain. Insert-only."""
+    """Append one event and extend the hash chain. Insert-only.
+
+    The head read and the insert share one IMMEDIATE transaction so two
+    writers cannot both chain off the same predecessor.
+    """
     if not isinstance(payload, str):
         payload = json.dumps(payload, ensure_ascii=False,
                              separators=(",", ":"), sort_keys=True)
     created = _ms() if created is None else int(created)
-    prev = conn.execute(
-        "SELECT row_hash FROM event WHERE row_hash IS NOT NULL "
-        "ORDER BY event_id DESC LIMIT 1").fetchone()
-    prev_hash = prev[0] if prev and prev[0] else ""
-    row_hash = _event_hash(prev_hash, rev, kind, payload, created)
-    conn.execute(
-        "INSERT INTO event(rev, kind, payload, created, prev_hash, row_hash) "
-        "VALUES(?,?,?,?,?,?)",
-        (rev, kind, payload, created, prev_hash, row_hash))
+    own = not conn.in_transaction
+    if own:
+        conn.execute("BEGIN IMMEDIATE")
+    try:
+        prev = conn.execute(
+            "SELECT row_hash FROM event WHERE row_hash IS NOT NULL "
+            "ORDER BY event_id DESC LIMIT 1").fetchone()
+        prev_hash = prev[0] if prev and prev[0] else ""
+        row_hash = _event_hash(prev_hash, rev, kind, payload, created)
+        conn.execute(
+            "INSERT INTO event(rev, kind, payload, created, prev_hash, row_hash) "
+            "VALUES(?,?,?,?,?,?)",
+            (rev, kind, payload, created, prev_hash, row_hash))
+        if own:
+            conn.commit()
+    except Exception:
+        if own:
+            conn.rollback()
+        raise
     return row_hash
+
+
+def _record_transition(conn, project_id, stage, input_sha, rules_sha,
+                       old_state, new_state, old_attempt, new_attempt,
+                       old_error, new_error, source, created):
+    conn.execute(
+        "INSERT INTO state_transition(project_id, stage, input_sha, rules_sha, "
+        "old_state, new_state, old_attempt, new_attempt, old_error, new_error, "
+        "source, created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+        (project_id, stage, input_sha, rules_sha, old_state, new_state,
+         old_attempt, new_attempt, old_error, new_error, source, created))
 
 
 EXPECTED_TRIGGERS = (
@@ -414,6 +551,8 @@ EXPECTED_TRIGGERS = (
     "review_signoff_no_update", "review_signoff_no_delete",
     "waiver_no_update", "waiver_no_delete",
     "rules_rereview_no_update", "rules_rereview_no_delete",
+    "state_transition_no_update", "state_transition_no_delete",
+    "ledger_alarm_no_update", "ledger_alarm_no_delete",
     "job_update_guard", "job_update_event",
 )
 
@@ -433,7 +572,15 @@ def _missing_triggers(conn):
 
 
 def verify_event_chain(conn):
-    """True when every event row's hash matches its predecessor."""
+    """True when every event row's hash matches its predecessor.
+
+    A NULL row_hash is a break. It is not a request to recompute the chain.
+    """
+    nulls = conn.execute(
+        "SELECT 1 FROM event WHERE row_hash IS NULL OR prev_hash IS NULL "
+        "LIMIT 1").fetchone()
+    if nulls:
+        return False
     rows = conn.execute(
         "SELECT rev, kind, payload, created, prev_hash, row_hash "
         "FROM event ORDER BY event_id").fetchall()
@@ -448,33 +595,51 @@ def verify_event_chain(conn):
     return True
 
 
-def _backfill_event_hashes(conn):
+def _backfill_event_hashes(conn, cad_root):
+    """Fill hashes once, for a ledger that predates the chain.
+
+    After ``event_hash_backfill`` is set, a NULL row_hash stays NULL and
+    ``verify_event_chain`` fails. Deleting that meta row is not enough
+    once ``ledger.chain.anchor`` exists beside the database: the anchor
+    is outside the ledger, and its presence means the chain has already
+    been sealed. A NULL hash is then a break, not a migration.
+    """
     cols = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
     if "row_hash" not in cols:
         conn.execute("ALTER TABLE event ADD COLUMN prev_hash TEXT")
         conn.execute("ALTER TABLE event ADD COLUMN row_hash TEXT")
-    pending = conn.execute(
-        "SELECT event_id FROM event WHERE row_hash IS NULL LIMIT 1").fetchone()
-    if not pending:
+    row = conn.execute(
+        "SELECT v FROM meta WHERE k=?", (_BACKFILL_FLAG,)).fetchone()
+    anchor_sealed = os.path.isfile(os.path.join(cad_root, CHAIN_ANCHOR_NAME))
+    if (row and row[0] == "1") or anchor_sealed:
+        if not (row and row[0] == "1"):
+            set_meta(conn, _BACKFILL_FLAG, "1")
+            conn.commit()
         return
-    conn.execute("DROP TRIGGER IF EXISTS event_no_update")
-    prev = ""
-    rows = conn.execute(
-        "SELECT event_id, rev, kind, payload, created FROM event "
-        "ORDER BY event_id").fetchall()
-    for event_id, rev, kind, payload, created in rows:
-        row_hash = _event_hash(prev, rev, kind, payload or "", created)
-        conn.execute(
-            "UPDATE event SET prev_hash=?, row_hash=? WHERE event_id=?",
-            (prev, row_hash, event_id))
-        prev = row_hash
-    conn.executescript("""
-        CREATE TRIGGER IF NOT EXISTS event_no_update
-        BEFORE UPDATE ON event
-        BEGIN
-          SELECT RAISE(ABORT, 'event rows cannot be rewritten');
-        END;
-    """)
+    total = conn.execute("SELECT COUNT(*) FROM event").fetchone()[0]
+    nulls = conn.execute(
+        "SELECT COUNT(*) FROM event WHERE row_hash IS NULL").fetchone()[0]
+    if total and nulls == total:
+        conn.execute("DROP TRIGGER IF EXISTS event_no_update")
+        prev = ""
+        rows = conn.execute(
+            "SELECT event_id, rev, kind, payload, created FROM event "
+            "ORDER BY event_id").fetchall()
+        for event_id, rev, kind, payload, created in rows:
+            row_hash = _event_hash(prev, rev, kind, payload or "", created)
+            conn.execute(
+                "UPDATE event SET prev_hash=?, row_hash=? WHERE event_id=?",
+                (prev, row_hash, event_id))
+            prev = row_hash
+        conn.executescript("""
+            CREATE TRIGGER IF NOT EXISTS event_no_update
+            BEFORE UPDATE ON event
+            BEGIN
+              SELECT RAISE(ABORT, 'event rows cannot be rewritten');
+            END;
+        """)
+    set_meta(conn, _BACKFILL_FLAG, "1")
+    conn.commit()
 
 
 def migrate_rules_rereview_from_events(conn):
@@ -501,50 +666,99 @@ def migrate_rules_rereview_from_events(conn):
     conn.commit()
 
 
+def alarm_open(conn, kind):
+    """True when the latest row for ``kind`` is not an ack with a reason."""
+    row = conn.execute(
+        "SELECT action, reason FROM ledger_alarm WHERE kind=? "
+        "ORDER BY alarm_id DESC LIMIT 1",
+        (kind,)).fetchone()
+    if not row:
+        return False
+    action, reason = row
+    if action == "ack" and str(reason or "").strip():
+        return False
+    return True
+
+
+def raise_alarm(conn, kind, reason):
+    """Append an alarm. Does not clear, and does not touch meta flags."""
+    if kind not in ALARM_KINDS:
+        raise ValueError("unknown alarm kind %s" % kind)
+    reason = str(reason or "").strip()
+    now = _ms()
+    with conn:
+        conn.execute(
+            "INSERT INTO ledger_alarm(kind, action, reason, created) "
+            "VALUES(?, 'raise', ?, ?)",
+            (kind, reason, now))
+        _insert_event(conn, None, kind, {"reason": reason}, now)
+    return {"kind": kind, "action": "raise"}
+
+
+def acknowledge_alarm(conn, kind, reason):
+    """Clear one alarm kind. ``reason`` is required and is stored, not applied as a flag reset."""
+    if kind not in ALARM_KINDS:
+        raise ValueError("unknown alarm kind %s" % kind)
+    reason = str(reason or "").strip()
+    if not reason:
+        raise ValueError("acknowledgement requires a reason")
+    now = _ms()
+    with conn:
+        conn.execute(
+            "INSERT INTO ledger_alarm(kind, action, reason, created) "
+            "VALUES(?, 'ack', ?, ?)",
+            (kind, reason, now))
+        _insert_event(conn, None, "alarm_ack", {
+            "alarm": kind, "reason": reason,
+        }, now)
+    return {"kind": kind, "action": "ack", "reason": reason}
+
+
 def ledger_acceptance_blocks(conn):
     """Reasons the ledger itself forbids ACCEPT. Empty means no ledger block.
 
     Triggers stop slips. They do not stop someone who can edit the file
-    and remove the triggers; a missing trigger is recorded and then this
-    list stays non-empty.
+    and remove the triggers; a missing trigger is recorded as an alarm
+    event and stays until an acknowledgement with a reason.
     """
     reasons = []
-    row = conn.execute(
-        "SELECT v FROM meta WHERE k='schema_tampered'").fetchone()
-    if row and str(row[0]) not in ("", "0"):
+    if alarm_open(conn, "schema_tampered"):
         reasons.append("schema_tampered")
-    row = conn.execute(
-        "SELECT v FROM meta WHERE k='ledger_sha_mismatch'").fetchone()
-    if row and str(row[0]) not in ("", "0"):
+    if alarm_open(conn, "ledger_sha_mismatch"):
         reasons.append("ledger_changed_outside_runner")
+    if alarm_open(conn, "chain_anchor_mismatch"):
+        reasons.append("chain_anchor_mismatch")
     if not verify_event_chain(conn):
         reasons.append("event_chain_broken")
     return reasons
 
 
 def event_unwaived_fail(conn, project_id, stage, input_sha, rules_sha):
-    """True when the event log shows a transition into FAIL and no waiver row."""
+    """True when a FAIL transition for this key is still uncleared.
+
+    A FAIL recorded by ``n45_inherit`` is cleared by a rules_rereview row.
+    Any other FAIL (a design failure) is cleared only by a waiver row.
+    The lookup is the indexed ``state_transition`` table.
+    """
     rows = conn.execute(
-        "SELECT json_extract(payload, '$.transition') FROM event "
-        "WHERE json_extract(payload, '$.project_id') = ? "
-        "AND json_extract(payload, '$.stage') = ? "
-        "AND json_extract(payload, '$.input_sha') = ? "
-        "AND json_extract(payload, '$.rules_sha') = ?",
+        "SELECT source FROM state_transition WHERE project_id=? AND stage=? "
+        "AND input_sha=? AND rules_sha=? AND new_state='FAIL'",
         (project_id, stage, input_sha, rules_sha)).fetchall()
-    saw = False
-    for (transition,) in rows:
-        if not transition or "->" not in transition:
-            continue
-        if transition.split("->")[-1].strip() == "FAIL":
-            saw = True
-            break
-    if not saw:
+    if not rows:
         return False
-    row = conn.execute(
+    reviewed = _rules_rereviewed(
+        conn, project_id, stage, input_sha, rules_sha)
+    waived = conn.execute(
         "SELECT 1 FROM waiver WHERE project_id=? AND stage=? AND input_sha=? "
         "AND rules_sha=? LIMIT 1",
         (project_id, stage, input_sha, rules_sha)).fetchone()
-    return row is None
+    for (source,) in rows:
+        if source == "n45_inherit":
+            if not reviewed:
+                return True
+        elif waived is None:
+            return True
+    return False
 
 
 def set_meta(conn, key, value):
@@ -571,14 +785,12 @@ def open_ledger(cad_root):
                      (str(SCHEMA_VERSION),))
         conn.commit()
     _migrate(conn)
-    _backfill_event_hashes(conn)
+    _backfill_event_hashes(conn, cad_root)
+    conn.executescript(_JOB_TRIGGERS)
     migrate_rules_rereview_from_events(conn)
     if missing:
-        set_meta(conn, "schema_tampered", "1")
-        _insert_event(conn, None, "schema_tampered", {
-            "missing_triggers": missing,
-        })
-        conn.commit()
+        raise_alarm(conn, "schema_tampered",
+                    "missing triggers: %s" % ",".join(missing))
     return conn
 
 
@@ -1093,6 +1305,9 @@ def job_record(conn, project_id, stage, input_sha, rules_sha, state,
                         "VALUES(?,?,?,?,?,'FAIL',1,?,?)",
                         (rev, project_id, stage, input_sha, rules_sha,
                          inherited, now))
+                _record_transition(
+                    conn, project_id, stage, input_sha, rules_sha,
+                    "", "FAIL", 0, 1, None, inherited, "n45_inherit", now)
                 _insert_event(conn, rev, "n45_inherit", {
                     "project_id": project_id, "stage": stage,
                     "input_sha": input_sha, "rules_sha": rules_sha,
@@ -1127,14 +1342,24 @@ def job_record(conn, project_id, stage, input_sha, rules_sha, state,
                 "state,attempt,error_class,updated) VALUES(?,?,?,?,?,?,1,?,?)",
                 (rev, project_id, stage, input_sha, rules_sha, decided,
                  error_class, now))
+            _record_transition(
+                conn, project_id, stage, input_sha, rules_sha,
+                "", decided, 0, 1, None, error_class, "job", now)
             _insert_event(conn, rev, "job_transition", _job_payload(
-                project_id, stage, input_sha, rules_sha, "", decided), now)
+                project_id, stage, input_sha, rules_sha, "", decided,
+                0, 1, None, error_class), now)
         else:
+            # Sticky FAIL keeps error_class. The trigger rejects a change,
+            # including the inherited-FAIL -> OK re-review, which must
+            # leave the inherited: marker in place.
+            stored_error = old_error if (
+                str(old_error or "").startswith("inherited:")
+                and error_class is None) else error_class
             conn.execute(
                 "UPDATE job SET state=?, attempt=?, error_class=?, updated=?, "
                 "rev=COALESCE(?, rev) WHERE project_id=? AND stage=? AND "
                 "input_sha=? AND rules_sha=?",
-                (decided, old_attempt + 1, error_class, now, rev,
+                (decided, old_attempt + 1, stored_error, now, rev,
                  project_id, stage, input_sha, rules_sha))
         return {"applied": True, "state": decided}
 
@@ -1313,6 +1538,93 @@ def backup_ledger(root, dest_dir=None):
     return dest, sha256_file(dest)
 
 
+def _atomic_text(path, text):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def chain_head(conn):
+    """Event count and the hash of the last event. The anchor lives outside the db."""
+    total = conn.execute("SELECT COUNT(*) FROM event").fetchone()[0]
+    row = conn.execute(
+        "SELECT event_id, row_hash FROM event ORDER BY event_id DESC LIMIT 1"
+    ).fetchone()
+    return {
+        "event_count": int(total),
+        "head_event_id": row[0] if row else None,
+        "head_hash": row[1] if row else "",
+    }
+
+
+def write_chain_anchor(root, conn):
+    """Write ``<cadRoot>/ledger.chain.anchor``. Not a row inside the ledger."""
+    doc = chain_head(conn)
+    _atomic_text(
+        os.path.join(root, CHAIN_ANCHOR_NAME),
+        json.dumps(doc, sort_keys=True) + "\n")
+    return doc
+
+
+def read_chain_anchor(root):
+    path = os.path.join(root, CHAIN_ANCHOR_NAME)
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        doc = json.loads(f.read())
+    if not isinstance(doc, dict):
+        return None
+    return doc
+
+
+def anchor_holds(conn, anchor):
+    """True when the event at the anchored position still has that hash.
+
+    A missing anchor is the first run, not a mismatch. A shorter chain,
+    a different event id, or a different hash is a mismatch.
+    """
+    if not anchor:
+        return True
+    try:
+        count = int(anchor.get("event_count") or 0)
+    except (TypeError, ValueError):
+        return False
+    if count <= 0:
+        return True
+    total = conn.execute("SELECT COUNT(*) FROM event").fetchone()[0]
+    if total < count:
+        return False
+    row = conn.execute(
+        "SELECT event_id, row_hash FROM event ORDER BY event_id "
+        "LIMIT 1 OFFSET ?",
+        (count - 1,)).fetchone()
+    if not row or row[1] != anchor.get("head_hash"):
+        return False
+    anchored_id = anchor.get("head_event_id")
+    if anchored_id is not None and row[0] != anchored_id:
+        return False
+    return True
+
+
+def write_end_sha(root, sha):
+    """Remember the last sqlite backup sha in ``<cadRoot>/ledger.end.sha``."""
+    if not sha:
+        return None
+    _atomic_text(os.path.join(root, END_SHA_NAME), str(sha).strip() + "\n")
+    return str(sha).strip()
+
+
+def read_end_sha(root):
+    path = os.path.join(root, END_SHA_NAME)
+    if not os.path.isfile(path):
+        return None
+    text = open(path, encoding="utf-8").read().strip()
+    return text or None
+
+
 def retire_active_fingerprints(conn, project_id, reason):
     """Withdraw active fingerprint rows for one part.
 
@@ -1401,11 +1713,10 @@ def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,
             "kind, reason, created) VALUES(?,?,?,?,?,?,?)",
             (project_id, stage, input_sha, rules_sha, kind, reason, now))
         cur = conn.execute(
-            "UPDATE job SET state=?, error_class=?, updated=? "
+            "UPDATE job SET state=?, updated=? "
             "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=? "
             "AND state='FAIL'",
-            (new_state, reason[:120], now, project_id, stage, input_sha,
-             rules_sha))
+            (new_state, now, project_id, stage, input_sha, rules_sha))
         if cur.rowcount != 1:
             raise ValueError(
                 "waiver applies only to an existing FAIL row for this "

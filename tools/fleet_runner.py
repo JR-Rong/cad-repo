@@ -177,9 +177,11 @@ QUARANTINE_PIDS = {
 }
 
 
-def append_run_header(log, *, backup_sha, previous_end_sha, run_id):
+def append_run_header(log, *, backup_sha, previous_end_sha, run_id,
+                      chain_anchor=None, chain_anchor_ok=None):
     """First line of this run, even when the log file already has older runs."""
     matches = None if previous_end_sha is None else previous_end_sha == backup_sha
+    anchor = chain_anchor or {}
     rec = {
         "lane": "run_header",
         "run_id": run_id,
@@ -187,13 +189,52 @@ def append_run_header(log, *, backup_sha, previous_end_sha, run_id):
         "ledger_backup_sha256": backup_sha,
         "previous_end_sha256": previous_end_sha,
         "ledger_matches_previous_end": matches,
+        "chain_event_count": anchor.get("event_count"),
+        "chain_head_hash": anchor.get("head_hash"),
+        "chain_anchor_ok": chain_anchor_ok,
     }
     log.write(json.dumps(rec, ensure_ascii=False) + "\n")
     log.flush()
     return rec
 
 
+def read_part_ledger(root, pid, rules, stage_inputs, current_input):
+    """Ledger facts for one part. Any read error is a FAIL, not a skip."""
+    out = {"event_fail": False, "sealed": None, "ledger_input": None,
+           "signoff": None, "error": None}
+    try:
+        from cadkit.ledger import (event_unwaived_fail, evidence_seal,
+                                   open_ledger, quarantine_mark,
+                                   review_signoff)
+        conn = open_ledger(root)
+        try:
+            out["sealed"] = evidence_seal(conn, pid)
+            mark = quarantine_mark(conn, pid)
+            if mark:
+                out["ledger_input"] = mark["input_sha"]
+            if current_input:
+                out["signoff"] = review_signoff(conn, pid, current_input)
+            for stage_name, ih in stage_inputs:
+                if ih and event_unwaived_fail(
+                        conn, pid, stage_name, ih, rules):
+                    out["event_fail"] = True
+                    break
+        finally:
+            conn.close()
+    except Exception as exc:
+        out["event_fail"] = True
+        out["sealed"] = None
+        out["error"] = str(exc)
+    return out
+
+
 def previous_run_end_sha(log_path):
+    """End sha from one jsonl log. The runner does not compare against this.
+
+    Default log names include the minute, so a later run would open a
+    different file and see no previous end. The comparison uses the fixed
+    file ``<cadRoot>/ledger.end.sha``.
+    """
     last = None
     if not log_path or not os.path.isfile(log_path):
         return None
@@ -513,37 +554,27 @@ def main():
             ev_path = acceptance.evidence_path(root, pid)
             if os.path.isfile(ev_path):
                 file_sha = acceptance.sha256_file(ev_path)
-            event_fail = False
-            try:
-                from cadkit.ledger import (event_unwaived_fail, evidence_seal,
-                                           open_ledger, quarantine_mark,
-                                           review_signoff)
-                conn = open_ledger(root)
-                try:
-                    sealed = evidence_seal(conn, pid)
-                    mark = quarantine_mark(conn, pid)
-                    if mark:
-                        ledger_input = mark["input_sha"]
-                    if current_input:
-                        signoff = review_signoff(conn, pid, current_input)
-                    for stage_name, st in ((ev or {}).get("stages") or {}).items():
-                        ih = (st or {}).get("input_sha")
-                        if ih and event_unwaived_fail(
-                                conn, pid, stage_name, ih, rec.rules):
-                            event_fail = True
-                            break
-                finally:
-                    conn.close()
-            except Exception:
-                sealed = None
-            status, why = acceptance.classify_part(
-                pid, ev, hashes,
-                quarantined=pid in QUARANTINE_PIDS or bool(ledger_input),
-                ledger_input_sha=ledger_input,
-                current_input_sha=current_input,
-                signoff=signoff,
-                file_sha=file_sha, sealed_sha=sealed,
-                event_unwaived_fail=event_fail)
+            stage_inputs = []
+            for stage_name, st in ((ev or {}).get("stages") or {}).items():
+                stage_inputs.append((stage_name, (st or {}).get("input_sha")))
+            flags = read_part_ledger(
+                root, pid, rec.rules, stage_inputs, current_input)
+            sealed = flags["sealed"]
+            ledger_input = flags["ledger_input"]
+            signoff = flags["signoff"]
+            event_fail = flags["event_fail"]
+            if flags["error"]:
+                status, why = ("needs_repair",
+                               "ledger check failed: %s" % flags["error"])
+            else:
+                status, why = acceptance.classify_part(
+                    pid, ev, hashes,
+                    quarantined=pid in QUARANTINE_PIDS or bool(ledger_input),
+                    ledger_input_sha=ledger_input,
+                    current_input_sha=current_input,
+                    signoff=signoff,
+                    file_sha=file_sha, sealed_sha=sealed,
+                    event_unwaived_fail=event_fail)
             if status == "accepted" and fam_status != "ok":
                 status, why = "unverified", "family core unfrozen"
             rows.append({"project_id": pid, "status": status,
@@ -597,37 +628,43 @@ def main():
     log = open(a.log or os.path.join(REPO, "status", "runner_%s_%s.jsonl"
                                      % (a.batch, time.strftime("%Y%m%d_%H%M"))), "a",
                encoding="utf-8")
+    from cadkit.ledger import (alarm_open, anchor_holds, chain_head,
+                               open_ledger, raise_alarm, read_chain_anchor,
+                               read_end_sha)
     snap = backup_ledger(root)
     backup_sha = snap[1] if snap else None
-    previous_end = previous_run_end_sha(log.name)
+    previous_end = read_end_sha(root)
+    chain_doc = None
+    chain_ok = None
+    try:
+        conn = open_ledger(root)
+        try:
+            chain_doc = read_chain_anchor(root) or chain_head(conn)
+            chain_ok = anchor_holds(conn, read_chain_anchor(root))
+            if chain_ok is False and not alarm_open(conn, "chain_anchor_mismatch"):
+                raise_alarm(conn, "chain_anchor_mismatch",
+                            "ledger.chain.anchor does not match the event "
+                            "at that position")
+            if (previous_end and backup_sha and previous_end != backup_sha
+                    and not alarm_open(conn, "ledger_sha_mismatch")):
+                raise_alarm(conn, "ledger_sha_mismatch",
+                            "sqlite backup sha differs from ledger.end.sha")
+        finally:
+            conn.close()
+    except Exception as exc:
+        print("WARN 台账锚核对失败：%s" % exc)
     header = append_run_header(
         log, backup_sha=backup_sha, previous_end_sha=previous_end,
-        run_id=time.strftime("%Y%m%d_%H%M%S") + "-%d" % os.getpid())
+        run_id=time.strftime("%Y%m%d_%H%M%S") + "-%d" % os.getpid(),
+        chain_anchor=chain_doc, chain_anchor_ok=chain_ok)
     if snap:
         print("台账快照 %s sha256 %s" % (snap[0], snap[1]))
+    if chain_doc:
+        print("链锚 %s 条 head %s 核对 %s" % (
+            chain_doc.get("event_count"), chain_doc.get("head_hash"),
+            chain_ok))
     if header["ledger_matches_previous_end"] is False:
-        try:
-            from cadkit.ledger import open_ledger, set_meta
-            conn = open_ledger(root)
-            try:
-                set_meta(conn, "ledger_sha_mismatch", "1")
-                conn.commit()
-            finally:
-                conn.close()
-        except Exception:
-            pass
         print("WARN 台账和上次运行结束时的快照不一致")
-    elif previous_end and backup_sha == previous_end:
-        try:
-            from cadkit.ledger import open_ledger, set_meta
-            conn = open_ledger(root)
-            try:
-                set_meta(conn, "ledger_sha_mismatch", "0")
-                conn.commit()
-            finally:
-                conn.close()
-        except Exception:
-            pass
     lock = threading.Lock()
     stop = threading.Event()
     stats = {"ok": 0, "fail": 0, "reviews": 0, "packaged": 0, "done_parts": 0}
@@ -812,12 +849,31 @@ def main():
         t.join(timeout=120)
     emit_report()
     end = backup_ledger(root)
+    end_sha = end[1] if end else None
+    from cadkit.ledger import open_ledger, write_chain_anchor, write_end_sha
+    if end_sha:
+        write_end_sha(root, end_sha)
+    anchor = None
+    try:
+        conn = open_ledger(root)
+        try:
+            anchor = write_chain_anchor(root, conn)
+        finally:
+            conn.close()
+    except Exception as exc:
+        print("WARN 链锚没有写上：%s" % exc)
     log.write(json.dumps({
         "lane": "run_footer",
         "run_id": header["run_id"],
-        "ledger_end_sha256": end[1] if end else None,
+        "ledger_end_sha256": end_sha,
+        "chain_event_count": None if not anchor else anchor.get("event_count"),
+        "chain_head_hash": None if not anchor else anchor.get("head_hash"),
     }, ensure_ascii=False) + "\n")
     log.flush()
+    if anchor:
+        print("链锚已写入 %s  event_count=%s head=%s" % (
+            os.path.join(root, "ledger.chain.anchor"),
+            anchor.get("event_count"), anchor.get("head_hash")))
     print("完成：件 %d（含 %d 次旧件复检），阶段 ok=%d fail=%d，package=%d；日志 %s"
           % (stats["done_parts"], stats["reviews"], stats["ok"], stats["fail"],
              stats["packaged"], os.path.relpath(log.name, REPO)))

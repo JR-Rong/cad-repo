@@ -952,7 +952,7 @@ def test_job_trigger_blocks_silent_ok_and_records_transition(tmp_path):
         assert verify_event_chain(conn) is True
         raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
         raw.create_function("cadkit_event_hash", 5, lambda *a: "x")
-        raw.create_function("cadkit_job_payload", 6, lambda *a: "{}")
+        raw.create_function("cadkit_job_payload", 10, lambda *a: "{}")
         try:
             with pytest.raises(sqlite3.IntegrityError):
                 raw.execute(
@@ -1072,3 +1072,289 @@ def test_probe_and_packager_call_the_fail_closed_helpers():
     assert export.index("export_precondition") < export.index("export_step(")
     runner = open(os.path.join(TOOLS, "fleet_runner.py"), encoding="utf-8").read()
     assert '"--action"' not in runner.split("def run_stage", 1)[1].split("def main", 1)[0]
+
+
+def test_rules_rereview_cannot_wash_a_design_fail(tmp_path):
+    """A raw rules_rereview row must not turn a design FAIL into OK.
+
+    The same row does clear an inherited FAIL, including the n45_inherit
+    event that used to keep event_unwaived_fail true forever.
+    """
+    import sqlite3
+    from cadkit.ledger import event_unwaived_fail, record_rules_rereview
+    conn = open_ledger(str(tmp_path))
+    try:
+        job_record(conn, "p", "validate", "in", "rules", "FAIL",
+                   error_class="design")
+        raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+        raw.create_function("cadkit_event_hash", 5, lambda *a: "x" * 64)
+        raw.create_function("cadkit_job_payload", 10, lambda *a: "{}")
+        raw.execute(
+            "INSERT INTO rules_rereview(project_id, stage, input_sha, "
+            "rules_sha, reason, created) VALUES(?,?,?,?,?,?)",
+            ("p", "validate", "in", "rules", "planted by a raw client", 1))
+        raw.commit()
+        with pytest.raises(sqlite3.IntegrityError):
+            raw.execute("UPDATE job SET state='OK' WHERE project_id='p'")
+        raw.close()
+        state = conn.execute(
+            "SELECT state, error_class FROM job WHERE rules_sha='rules'"
+        ).fetchone()
+        assert state[0] == "FAIL" and state[1] == "design"
+        assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
+        blocked = job_record(conn, "p", "validate", "in", "rules-new", "OK")
+        assert blocked["state"] == "FAIL"
+        assert event_unwaived_fail(
+            conn, "p", "validate", "in", "rules-new") is True
+        record_rules_rereview(
+            conn, "p", "validate", "in", "rules-new",
+            "owner re-checked the inherited failure")
+        allowed = job_record(conn, "p", "validate", "in", "rules-new", "OK")
+        assert allowed["applied"] is True and allowed["state"] == "OK"
+        assert event_unwaived_fail(
+            conn, "p", "validate", "in", "rules-new") is False
+        assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
+        plan = conn.execute(
+            "EXPLAIN QUERY PLAN SELECT source FROM state_transition "
+            "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=? "
+            "AND new_state='FAIL'",
+            ("p", "validate", "in", "rules")).fetchall()
+        text = " ".join(str(row) for row in plan).upper()
+        assert "SEARCH" in text and "SCAN TABLE" not in text
+    finally:
+        conn.close()
+
+
+def test_sticky_whitelist_blocks_class_attempt_and_pending_hop(tmp_path):
+    import sqlite3
+    conn = open_ledger(str(tmp_path))
+    try:
+        job_record(conn, "p", "validate", "in", "rules", "FAIL",
+                   error_class="design")
+        raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+        raw.create_function("cadkit_event_hash", 5, lambda *args: "x" * 64)
+        raw.create_function("cadkit_job_payload", 10, lambda *args: "{}")
+        try:
+            with pytest.raises(sqlite3.IntegrityError):
+                raw.execute(
+                    "UPDATE job SET error_class='inherited:forged' "
+                    "WHERE project_id='p'")
+            raw.rollback()
+            with pytest.raises(sqlite3.IntegrityError):
+                raw.execute("UPDATE job SET attempt=0 WHERE project_id='p'")
+            raw.rollback()
+            raw.execute(
+                "INSERT INTO rules_rereview(project_id, stage, input_sha, "
+                "rules_sha, reason, created) VALUES(?,?,?,?,?,?)",
+                ("p", "validate", "in", "rules", "does not authorise a hop", 1))
+            raw.commit()
+            with pytest.raises(sqlite3.IntegrityError):
+                raw.execute(
+                    "UPDATE job SET state='PENDING_REVIEW' WHERE project_id='p'")
+            raw.rollback()
+            assert raw.execute(
+                "SELECT state FROM job WHERE project_id='p'").fetchone()[0] == "FAIL"
+            with pytest.raises(sqlite3.IntegrityError):
+                raw.execute("UPDATE job SET state='OK' WHERE project_id='p'")
+        finally:
+            raw.close()
+        job_record(conn, "q", "build", "h", "r", "FAIL",
+                   error_class="timeout", max_attempts=3)
+        job_record(conn, "q", "build", "h", "r", "OK")
+        payload = conn.execute(
+            "SELECT payload FROM event WHERE kind='job_transition' "
+            "ORDER BY event_id DESC LIMIT 1").fetchone()[0]
+        doc = json.loads(payload)
+        assert "attempt_before" in doc and "attempt_after" in doc
+        assert doc["attempt_after"] >= doc["attempt_before"]
+        assert "error_class_before" in doc and "error_class_after" in doc
+        assert doc["error_class_before"] == "timeout"
+        assert doc["transition"].endswith("OK")
+    finally:
+        conn.close()
+
+
+def test_null_row_hash_is_not_recomputed(tmp_path):
+    import sqlite3
+    from cadkit.ledger import ledger_acceptance_blocks, verify_event_chain
+    root = str(tmp_path)
+    conn = open_ledger(root)
+    job_record(conn, "p", "validate", "in", "rules", "FAIL",
+               error_class="design")
+    before = conn.execute(
+        "SELECT payload FROM event WHERE kind='job_transition'").fetchone()[0]
+    assert "FAIL" in before
+    conn.close()
+    raw = sqlite3.connect(os.path.join(root, "ledger.sqlite3"))
+    raw.execute("DROP TRIGGER IF EXISTS event_no_update")
+    raw.execute(
+        "UPDATE event SET payload=?, row_hash=NULL WHERE kind='job_transition'",
+        ('{"transition":"FAIL -> OK","washed":true}',))
+    raw.executescript("""
+        CREATE TRIGGER event_no_update BEFORE UPDATE ON event
+        BEGIN SELECT RAISE(ABORT, 'event rows cannot be rewritten'); END;
+    """)
+    raw.commit()
+    raw.close()
+    conn = open_ledger(root)
+    try:
+        row = conn.execute(
+            "SELECT payload, row_hash FROM event WHERE kind='job_transition'"
+        ).fetchone()
+        assert row[1] is None
+        assert "washed" in row[0]
+        assert verify_event_chain(conn) is False
+        assert "event_chain_broken" in ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+    # Wiping the meta flag is not a second migration once the anchor
+    # file exists outside the database.
+    from cadkit.ledger import write_chain_anchor
+    conn = open_ledger(root)
+    write_chain_anchor(root, conn)
+    conn.close()
+    raw = sqlite3.connect(os.path.join(root, "ledger.sqlite3"))
+    raw.execute("DELETE FROM meta WHERE k='event_hash_backfill'")
+    raw.commit()
+    raw.close()
+    conn = open_ledger(root)
+    try:
+        row = conn.execute(
+            "SELECT row_hash FROM event WHERE kind='job_transition'").fetchone()
+        assert row[0] is None
+        assert verify_event_chain(conn) is False
+    finally:
+        conn.close()
+
+
+def test_outside_anchor_catches_a_recomputed_chain(tmp_path):
+    import sqlite3
+    from cadkit.ledger import (_event_hash, anchor_holds, ledger_acceptance_blocks,
+                               raise_alarm, read_chain_anchor, verify_event_chain,
+                               write_chain_anchor)
+    root = str(tmp_path)
+    conn = open_ledger(root)
+    job_record(conn, "p", "build", "h", "r", "FAIL", error_class="design")
+    job_record(conn, "p", "build", "h2", "r", "OK")
+    saved = write_chain_anchor(root, conn)
+    assert anchor_holds(conn, saved) is True
+    conn.close()
+    raw = sqlite3.connect(os.path.join(root, "ledger.sqlite3"))
+    raw.execute("DROP TRIGGER IF EXISTS event_no_update")
+    raw.execute(
+        "UPDATE event SET payload=? WHERE event_id=("
+        "SELECT MIN(event_id) FROM event)",
+        ('{"transition":" -> OK","washed":true}',))
+    rows = raw.execute(
+        "SELECT event_id, rev, kind, payload, created FROM event "
+        "ORDER BY event_id").fetchall()
+    prev = ""
+    for event_id, rev, kind, payload, created in rows:
+        digest = _event_hash(prev, rev, kind, payload or "", created)
+        raw.execute(
+            "UPDATE event SET prev_hash=?, row_hash=? WHERE event_id=?",
+            (prev, digest, event_id))
+        prev = digest
+    raw.executescript("""
+        CREATE TRIGGER event_no_update BEFORE UPDATE ON event
+        BEGIN SELECT RAISE(ABORT, 'event rows cannot be rewritten'); END;
+    """)
+    raw.commit()
+    raw.close()
+    conn = open_ledger(root)
+    try:
+        assert verify_event_chain(conn) is True
+        assert anchor_holds(conn, read_chain_anchor(root)) is False
+        raise_alarm(conn, "chain_anchor_mismatch", "head hash moved")
+        assert "chain_anchor_mismatch" in ledger_acceptance_blocks(conn)
+        from cadkit.ledger import acknowledge_alarm
+        with pytest.raises(ValueError):
+            acknowledge_alarm(conn, "chain_anchor_mismatch", " ")
+        acknowledge_alarm(conn, "chain_anchor_mismatch",
+                          "compared the printed head in the run log")
+        assert "chain_anchor_mismatch" not in ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+
+
+def test_alarms_are_not_cleared_by_resetting_meta(tmp_path):
+    from cadkit.ledger import (acknowledge_alarm, ledger_acceptance_blocks,
+                               raise_alarm, set_meta)
+    conn = open_ledger(str(tmp_path))
+    try:
+        raise_alarm(conn, "ledger_sha_mismatch", "backup sha differs")
+        raise_alarm(conn, "schema_tampered", "trigger was missing")
+        set_meta(conn, "ledger_sha_mismatch", "0")
+        set_meta(conn, "schema_tampered", "0")
+        conn.commit()
+        blocked = ledger_acceptance_blocks(conn)
+        assert "ledger_changed_outside_runner" in blocked
+        assert "schema_tampered" in blocked
+        with pytest.raises(ValueError):
+            acknowledge_alarm(conn, "ledger_sha_mismatch", "")
+        acknowledge_alarm(conn, "ledger_sha_mismatch", "operator compared the two files")
+        blocked = ledger_acceptance_blocks(conn)
+        assert "ledger_changed_outside_runner" not in blocked
+        assert "schema_tampered" in blocked
+        acknowledge_alarm(conn, "schema_tampered", "upgrade installed the new triggers")
+        assert "schema_tampered" not in ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+
+
+def test_end_sha_lives_in_a_fixed_file(tmp_path):
+    from cadkit.ledger import read_end_sha, write_end_sha
+    write_end_sha(str(tmp_path), "abc123")
+    assert read_end_sha(str(tmp_path)) == "abc123"
+    assert (tmp_path / "ledger.end.sha").is_file()
+    runner = open(os.path.join(TOOLS, "fleet_runner.py"), encoding="utf-8").read()
+    assert "read_end_sha(root)" in runner
+    assert "previous_run_end_sha(log.name)" not in runner
+    book = open(os.path.join(ROOT, "RUNBOOK.md"), encoding="utf-8").read()
+    assert "ledger.end.sha" in book
+    assert "ledger.chain.anchor" in book
+    assert "连续跑两次" in book
+    assert "verify_event_chain" in book
+
+
+def test_concurrent_event_inserts_do_not_fork_the_chain(tmp_path):
+    import sqlite3
+    import threading
+    from cadkit.ledger import _insert_event, verify_event_chain
+    root = str(tmp_path)
+    open_ledger(root).close()
+    errors = []
+
+    def worker(count, tag):
+        conn = sqlite3.connect(os.path.join(root, "ledger.sqlite3"), timeout=30)
+        conn.execute("PRAGMA busy_timeout=30000")
+        try:
+            for i in range(count):
+                _insert_event(conn, None, "note", {"i": i, "tag": tag})
+        except Exception as exc:
+            errors.append(repr(exc))
+        finally:
+            conn.close()
+
+    threads = [threading.Thread(target=worker, args=(20, n)) for n in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert errors == []
+    conn = open_ledger(root)
+    try:
+        assert verify_event_chain(conn) is True
+        assert conn.execute("SELECT COUNT(*) FROM event").fetchone()[0] == 40
+    finally:
+        conn.close()
+
+
+def test_wave_ledger_error_is_a_fail(tmp_path):
+    import fleet_runner
+    broken = tmp_path / "ledger.sqlite3"
+    broken.mkdir()
+    flags = fleet_runner.read_part_ledger(
+        str(tmp_path), "p", "rules", [("build", "h")], None)
+    assert flags["event_fail"] is True
+    assert flags["error"]
