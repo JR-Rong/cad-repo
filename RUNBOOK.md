@@ -59,11 +59,27 @@ python3 tools/fleet_runner.py --root ~/cad-fleet --batch fleet_b_2026_11 \
     --machine B --freecad-bin /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 ```
 
-`--package-workers` 默认 **1**。开跑时本进程会独占 `delivery/<批次>/.publisher.lock` 直到退出，所以 0.5.0 / `driver.py` 中途再启动会被挡住；如果进来时锁已经被旧进程占着，直接退出。在第 6 节的并发试验通过之前，不要把这个数加大。读交付目录时只有「文件确实不存在」才当作没有更新的修订；第一次放入用 `renameat2(RENAME_NOREPLACE)` / macOS `renamex_np(RENAME_EXCL)`。
+`--package-workers` 默认 **1**。开跑时本进程会用 `fcntl.flock` 独占 `delivery/<批次>/.publisher.lock` 直到退出。0.5.0 包里的 `ledger.py` 对同一个文件用的也是 `fcntl.flock`（不是 `lockf` / `fcntl.fcntl` 字节锁）。这两种锁在 Linux 上互不排斥，但仓库里能看到的旧引擎用的是 flock，所以占住 flock 就能挡住它。`driver.py` 不在本仓、也不在 0.5.0 包里，它的锁没办法在这里核对。如果进来时这把锁已经被占着，直接退出。在第 6 节的试验通过之前，不要把 `--package-workers` 加大。读交付目录时只有「文件确实不存在」才当作没有更新的修订；第一次放入用 `renameat2(RENAME_NOREPLACE)` / macOS `renamex_np(RENAME_EXCL)`。
 
 包装会读 `projects/<件号>/review/receipts.json` 交给打包器，并把这份文件的 sha256 算进 package 的 input hash。文件不在，或回执不完整，记 **PENDING_REVIEW**，不是设计 FAIL，也不计入「一族 3 次设计 FAIL 就停族」。补上合格回执后同一件可以再跑。没有 `review_status=complete` 仍然不能 accepted。
 
-每次实跑开始会做一次 sqlite backup，把快照路径和 sha256 写进 `status/runner_*.jsonl` 的第一条。Python 里那个「有没有 WHERE」的检查只防手滑（`WHERE 1`、注释、CTE 都绕得过）；真正挡住删除的是表上的触发器：`job` / `event` / `fingerprint` / `evidence_seal` 不能 DELETE，`event` 不能 UPDATE。指纹退役是把 `state` 改成 `withdrawn`，不是删行。
+每次实跑会在日志里写一行 `lane=run_header`（`first_line_of_run: true`）。这是**这一次运行的第一行**，不是整个日志文件的第一行（日志是追加的）。行里有本次开头的台账备份 sha256。跑完再写 `lane=run_footer` 的结束 sha256。下次启动会拿当前台账和上次的结束 sha256 比，对不上就在台账里记下，这一波不能 ACCEPT。
+
+Python 里那个「有没有 WHERE」的检查只防手滑（`WHERE 1`、注释、CTE 都绕得过）。真正挡住的是触发器，而且只挡得住还装着这些触发器的库：`job` / `event` / `fingerprint` / `evidence_seal` / `waiver` / `rules_rereview` 不能 DELETE，`event` 和 `waiver`、`rules_rereview` 不能 UPDATE。`job` 可以 UPDATE，但改不了身份列，FAIL 不能改成 OK（除非同一把钥匙上已经有 `rules_rereview` 行），FAIL 改成 WAIVED 之前必须先有 `waiver` 行。`job` 每次合法更新都会自动补一条 `旧状态 -> 新状态` 的 event。event 才是账，job 是缓存。有人能改数据库文件的话，可以拆掉触发器；`open_ledger` 会在补回触发器之前发现缺了哪一个，写下 `schema_tampered`，这一波不能 ACCEPT。触发器防的是手滑，不是防一个已经能写这个文件的人。
+
+旧的 `event.kind=rules_rereview` 会在 `open_ledger` 时抄进 `rules_rereview` 表（`INSERT OR IGNORE`，可以重复跑）。也可以单独跑：
+
+```sh
+python3 - << 'PY'
+import os, sys
+sys.path.insert(0, "plugin/dsh-plugin-cad-freecad/python")
+from cadkit.ledger import open_ledger, migrate_rules_rereview_from_events
+conn = open_ledger(os.path.expanduser("~/cad-fleet"))
+migrate_rules_rereview_from_events(conn)
+conn.commit()
+conn.close()
+PY
+```
 
 同一条命令可以反复跑。已验收（证据文件里的哈希和磁盘一致）的阶段会跳过。超时 / 没有 JSON 这类瞬时失败最多试 `--max-attempts`（默认 3）次，记为 `RETRY`，还没变成粘滞 FAIL 之前可以被同一次修订上的成功盖过。一旦记成 FAIL，后来的 PASS **不能**抹掉它；要嘛换了字节（新的 input hash，即新修订），要嘛写明原因的豁免：
 
@@ -192,5 +208,5 @@ python3 tools/emit_members.py --machine E --wave 1 > intake/waves/fleet_e_2026_1
 
 **并发试验通过之前，`--package-workers` 保持 1。**
 
-1. 两路包装试验：大约 20 件，`--package-workers 2`，其中一件的件号故意提交两次。日志要能证明走的是 `renamex_np`（macOS）那条不覆盖的改名；目录里不能剩下 `.stale.` / `.superseded.`；每一件的台账和磁盘要对得上。这三条都成立，才可以把 `--package-workers` 调到大于 1。
+1. 两路包装试验：大约 20 件，`--package-workers 2`，其中一件的件号故意提交两次。日志要能证明走的是 `renamex_np`（macOS）那条不覆盖的改名；目录里不能剩下 `.stale.` / `.superseded.`；每一件的台账和磁盘要对得上。试验进行到一半，用**正在安装的那份 0.5.0 引擎**对同一个 cadRoot、同一个批次再发一次 package。它必须堵在 `.publisher.lock` 上，不能把文件发出去。这几条都成立，才可以把 `--package-workers` 调到大于 1。
 2. 097 结案：用 1.1.1 打开当前 FCStd，确认没有 trough/cbore/tab；比较当前 FCStd、`.FCBak`、`manifest.fcstd_sha` 三份哈希并归档。在此之前，门禁 5 对 097 保持「暂时闭合」。

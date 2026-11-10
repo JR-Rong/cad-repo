@@ -753,7 +753,10 @@ def test_missing_receipts_are_pending_review_not_design_fail(tmp_path):
     assert acceptance.classify_failure(
         "PENDING_REVIEW: review/receipts.json missing") == "pending_review"
     assert acceptance.classify_failure(
-        "human review receipts incomplete (L1/L2 required)") == "pending_review"
+        "human review receipts incomplete (L1/L2 required, W18) - packaging refused"
+    ) == "pending_review"
+    assert acceptance.classify_failure(
+        "note: pending_review mentioned in a design error") == "design"
     assert acceptance.counts_toward_family_pause("pending_review") is False
     assert acceptance.counts_toward_family_pause("design") is True
     action, state = job_transition("", "PENDING_REVIEW", error_class="pending_review")
@@ -792,13 +795,11 @@ def test_missing_receipts_are_pending_review_not_design_fail(tmp_path):
         "package", 128, 5)
     opts = seen.read_text(encoding="utf-8")
     assert "receipts.json" in opts
-    h_missing = None
     rec = fleet_runner.Recorder(str(root), PY, "rules")
     before = rec.input_hash("p1", "package")
     receipt.write_text('{"L1": {"reviewer": "a"}}', encoding="utf-8")
     after = rec.input_hash("p1", "package")
     assert before != after
-    assert h_missing is None
 
 
 def test_legacy_lock_is_held_for_the_whole_run(tmp_path):
@@ -835,9 +836,15 @@ def test_quarantine_hash_comes_from_the_ledger(tmp_path):
         with pytest.raises(ValueError):
             mark_quarantine_from_ledger(conn, "b_in01_097")
         assert quarantine_mark(conn, "b_in01_097")["input_sha"] == "hash-from-ledger"
-        record_signoff(conn, "b_in01_097", "new-rev", "owner", "rebuilt and looked at")
-        row = review_signoff(conn, "b_in01_097", "new-rev")
-        assert row["reviewer"] == "owner" and row["input_sha"] == "new-rev"
+        with pytest.raises(ValueError):
+            record_signoff(conn, "b_in01_097", "typed-hash", "owner", "no")
+        with pytest.raises(ValueError):
+            record_signoff(conn, "b_in01_097", "hash-from-ledger", "owner",
+                           "still the frozen revision")
+        record_signoff(conn, "b_in01_097", "typed-by-hand", "owner",
+                       "rebuilt and looked at")
+        row = review_signoff(conn, "b_in01_097", "typed-by-hand")
+        assert row["reviewer"] == "owner" and row["input_sha"] == "typed-by-hand"
         import sqlite3
         raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
         try:
@@ -867,8 +874,10 @@ def test_rules_rereview_is_a_point_lookup(tmp_path):
             "EXPLAIN QUERY PLAN SELECT reason FROM rules_rereview "
             "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=?",
             ("p", "validate", "in", "rules")).fetchall()
-        text = " ".join(str(row) for row in plan)
-        assert "SCAN" not in text.upper() or "COVERING" in text.upper() or "SEARCH" in text.upper()
+        text = " ".join(str(row) for row in plan).upper()
+        assert "SEARCH" in text
+        assert "PROJECT_ID=?" in text and "RULES_SHA=?" in text
+        assert "SCAN TABLE" not in text
     finally:
         conn.close()
 
@@ -930,6 +939,123 @@ def test_ledger_backup_sha_is_stable(tmp_path):
     assert os.path.isfile(dest)
     assert len(digest) == 64
     assert backup_ledger(str(tmp_path / "empty")) is None
+
+
+def test_job_trigger_blocks_silent_ok_and_records_transition(tmp_path):
+    import sqlite3
+    conn = open_ledger(str(tmp_path))
+    try:
+        job_record(conn, "p", "validate", "in", "rules", "FAIL",
+                   error_class="design")
+        from cadkit.ledger import event_unwaived_fail, verify_event_chain
+        assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
+        assert verify_event_chain(conn) is True
+        raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+        raw.create_function("cadkit_event_hash", 5, lambda *a: "x")
+        raw.create_function("cadkit_job_payload", 6, lambda *a: "{}")
+        try:
+            with pytest.raises(sqlite3.IntegrityError):
+                raw.execute(
+                    "UPDATE job SET state='OK' WHERE project_id='p'")
+        finally:
+            raw.close()
+        from cadkit.ledger import record_waiver
+        record_waiver(conn, "p", "validate", "in", "rules", "looked at it",
+                      kind="waiver")
+        assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is False
+        row = conn.execute("SELECT state FROM job WHERE project_id='p'").fetchone()
+        assert row[0] == "WAIVED"
+        assert verify_event_chain(conn) is True
+    finally:
+        conn.close()
+
+
+def test_event_chain_break_and_missing_trigger_block_acceptance(tmp_path):
+    import sqlite3
+    from cadkit.ledger import ledger_acceptance_blocks, verify_event_chain
+    path = str(tmp_path)
+    conn = open_ledger(path)
+    job_record(conn, "p", "build", "h", "r", "OK")
+    assert verify_event_chain(conn) is True
+    assert ledger_acceptance_blocks(conn) == []
+    conn.close()
+    raw = sqlite3.connect(os.path.join(path, "ledger.sqlite3"))
+    raw.execute(
+        "INSERT INTO event(rev, kind, payload, created, prev_hash, row_hash) "
+        "VALUES(NULL, 'forged', '{}', 1, 'nope', 'nope')")
+    raw.commit()
+    raw.close()
+    conn = open_ledger(path)
+    try:
+        assert verify_event_chain(conn) is False
+        assert "event_chain_broken" in ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+    raw = sqlite3.connect(os.path.join(path, "ledger.sqlite3"))
+    raw.execute("DROP TRIGGER job_update_guard")
+    raw.commit()
+    raw.close()
+    conn = open_ledger(path)
+    try:
+        assert "schema_tampered" in ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+
+
+def test_rules_rereview_migration_is_idempotent(tmp_path):
+    from cadkit.ledger import (_insert_event, _rules_rereviewed,
+                               migrate_rules_rereview_from_events)
+    conn = open_ledger(str(tmp_path))
+    try:
+        _insert_event(conn, None, "rules_rereview", {
+            "project_id": "p", "stage": "validate", "input_sha": "in",
+            "rules_sha": "old-engine", "reason": "copied from the event log",
+        })
+        conn.commit()
+        migrate_rules_rereview_from_events(conn)
+        migrate_rules_rereview_from_events(conn)
+        conn.commit()
+        assert _rules_rereviewed(conn, "p", "validate", "in", "old-engine")
+        n = conn.execute("SELECT COUNT(*) FROM rules_rereview").fetchone()[0]
+        assert n == 1
+    finally:
+        conn.close()
+    import sqlite3
+    raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+    try:
+        with pytest.raises(sqlite3.IntegrityError):
+            raw.execute("DELETE FROM rules_rereview")
+    finally:
+        raw.close()
+
+
+def test_run_header_is_the_first_line_of_this_run(tmp_path):
+    sys.path.insert(0, TOOLS)
+    import fleet_runner
+    path = tmp_path / "runner.jsonl"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write('{"lane":"old"}\n')
+        rec = fleet_runner.append_run_header(
+            f, backup_sha="abc", previous_end_sha="abc", run_id="run-2")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert lines[0] != lines[1]
+    header = json.loads(lines[1])
+    assert header["first_line_of_run"] is True
+    assert header["run_id"] == rec["run_id"]
+    assert header["ledger_matches_previous_end"] is True
+    assert "abc" == header["ledger_backup_sha256"]
+
+
+def test_acceptance_trusts_events_over_job_ok():
+    import acceptance
+    ev = _full_evidence()
+    ev["accepted"] = True
+    ev["hashes"] = _three_hashes()
+    status, why = acceptance.classify_part(
+        "p", ev, _three_hashes(), quarantined=False, ledger_input_sha=None,
+        current_input_sha="h", file_sha="s", sealed_sha="s",
+        event_unwaived_fail=True)
+    assert status == "needs_repair" and "FAIL" in why
 
 
 def test_probe_and_packager_call_the_fail_closed_helpers():

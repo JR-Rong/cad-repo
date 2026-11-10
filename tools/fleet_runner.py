@@ -177,6 +177,37 @@ QUARANTINE_PIDS = {
 }
 
 
+def append_run_header(log, *, backup_sha, previous_end_sha, run_id):
+    """First line of this run, even when the log file already has older runs."""
+    matches = None if previous_end_sha is None else previous_end_sha == backup_sha
+    rec = {
+        "lane": "run_header",
+        "run_id": run_id,
+        "first_line_of_run": True,
+        "ledger_backup_sha256": backup_sha,
+        "previous_end_sha256": previous_end_sha,
+        "ledger_matches_previous_end": matches,
+    }
+    log.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    log.flush()
+    return rec
+
+
+def previous_run_end_sha(log_path):
+    last = None
+    if not log_path or not os.path.isfile(log_path):
+        return None
+    with open(log_path, encoding="utf-8") as f:
+        for line in f:
+            try:
+                doc = json.loads(line)
+            except ValueError:
+                continue
+            if doc.get("lane") == "run_footer" and doc.get("ledger_end_sha256"):
+                last = doc["ledger_end_sha256"]
+    return last
+
+
 def _family_file(root, pid):
     yml = os.path.join(root, "projects", pid, "project.yml")
     module = None
@@ -482,9 +513,11 @@ def main():
             ev_path = acceptance.evidence_path(root, pid)
             if os.path.isfile(ev_path):
                 file_sha = acceptance.sha256_file(ev_path)
+            event_fail = False
             try:
-                from cadkit.ledger import (evidence_seal, open_ledger,
-                                           quarantine_mark, review_signoff)
+                from cadkit.ledger import (event_unwaived_fail, evidence_seal,
+                                           open_ledger, quarantine_mark,
+                                           review_signoff)
                 conn = open_ledger(root)
                 try:
                     sealed = evidence_seal(conn, pid)
@@ -493,6 +526,12 @@ def main():
                         ledger_input = mark["input_sha"]
                     if current_input:
                         signoff = review_signoff(conn, pid, current_input)
+                    for stage_name, st in ((ev or {}).get("stages") or {}).items():
+                        ih = (st or {}).get("input_sha")
+                        if ih and event_unwaived_fail(
+                                conn, pid, stage_name, ih, rec.rules):
+                            event_fail = True
+                            break
                 finally:
                     conn.close()
             except Exception:
@@ -503,7 +542,8 @@ def main():
                 ledger_input_sha=ledger_input,
                 current_input_sha=current_input,
                 signoff=signoff,
-                file_sha=file_sha, sealed_sha=sealed)
+                file_sha=file_sha, sealed_sha=sealed,
+                event_unwaived_fail=event_fail)
             if status == "accepted" and fam_status != "ok":
                 status, why = "unverified", "family core unfrozen"
             rows.append({"project_id": pid, "status": status,
@@ -513,10 +553,21 @@ def main():
         return rows
 
     def emit_report():
+        blockers = []
+        try:
+            from cadkit.ledger import ledger_acceptance_blocks, open_ledger
+            conn = open_ledger(root)
+            try:
+                blockers = ledger_acceptance_blocks(conn)
+            finally:
+                conn.close()
+        except Exception as exc:
+            blockers = ["ledger_unreadable: %s" % exc]
         paths = acceptance.write_wave_report(
             REPO, a.batch, wave_rows(), intake=a.intake, root=root,
             extra={"family_core": fam_status, "family_detail": fam_detail,
                    "quarantine_pids": sorted(QUARANTINE_PIDS),
+                   "ledger_blockers": blockers,
                    "note": "accepted + quarantined + infeasible should equal "
                            "400 per family before the next wave"})
         print("验收报告 %s  VERDICT %s" % (paths["report"], paths["verdict"]))
@@ -547,19 +598,36 @@ def main():
                                      % (a.batch, time.strftime("%Y%m%d_%H%M"))), "a",
                encoding="utf-8")
     snap = backup_ledger(root)
+    backup_sha = snap[1] if snap else None
+    previous_end = previous_run_end_sha(log.name)
+    header = append_run_header(
+        log, backup_sha=backup_sha, previous_end_sha=previous_end,
+        run_id=time.strftime("%Y%m%d_%H%M%S") + "-%d" % os.getpid())
     if snap:
-        log.write(json.dumps({
-            "lane": "backup", "ledger_backup": snap[0],
-            "ledger_backup_sha256": snap[1],
-        }, ensure_ascii=False) + "\n")
-        log.flush()
         print("台账快照 %s sha256 %s" % (snap[0], snap[1]))
-    else:
-        log.write(json.dumps({
-            "lane": "backup", "ledger_backup": None,
-            "note": "no ledger.sqlite3 yet",
-        }, ensure_ascii=False) + "\n")
-        log.flush()
+    if header["ledger_matches_previous_end"] is False:
+        try:
+            from cadkit.ledger import open_ledger, set_meta
+            conn = open_ledger(root)
+            try:
+                set_meta(conn, "ledger_sha_mismatch", "1")
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception:
+            pass
+        print("WARN 台账和上次运行结束时的快照不一致")
+    elif previous_end and backup_sha == previous_end:
+        try:
+            from cadkit.ledger import open_ledger, set_meta
+            conn = open_ledger(root)
+            try:
+                set_meta(conn, "ledger_sha_mismatch", "0")
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception:
+            pass
     lock = threading.Lock()
     stop = threading.Event()
     stats = {"ok": 0, "fail": 0, "reviews": 0, "packaged": 0, "done_parts": 0}
@@ -743,6 +811,13 @@ def main():
     for t in pkg_threads:
         t.join(timeout=120)
     emit_report()
+    end = backup_ledger(root)
+    log.write(json.dumps({
+        "lane": "run_footer",
+        "run_id": header["run_id"],
+        "ledger_end_sha256": end[1] if end else None,
+    }, ensure_ascii=False) + "\n")
+    log.flush()
     print("完成：件 %d（含 %d 次旧件复检），阶段 ok=%d fail=%d，package=%d；日志 %s"
           % (stats["done_parts"], stats["reviews"], stats["ok"], stats["fail"],
              stats["packaged"], os.path.relpath(log.name, REPO)))

@@ -75,7 +75,8 @@ CREATE INDEX IF NOT EXISTS fp_candidates
 CREATE INDEX IF NOT EXISTS fp_project ON fingerprint(project_id, state);
 CREATE TABLE IF NOT EXISTS event(
   event_id INTEGER PRIMARY KEY, rev TEXT, kind TEXT NOT NULL,
-  payload TEXT, created INTEGER NOT NULL);
+  payload TEXT, created INTEGER NOT NULL,
+  prev_hash TEXT, row_hash TEXT);
 CREATE TABLE IF NOT EXISTS intake(
   batch_id TEXT NOT NULL, project_id TEXT NOT NULL, required TEXT,
   PRIMARY KEY(batch_id, project_id));
@@ -150,6 +151,86 @@ CREATE TRIGGER IF NOT EXISTS review_signoff_no_delete
 BEFORE DELETE ON review_signoff
 BEGIN
   SELECT RAISE(ABORT, 'review sign-off cannot be deleted');
+END;
+CREATE TABLE IF NOT EXISTS waiver(
+  project_id TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  input_sha TEXT NOT NULL,
+  rules_sha TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  PRIMARY KEY(project_id, stage, input_sha, rules_sha, kind));
+CREATE TRIGGER IF NOT EXISTS waiver_no_update
+BEFORE UPDATE ON waiver
+BEGIN
+  SELECT RAISE(ABORT, 'waiver rows cannot be rewritten');
+END;
+CREATE TRIGGER IF NOT EXISTS waiver_no_delete
+BEFORE DELETE ON waiver
+BEGIN
+  SELECT RAISE(ABORT, 'waiver rows cannot be deleted');
+END;
+CREATE TRIGGER IF NOT EXISTS rules_rereview_no_update
+BEFORE UPDATE ON rules_rereview
+BEGIN
+  SELECT RAISE(ABORT, 'rules_rereview rows cannot be rewritten');
+END;
+CREATE TRIGGER IF NOT EXISTS rules_rereview_no_delete
+BEFORE DELETE ON rules_rereview
+BEGIN
+  SELECT RAISE(ABORT, 'rules_rereview rows cannot be deleted');
+END;
+-- job is a cache of the event log. Identity columns never change.
+-- FAIL/WAIVED/INFEASIBLE cannot become OK/PASS/DONE/RETRY.
+-- FAIL becomes WAIVED or INFEASIBLE only after a waiver row exists.
+-- A rules_rereview row authorizes FAIL -> OK for that exact key
+-- (the previous review's re-review path).
+CREATE TRIGGER IF NOT EXISTS job_update_guard
+BEFORE UPDATE ON job
+BEGIN
+  SELECT RAISE(ABORT, 'job identity columns are immutable')
+  WHERE OLD.project_id IS NOT NEW.project_id
+     OR OLD.stage IS NOT NEW.stage
+     OR OLD.input_sha IS NOT NEW.input_sha
+     OR OLD.rules_sha IS NOT NEW.rules_sha;
+  SELECT RAISE(ABORT, 'sticky job state cannot become OK')
+  WHERE OLD.state IN ('FAIL', 'WAIVED', 'INFEASIBLE')
+    AND NEW.state IN ('OK', 'PASS', 'DONE', 'RETRY')
+    AND NOT EXISTS (
+      SELECT 1 FROM rules_rereview
+      WHERE project_id = OLD.project_id AND stage = OLD.stage
+        AND input_sha = OLD.input_sha AND rules_sha = OLD.rules_sha
+        AND reason <> '');
+  SELECT RAISE(ABORT, 'FAIL to WAIVED/INFEASIBLE requires a waiver row')
+  WHERE OLD.state = 'FAIL'
+    AND NEW.state IN ('WAIVED', 'INFEASIBLE')
+    AND NOT EXISTS (
+      SELECT 1 FROM waiver
+      WHERE project_id = OLD.project_id AND stage = OLD.stage
+        AND input_sha = OLD.input_sha AND rules_sha = OLD.rules_sha
+        AND kind = CASE NEW.state
+                     WHEN 'WAIVED' THEN 'waiver'
+                     ELSE 'design-infeasible' END);
+END;
+CREATE TRIGGER IF NOT EXISTS job_update_event
+AFTER UPDATE ON job
+BEGIN
+  INSERT INTO event(rev, kind, payload, created, prev_hash, row_hash)
+  VALUES (
+    NEW.rev,
+    'job_transition',
+    cadkit_job_payload(OLD.project_id, OLD.stage, OLD.input_sha,
+                       OLD.rules_sha, OLD.state, NEW.state),
+    NEW.updated,
+    COALESCE((SELECT row_hash FROM event ORDER BY event_id DESC LIMIT 1), ''),
+    cadkit_event_hash(
+      COALESCE((SELECT row_hash FROM event ORDER BY event_id DESC LIMIT 1), ''),
+      COALESCE(NEW.rev, ''),
+      'job_transition',
+      cadkit_job_payload(OLD.project_id, OLD.stage, OLD.input_sha,
+                         OLD.rules_sha, OLD.state, NEW.state),
+      NEW.updated));
 END;
 CREATE TABLE IF NOT EXISTS buyer_stock(
   buyer_id TEXT NOT NULL, external_id TEXT NOT NULL, signature TEXT,
@@ -275,16 +356,214 @@ class _GuardedConnection:
 
 
 def _install_sql_guard(conn):
-    """Refuse unscoped DELETE/UPDATE on every statement this handle runs."""
+    """Refuse unscoped DELETE/UPDATE on every statement this handle runs.
+
+    Typo guard only. ``WHERE 1`` passes. The triggers are what abort a
+    raw sqlite3 client. They are not a defense against someone who can
+    edit the database file and drop the triggers.
+    """
     return _GuardedConnection(conn)
+
+
+def _event_hash(prev_hash, rev, kind, payload, created):
+    h = hashlib.sha256()
+    for part in (prev_hash or "", rev or "", kind or "", payload or "",
+                 str(created)):
+        h.update(str(part).encode("utf-8"))
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def _job_payload(project_id, stage, input_sha, rules_sha, old_state, new_state):
+    return json.dumps({
+        "input_sha": input_sha,
+        "project_id": project_id,
+        "rules_sha": rules_sha,
+        "stage": stage,
+        "transition": "%s -> %s" % (old_state or "", new_state or ""),
+    }, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def _register_sql_functions(conn):
+    conn.create_function("cadkit_event_hash", 5, _event_hash)
+    conn.create_function("cadkit_job_payload", 6, _job_payload)
+
+
+def _insert_event(conn, rev, kind, payload, created=None):
+    """Append one event and extend the hash chain. Insert-only."""
+    if not isinstance(payload, str):
+        payload = json.dumps(payload, ensure_ascii=False,
+                             separators=(",", ":"), sort_keys=True)
+    created = _ms() if created is None else int(created)
+    prev = conn.execute(
+        "SELECT row_hash FROM event WHERE row_hash IS NOT NULL "
+        "ORDER BY event_id DESC LIMIT 1").fetchone()
+    prev_hash = prev[0] if prev and prev[0] else ""
+    row_hash = _event_hash(prev_hash, rev, kind, payload, created)
+    conn.execute(
+        "INSERT INTO event(rev, kind, payload, created, prev_hash, row_hash) "
+        "VALUES(?,?,?,?,?,?)",
+        (rev, kind, payload, created, prev_hash, row_hash))
+    return row_hash
+
+
+EXPECTED_TRIGGERS = (
+    "job_no_delete", "event_no_delete", "event_no_update",
+    "fingerprint_no_delete", "evidence_seal_no_delete",
+    "quarantine_mark_no_update", "quarantine_mark_no_delete",
+    "review_signoff_no_update", "review_signoff_no_delete",
+    "waiver_no_update", "waiver_no_delete",
+    "rules_rereview_no_update", "rules_rereview_no_delete",
+    "job_update_guard", "job_update_event",
+)
+
+
+def _missing_triggers(conn):
+    """Triggers that should already exist. Empty on a database with no job table.
+
+    Called before CREATE IF NOT EXISTS so a dropped trigger is visible.
+    """
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    if "job" not in tables:
+        return []
+    present = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='trigger'")}
+    return [name for name in EXPECTED_TRIGGERS if name not in present]
+
+
+def verify_event_chain(conn):
+    """True when every event row's hash matches its predecessor."""
+    rows = conn.execute(
+        "SELECT rev, kind, payload, created, prev_hash, row_hash "
+        "FROM event ORDER BY event_id").fetchall()
+    prev = ""
+    for rev, kind, payload, created, prev_hash, row_hash in rows:
+        if (prev_hash or "") != prev:
+            return False
+        expect = _event_hash(prev, rev, kind, payload, created)
+        if row_hash != expect:
+            return False
+        prev = row_hash
+    return True
+
+
+def _backfill_event_hashes(conn):
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
+    if "row_hash" not in cols:
+        conn.execute("ALTER TABLE event ADD COLUMN prev_hash TEXT")
+        conn.execute("ALTER TABLE event ADD COLUMN row_hash TEXT")
+    pending = conn.execute(
+        "SELECT event_id FROM event WHERE row_hash IS NULL LIMIT 1").fetchone()
+    if not pending:
+        return
+    conn.execute("DROP TRIGGER IF EXISTS event_no_update")
+    prev = ""
+    rows = conn.execute(
+        "SELECT event_id, rev, kind, payload, created FROM event "
+        "ORDER BY event_id").fetchall()
+    for event_id, rev, kind, payload, created in rows:
+        row_hash = _event_hash(prev, rev, kind, payload or "", created)
+        conn.execute(
+            "UPDATE event SET prev_hash=?, row_hash=? WHERE event_id=?",
+            (prev, row_hash, event_id))
+        prev = row_hash
+    conn.executescript("""
+        CREATE TRIGGER IF NOT EXISTS event_no_update
+        BEFORE UPDATE ON event
+        BEGIN
+          SELECT RAISE(ABORT, 'event rows cannot be rewritten');
+        END;
+    """)
+
+
+def migrate_rules_rereview_from_events(conn):
+    """Copy kind=rules_rereview events into the lookup table. Idempotent."""
+    rows = conn.execute(
+        "SELECT payload, created FROM event WHERE kind='rules_rereview'"
+    ).fetchall()
+    for payload, created in rows:
+        try:
+            doc = json.loads(payload or "")
+        except ValueError:
+            continue
+        if not isinstance(doc, dict):
+            continue
+        reason = str(doc.get("reason") or "").strip()
+        if not (doc.get("project_id") and doc.get("stage")
+                and doc.get("input_sha") and doc.get("rules_sha") and reason):
+            continue
+        conn.execute(
+            "INSERT OR IGNORE INTO rules_rereview(project_id, stage, "
+            "input_sha, rules_sha, reason, created) VALUES(?,?,?,?,?,?)",
+            (doc["project_id"], doc["stage"], doc["input_sha"],
+             doc["rules_sha"], reason, created or _ms()))
+    conn.commit()
+
+
+def ledger_acceptance_blocks(conn):
+    """Reasons the ledger itself forbids ACCEPT. Empty means no ledger block.
+
+    Triggers stop slips. They do not stop someone who can edit the file
+    and remove the triggers; a missing trigger is recorded and then this
+    list stays non-empty.
+    """
+    reasons = []
+    row = conn.execute(
+        "SELECT v FROM meta WHERE k='schema_tampered'").fetchone()
+    if row and str(row[0]) not in ("", "0"):
+        reasons.append("schema_tampered")
+    row = conn.execute(
+        "SELECT v FROM meta WHERE k='ledger_sha_mismatch'").fetchone()
+    if row and str(row[0]) not in ("", "0"):
+        reasons.append("ledger_changed_outside_runner")
+    if not verify_event_chain(conn):
+        reasons.append("event_chain_broken")
+    return reasons
+
+
+def event_unwaived_fail(conn, project_id, stage, input_sha, rules_sha):
+    """True when the event log shows a transition into FAIL and no waiver row."""
+    rows = conn.execute(
+        "SELECT json_extract(payload, '$.transition') FROM event "
+        "WHERE json_extract(payload, '$.project_id') = ? "
+        "AND json_extract(payload, '$.stage') = ? "
+        "AND json_extract(payload, '$.input_sha') = ? "
+        "AND json_extract(payload, '$.rules_sha') = ?",
+        (project_id, stage, input_sha, rules_sha)).fetchall()
+    saw = False
+    for (transition,) in rows:
+        if not transition or "->" not in transition:
+            continue
+        if transition.split("->")[-1].strip() == "FAIL":
+            saw = True
+            break
+    if not saw:
+        return False
+    row = conn.execute(
+        "SELECT 1 FROM waiver WHERE project_id=? AND stage=? AND input_sha=? "
+        "AND rules_sha=? LIMIT 1",
+        (project_id, stage, input_sha, rules_sha)).fetchone()
+    return row is None
+
+
+def set_meta(conn, key, value):
+    conn.execute(
+        "INSERT INTO meta(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET "
+        "v=excluded.v",
+        (key, value))
 
 
 def open_ledger(cad_root):
     path = os.path.join(cad_root, "ledger.sqlite3")
-    conn = _install_sql_guard(sqlite3.connect(path, timeout=30))
+    raw = sqlite3.connect(path, timeout=30)
+    _register_sql_functions(raw)
+    missing = _missing_triggers(raw)
+    conn = _install_sql_guard(raw)
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=FULL")
+    _ensure_event_columns(conn)
     conn.executescript(_SCHEMA)
     if not conn.execute("SELECT v FROM meta WHERE k='schema_version'")\
             .fetchone():
@@ -292,7 +571,27 @@ def open_ledger(cad_root):
                      (str(SCHEMA_VERSION),))
         conn.commit()
     _migrate(conn)
+    _backfill_event_hashes(conn)
+    migrate_rules_rereview_from_events(conn)
+    if missing:
+        set_meta(conn, "schema_tampered", "1")
+        _insert_event(conn, None, "schema_tampered", {
+            "missing_triggers": missing,
+        })
+        conn.commit()
     return conn
+
+
+def _ensure_event_columns(conn):
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    if "event" not in tables:
+        return
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
+    if "prev_hash" not in cols:
+        conn.execute("ALTER TABLE event ADD COLUMN prev_hash TEXT")
+    if "row_hash" not in cols:
+        conn.execute("ALTER TABLE event ADD COLUMN row_hash TEXT")
 
 
 # ---------- staging helpers (packager) ----------
@@ -731,8 +1030,7 @@ def commit_acceptance(conn, *, batch, buyer_id, project_id, rev, fcstd_sha,
              fp["shape_bucket"], fp.get("cells"), fp.get("steps"),
              fp.get("solids"), fp.get("volume"), fp.get("bbox"),
              "active", now, _fp_blob(fp)))
-        conn.execute("INSERT INTO event(rev,kind,payload,created) "
-                     "VALUES(?,?,?,?)", (rev, "delivered", "", now))
+        _insert_event(conn, rev, "delivered", "", now)
     return rev
 
 
@@ -795,14 +1093,12 @@ def job_record(conn, project_id, stage, input_sha, rules_sha, state,
                         "VALUES(?,?,?,?,?,'FAIL',1,?,?)",
                         (rev, project_id, stage, input_sha, rules_sha,
                          inherited, now))
-                conn.execute(
-                    "INSERT INTO event(rev,kind,payload,created) "
-                    "VALUES(?,?,?,?)",
-                    (rev, "n45_inherit", json.dumps({
-                        "project_id": project_id, "stage": stage,
-                        "input_sha": input_sha, "rules_sha": rules_sha,
-                        "prior_rules": [r[0] for r in prior],
-                    }, ensure_ascii=False), now))
+                _insert_event(conn, rev, "n45_inherit", {
+                    "project_id": project_id, "stage": stage,
+                    "input_sha": input_sha, "rules_sha": rules_sha,
+                    "prior_rules": [r[0] for r in prior],
+                    "transition": "-> FAIL",
+                }, now)
                 return {"applied": False, "state": "FAIL",
                         "reason": "N45: FAIL under previous rules_sha "
                                   "still stands; per-part re-review required"}
@@ -819,13 +1115,11 @@ def job_record(conn, project_id, stage, input_sha, rules_sha, state,
             old_state, state, error_class=kind, attempt=old_attempt,
             max_attempts=max_attempts)
         if action == "keep":
-            conn.execute(
-                "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
-                (rev, "n45_reject", json.dumps({
-                    "project_id": project_id, "stage": stage,
-                    "input_sha": input_sha, "kept": old_state,
-                    "rejected": state, "reason": decided,
-                }, ensure_ascii=False), now))
+            _insert_event(conn, rev, "n45_reject", {
+                "project_id": project_id, "stage": stage,
+                "input_sha": input_sha, "rules_sha": rules_sha,
+                "kept": old_state, "rejected": state, "reason": decided,
+            }, now)
             return {"applied": False, "state": old_state, "reason": decided}
         if row is None:
             conn.execute(
@@ -833,6 +1127,8 @@ def job_record(conn, project_id, stage, input_sha, rules_sha, state,
                 "state,attempt,error_class,updated) VALUES(?,?,?,?,?,?,1,?,?)",
                 (rev, project_id, stage, input_sha, rules_sha, decided,
                  error_class, now))
+            _insert_event(conn, rev, "job_transition", _job_payload(
+                project_id, stage, input_sha, rules_sha, "", decided), now)
         else:
             conn.execute(
                 "UPDATE job SET state=?, attempt=?, error_class=?, updated=?, "
@@ -840,12 +1136,6 @@ def job_record(conn, project_id, stage, input_sha, rules_sha, state,
                 "input_sha=? AND rules_sha=?",
                 (decided, old_attempt + 1, error_class, now, rev,
                  project_id, stage, input_sha, rules_sha))
-        conn.execute(
-            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
-            (rev, "job_state", json.dumps({
-                "project_id": project_id, "stage": stage,
-                "from": old_state or None, "to": decided,
-            }, ensure_ascii=False), now))
         return {"applied": True, "state": decided}
 
 
@@ -878,13 +1168,11 @@ def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
             "INSERT INTO rules_rereview(project_id, stage, input_sha, "
             "rules_sha, reason, created) VALUES(?,?,?,?,?,?)",
             (project_id, stage, input_sha, rules_sha, reason, now))
-        conn.execute(
-            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
-            (None, "rules_rereview", json.dumps({
-                "project_id": project_id, "stage": stage,
-                "input_sha": input_sha, "rules_sha": rules_sha,
-                "reason": reason,
-            }, ensure_ascii=False), now))
+        _insert_event(conn, None, "rules_rereview", {
+            "project_id": project_id, "stage": stage,
+            "input_sha": input_sha, "rules_sha": rules_sha,
+            "reason": reason,
+        }, now)
     return {"applied": True, "reason": reason}
 
 
@@ -923,11 +1211,9 @@ def mark_quarantine_from_ledger(conn, project_id):
             "INSERT INTO quarantine_mark(project_id, input_sha, created) "
             "VALUES(?,?,?)",
             (project_id, sha, now))
-        conn.execute(
-            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
-            (None, "quarantine", json.dumps({
-                "project_id": project_id, "input_sha": sha,
-            }, ensure_ascii=False), now))
+        _insert_event(conn, None, "quarantine", {
+            "project_id": project_id, "input_sha": sha,
+        }, now)
     return {"applied": True, "input_sha": sha}
 
 
@@ -950,18 +1236,24 @@ def record_signoff(conn, project_id, input_sha, reviewer, reason):
     input_sha = (input_sha or "").strip()
     if not (project_id and input_sha and reviewer and reason):
         raise ValueError("sign-off needs project, input_sha, reviewer, reason")
+    current = latest_build_input_sha(conn, project_id)
+    frozen = quarantine_mark(conn, project_id)
+    if not current or input_sha != current:
+        raise ValueError(
+            "sign-off input_sha must equal the current build hash in the ledger")
+    if not frozen or input_sha == frozen["input_sha"]:
+        raise ValueError(
+            "sign-off must name a new revision, not the hash frozen at quarantine")
     now = _ms()
     with conn:
         conn.execute(
             "INSERT INTO review_signoff(project_id, input_sha, reviewer, "
             "reason, created) VALUES(?,?,?,?,?)",
             (project_id, input_sha, reviewer, reason, now))
-        conn.execute(
-            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
-            (None, "signoff", json.dumps({
-                "project_id": project_id, "input_sha": input_sha,
-                "reviewer": reviewer, "reason": reason,
-            }, ensure_ascii=False), now))
+        _insert_event(conn, None, "signoff", {
+            "project_id": project_id, "input_sha": input_sha,
+            "reviewer": reviewer, "reason": reason,
+        }, now)
     return {"applied": True, "input_sha": input_sha}
 
 
@@ -978,10 +1270,13 @@ def review_signoff(conn, project_id, input_sha):
 def hold_legacy_publisher_lock(root, batch):
     """Hold ``delivery/<batch>/.publisher.lock`` exclusive until the fd closes.
 
-    The old 0.5.0 engine and driver.py flock this same file for each
-    publish. Holding it for the whole run makes them block if they start
-    while this process is alive. Returns the fd, or None if another
-    process already holds it.
+    The 0.5.0 tarball (``package/python/cadkit/ledger.py``) takes this
+    same file with ``fcntl.flock``, not ``lockf`` or ``fcntl.fcntl``
+    byte-range locks. ``flock`` and ``lockf`` do not exclude each other
+    on Linux, but the shipped 0.5.0 engine uses ``flock``, so holding
+    ``flock`` is what blocks it. ``driver.py`` is not in this repo or in
+    the 0.5.0 tarball, so its lock call could not be checked. Returns
+    the fd, or None if another process already holds the flock.
     """
     import fcntl
     path = os.path.join(root, "delivery", batch, ".publisher.lock")
@@ -1036,11 +1331,9 @@ def retire_active_fingerprints(conn, project_id, reason):
         cur = conn.execute(sql, (project_id,))
         n = cur.rowcount
         if n:
-            conn.execute(
-                "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
-                (None, "fingerprint_retired", json.dumps({
+                _insert_event(conn, None, "fingerprint_retired", {
                     "project_id": project_id, "rows": n, "reason": reason,
-                }, ensure_ascii=False), now))
+                }, now)
     return n
 
 
@@ -1103,6 +1396,10 @@ def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,
     new_state = "WAIVED" if kind == "waiver" else "INFEASIBLE"
     now = _ms()
     with conn:
+        conn.execute(
+            "INSERT INTO waiver(project_id, stage, input_sha, rules_sha, "
+            "kind, reason, created) VALUES(?,?,?,?,?,?,?)",
+            (project_id, stage, input_sha, rules_sha, kind, reason, now))
         cur = conn.execute(
             "UPDATE job SET state=?, error_class=?, updated=? "
             "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=? "
@@ -1113,12 +1410,11 @@ def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,
             raise ValueError(
                 "waiver applies only to an existing FAIL row for this "
                 "revision")
-        conn.execute(
-            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
-            (None, kind, json.dumps({
-                "project_id": project_id, "stage": stage,
-                "input_sha": input_sha, "reason": reason,
-            }, ensure_ascii=False), now))
+        _insert_event(conn, None, kind, {
+            "project_id": project_id, "stage": stage,
+            "input_sha": input_sha, "rules_sha": rules_sha,
+            "reason": reason,
+        }, now)
     return {"applied": True, "state": new_state, "reason": reason}
 
 
@@ -1231,10 +1527,8 @@ def reinstate_previous(conn, batch, project_id, exclude_rev=None):
                 "DESC LIMIT 1", (prev_rev, batch)).fetchone()[0],))
         conn.execute("UPDATE fingerprint SET state='active' WHERE rev=?",
                      (prev_rev,))
-        conn.execute("INSERT INTO event(rev,kind,payload,created) "
-                     "VALUES(?,?,?,?)",
-                     (prev_rev, "reinstated", "post-publish rollback (N2)",
-                      _ms()))
+        _insert_event(conn, prev_rev, "reinstated",
+                      "post-publish rollback (N2)", _ms())
         _reelect_classes(conn, batch)
         return prev_rev
 
@@ -1334,8 +1628,7 @@ def _mark_published(conn, batch, project_id, rev, disk_final, expect_sha):
             "state='delivered' AND rowid NOT IN (SELECT MIN(rowid) FROM "
             "delivery WHERE rev=? AND batch_id=? AND state='delivered')",
             (rev, batch, rev, batch))
-        conn.execute("INSERT INTO event(rev,kind,payload,created) "
-                     "VALUES(?,?,?,?)", (rev, "published", "", _ms()))
+        _insert_event(conn, rev, "published", "", _ms())
         _reelect_classes(conn, batch)
         return True
 
@@ -1390,8 +1683,7 @@ def abandon_pending(conn, batch, rev, reason):
     with conn:
         conn.execute("UPDATE delivery SET state='abandoned' WHERE rev=? AND "
                      "batch_id=? AND state='pending'", (rev, batch))
-        conn.execute("INSERT INTO event(rev,kind,payload,created) "
-                     "VALUES(?,?,?,?)", (rev, "abandoned", reason, _ms()))
+        _insert_event(conn, rev, "abandoned", reason, _ms())
 
 
 def withdraw(conn, rev, reason):
@@ -1400,8 +1692,7 @@ def withdraw(conn, rev, reason):
                      (rev,))
         conn.execute("UPDATE delivery SET state='superseded' WHERE rev=? AND "
                      "state='delivered'", (rev,))
-        conn.execute("INSERT INTO event(rev,kind,payload,created) "
-                     "VALUES(?,?,?,?)", (rev, "withdrawn", reason, _ms()))
+        _insert_event(conn, rev, "withdrawn", reason, _ms())
         for b in conn.execute(
                 "SELECT DISTINCT batch_id FROM delivery WHERE rev=?",
                 (rev,)).fetchall():

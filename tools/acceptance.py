@@ -63,7 +63,7 @@ def may_leave_quarantine(*, ledger_input_sha, current_input_sha, signoff=None):
 
 def classify_part(pid, ev, hashes, *, quarantined, ledger_input_sha,
                   current_input_sha, signoff=None,
-                  file_sha=None, sealed_sha=None):
+                  file_sha=None, sealed_sha=None, event_unwaived_fail=False):
     """Quarantine is decided before 'accepted'.
 
     A re-run of the same bytes must not flip a quarantined part to
@@ -75,6 +75,8 @@ def classify_part(pid, ev, hashes, *, quarantined, ledger_input_sha,
             current_input_sha=current_input_sha, signoff=signoff)
         if not released:
             return "quarantined", why
+    if event_unwaived_fail:
+        return "needs_repair", "event log shows FAIL without a waiver"
     if evidence_is_accepted(ev, hashes, file_sha=file_sha, sealed_sha=sealed_sha):
         return "accepted", (ev or {}).get("accept_reason")
     if ev and ev.get("n45_conflict"):
@@ -175,12 +177,19 @@ def fresh_evidence(pid, family, family_core_sha, rules_sha):
     }
 
 
+# Exact strings the runner and the packager emit. A longer message that
+# merely contains one of these words is a design failure, not a review wait.
+PENDING_REVIEW_ERRORS = (
+    "PENDING_REVIEW: review/receipts.json missing",
+    "human review receipts incomplete (L1/L2 required, W18) - packaging refused",
+)
+
+
 def classify_failure(error):
     text = (error or "").strip()
-    low = text.lower()
-    if "pending_review" in low or "receipts incomplete" in low \
-            or "receipts.json missing" in low:
+    if text in PENDING_REVIEW_ERRORS:
         return "pending_review"
+    low = text.lower()
     if low.startswith("timeout"):
         return "timeout"
     if "无 cadkit json" in low or "no cadkit" in low:
@@ -339,7 +348,8 @@ def write_wave_report(repo, batch, part_rows, *, intake=None, root=None,
     accepted = [r for r in part_rows if r.get("status") == "accepted"]
     recon = reconciliation(part_rows)
     all_accepted = bool(part_rows) and len(accepted) == len(part_rows)
-    verdict = "ACCEPT" if all_accepted and recon["ok"] else "NOT_ACCEPTED"
+    blockers = list((extra or {}).get("ledger_blockers") or [])
+    verdict = "ACCEPT" if all_accepted and recon["ok"] and not blockers else "NOT_ACCEPTED"
     ack = lessons_ack(repo)
     summary = {
         "batch": batch,
@@ -350,6 +360,7 @@ def write_wave_report(repo, batch, part_rows, *, intake=None, root=None,
                           if r.get("status") in ("infeasible", "design-infeasible")),
         "total": len(part_rows),
         "reconciliation": recon,
+        "ledger_blockers": blockers,
         "lessons_ack": ack,
         "ledger_job_ok_is_not_acceptance": True,
         "parts": part_rows,

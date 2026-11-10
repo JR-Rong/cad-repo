@@ -1047,11 +1047,9 @@ def package_project(proj, cad_root, batch, render_long_side=2400, opts=None):
                 os.path.join(cad_root, "batches", batch + ".json"))[:16],
             waiver_sha=",".join(w[:12] for w in waiver_shas) or None)
         with conn:
-            conn.execute(
-                "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
-                (rev, "info", json.dumps(dict(info, generated=generated,
-                                              review_status=review_status)),
-                 int(time.time() * 1000)))
+            from .ledger import _insert_event
+            _insert_event(conn, rev, "info", dict(
+                info, generated=generated, review_status=review_status))
         # N1 recheck: retiring the previous version is part of
         # mark_published (atomic with the publish), never before it.
         committed = True
@@ -1300,11 +1298,8 @@ def _rollback_drift(trash, final, conn, batch, project_id, rev,
             # it along with the attempt. Record the rollback and
             # keep the row; the restored folder is that delivery.
             with conn:
-                conn.execute(
-                    "INSERT INTO event(rev,kind,payload,created) "
-                    "VALUES(?,?,?,?)",
-                    (rev, "rollback_same_rev", str(e2)[:120],
-                     int(time.time() * 1000)))
+                from .ledger import _insert_event
+                _insert_event(conn, rev, "rollback_same_rev", str(e2)[:120])
         elif pre_delivered and not restored:
             # N21 round 6 / N32 round 7 fail closed: nothing may claim
             # delivered bytes that are not on disk - demote EVERY
