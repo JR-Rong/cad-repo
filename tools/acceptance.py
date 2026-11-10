@@ -39,36 +39,40 @@ def evidence_is_accepted(ev, disk_hashes, *, file_sha=None, sealed_sha=None):
     return _engine_evidence_ok(ev, disk_hashes)
 
 
-def may_leave_quarantine(record, current_input_sha, *, sign_off=None,
-                         waiver=False):
-    """Release only on a new input hash plus a human sign-off or waiver.
+def may_leave_quarantine(*, ledger_input_sha, current_input_sha, signoff=None):
+    """Release only from the ledger, not from a hand-edited JSON file.
 
-    Identical bytes stay quarantined. A new hash with no sign-off stays
-    quarantined. ``sign_off`` is a dict with non-empty ``reviewer`` and
-    ``reason``, or any truthy waiver flag.
+    ``ledger_input_sha`` is the build hash frozen by
+    ``mark_quarantine_from_ledger``. ``signoff`` is a ``review_signoff``
+    row and must name ``current_input_sha``. A typed hash in
+    ``quarantine/<pid>.json`` is ignored.
     """
-    old = (record or {}).get("input_sha")
-    if not old or not current_input_sha or old == current_input_sha:
+    if not ledger_input_sha:
+        return False, "quarantine input_sha is not in the ledger"
+    if not current_input_sha or current_input_sha == ledger_input_sha:
         return False, "quarantine holds this revision"
-    signed = (isinstance(sign_off, dict) and str(sign_off.get("reviewer") or "").strip()
-              and str(sign_off.get("reason") or "").strip())
-    if not signed and not waiver:
-        return False, "new bytes need a human sign-off or a waiver"
+    if not isinstance(signoff, dict):
+        return False, "new bytes need a ledger sign-off"
+    if signoff.get("input_sha") != current_input_sha:
+        return False, "sign-off is for a different revision"
+    if not str(signoff.get("reviewer") or "").strip() or not str(
+            signoff.get("reason") or "").strip():
+        return False, "sign-off needs reviewer and reason"
     return True, "released"
 
 
-def classify_part(pid, ev, hashes, *, quarantined, quarantine_record,
-                  current_input_sha, sign_off=None, waiver=False,
+def classify_part(pid, ev, hashes, *, quarantined, ledger_input_sha,
+                  current_input_sha, signoff=None,
                   file_sha=None, sealed_sha=None):
     """Quarantine is decided before 'accepted'.
 
     A re-run of the same bytes must not flip a quarantined part to
     accepted just because the six stages are green.
     """
-    if quarantined or quarantine_record:
+    if quarantined or ledger_input_sha:
         released, why = may_leave_quarantine(
-            quarantine_record, current_input_sha, sign_off=sign_off,
-            waiver=waiver)
+            ledger_input_sha=ledger_input_sha,
+            current_input_sha=current_input_sha, signoff=signoff)
         if not released:
             return "quarantined", why
     if evidence_is_accepted(ev, hashes, file_sha=file_sha, sealed_sha=sealed_sha):
@@ -81,6 +85,9 @@ def classify_part(pid, ev, hashes, *, quarantined, quarantine_record,
     if ev and any((s or {}).get("state") == "FAIL"
                   for s in (ev.get("stages") or {}).values()):
         return "needs_repair", (ev or {}).get("accept_reason")
+    if ev and any((s or {}).get("state") == "PENDING_REVIEW"
+                  for s in (ev.get("stages") or {}).values()):
+        return "pending_review", "waiting for review receipts"
     return "unverified", (ev or {}).get("accept_reason")
 
 
@@ -171,6 +178,9 @@ def fresh_evidence(pid, family, family_core_sha, rules_sha):
 def classify_failure(error):
     text = (error or "").strip()
     low = text.lower()
+    if "pending_review" in low or "receipts incomplete" in low \
+            or "receipts.json missing" in low:
+        return "pending_review"
     if low.startswith("timeout"):
         return "timeout"
     if "无 cadkit json" in low or "no cadkit" in low:
@@ -180,6 +190,11 @@ def classify_failure(error):
     if "oserror" in low or "permission" in low:
         return "oserror"
     return "design"
+
+
+def counts_toward_family_pause(error_class):
+    """Only a real design FAIL pauses the family. Missing review does not."""
+    return (error_class or "").split(":")[0].lower() == "design"
 
 
 def is_transient(error_class):
@@ -219,6 +234,8 @@ def note_stage(ev, stage, *, ok, input_sha, error_class, hashes, fingerprint=Non
     prev = stages.get(stage) or {}
     attempt = attempts_of(ev, stage) + 1
     state = "OK" if ok else "FAIL"
+    if error_class == "pending_review" and not ok:
+        state = "PENDING_REVIEW"
     if (prev.get("state") in ("FAIL", "WAIVED", "INFEASIBLE")
             and prev.get("input_sha") == input_sha and state == "OK"):
         # Same revision: a later PASS does not erase the FAIL. A new

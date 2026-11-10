@@ -83,6 +83,74 @@ CREATE TABLE IF NOT EXISTS evidence_seal(
   project_id TEXT PRIMARY KEY,
   sha TEXT NOT NULL,
   updated INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS rules_rereview(
+  project_id TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  input_sha TEXT NOT NULL,
+  rules_sha TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  PRIMARY KEY(project_id, stage, input_sha, rules_sha));
+CREATE TABLE IF NOT EXISTS quarantine_mark(
+  project_id TEXT PRIMARY KEY,
+  input_sha TEXT NOT NULL,
+  created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS review_signoff(
+  project_id TEXT NOT NULL,
+  input_sha TEXT NOT NULL,
+  reviewer TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  PRIMARY KEY(project_id, input_sha));
+-- Append-only enforcement. The Python WHERE-clause check is only a typo
+-- guard (WHERE 1, comments and CTEs slip through). These triggers fire for
+-- every client, including raw sqlite3. Fingerprint retirement is an UPDATE
+-- of state to 'withdrawn', which these triggers allow. DELETE is not.
+CREATE TRIGGER IF NOT EXISTS job_no_delete
+BEFORE DELETE ON job
+BEGIN
+  SELECT RAISE(ABORT, 'job rows cannot be deleted');
+END;
+CREATE TRIGGER IF NOT EXISTS event_no_delete
+BEFORE DELETE ON event
+BEGIN
+  SELECT RAISE(ABORT, 'event rows cannot be deleted');
+END;
+CREATE TRIGGER IF NOT EXISTS event_no_update
+BEFORE UPDATE ON event
+BEGIN
+  SELECT RAISE(ABORT, 'event rows cannot be rewritten');
+END;
+CREATE TRIGGER IF NOT EXISTS fingerprint_no_delete
+BEFORE DELETE ON fingerprint
+BEGIN
+  SELECT RAISE(ABORT, 'fingerprint rows cannot be deleted; set state=withdrawn');
+END;
+CREATE TRIGGER IF NOT EXISTS evidence_seal_no_delete
+BEFORE DELETE ON evidence_seal
+BEGIN
+  SELECT RAISE(ABORT, 'evidence_seal rows cannot be deleted');
+END;
+CREATE TRIGGER IF NOT EXISTS quarantine_mark_no_update
+BEFORE UPDATE ON quarantine_mark
+BEGIN
+  SELECT RAISE(ABORT, 'quarantine input_sha is frozen at record time');
+END;
+CREATE TRIGGER IF NOT EXISTS quarantine_mark_no_delete
+BEFORE DELETE ON quarantine_mark
+BEGIN
+  SELECT RAISE(ABORT, 'quarantine marks cannot be deleted');
+END;
+CREATE TRIGGER IF NOT EXISTS review_signoff_no_update
+BEFORE UPDATE ON review_signoff
+BEGIN
+  SELECT RAISE(ABORT, 'review sign-off cannot be rewritten');
+END;
+CREATE TRIGGER IF NOT EXISTS review_signoff_no_delete
+BEFORE DELETE ON review_signoff
+BEGIN
+  SELECT RAISE(ABORT, 'review sign-off cannot be deleted');
+END;
 CREATE TABLE IF NOT EXISTS buyer_stock(
   buyer_id TEXT NOT NULL, external_id TEXT NOT NULL, signature TEXT,
   eligibility TEXT NOT NULL, receipt_sha TEXT,
@@ -782,19 +850,16 @@ def job_record(conn, project_id, stage, input_sha, rules_sha, state,
 
 
 def _rules_rereviewed(conn, project_id, stage, input_sha, rules_sha):
-    rows = conn.execute(
-        "SELECT payload FROM event WHERE kind='rules_rereview'").fetchall()
-    for (payload,) in rows:
-        try:
-            doc = json.loads(payload or "")
-        except ValueError:
-            continue
-        if (doc.get("project_id") == project_id and doc.get("stage") == stage
-                and doc.get("input_sha") == input_sha
-                and doc.get("rules_sha") == rules_sha
-                and str(doc.get("reason") or "").strip()):
-            return True
-    return False
+    """Point lookup. The event table is not scanned.
+
+    At 200k parts an event scan on every job write does not scale. The
+    primary key is (project, stage, input, rules).
+    """
+    row = conn.execute(
+        "SELECT reason FROM rules_rereview WHERE project_id=? AND stage=? "
+        "AND input_sha=? AND rules_sha=?",
+        (project_id, stage, input_sha, rules_sha)).fetchone()
+    return bool(row and str(row[0] or "").strip())
 
 
 def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
@@ -810,6 +875,10 @@ def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
     now = _ms()
     with conn:
         conn.execute(
+            "INSERT INTO rules_rereview(project_id, stage, input_sha, "
+            "rules_sha, reason, created) VALUES(?,?,?,?,?,?)",
+            (project_id, stage, input_sha, rules_sha, reason, now))
+        conn.execute(
             "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
             (None, "rules_rereview", json.dumps({
                 "project_id": project_id, "stage": stage,
@@ -817,6 +886,136 @@ def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
                 "reason": reason,
             }, ensure_ascii=False), now))
     return {"applied": True, "reason": reason}
+
+
+def latest_build_input_sha(conn, project_id):
+    """Build-stage input hash currently in the ledger. None if no such job."""
+    row = conn.execute(
+        "SELECT input_sha FROM job WHERE project_id=? AND stage='build' "
+        "ORDER BY updated DESC, rowid DESC LIMIT 1",
+        (project_id,)).fetchone()
+    return row[0] if row else None
+
+
+def mark_quarantine_from_ledger(conn, project_id):
+    """Freeze the build input_sha that is already in the ledger.
+
+    The caller does not pass a hash. A second call cannot replace the
+    first: ``quarantine_mark`` rejects UPDATE.
+    """
+    sha = latest_build_input_sha(conn, project_id)
+    if not sha:
+        raise ValueError(
+            "no build job in the ledger for %s; refusing to invent an "
+            "input_sha" % project_id)
+    existing = conn.execute(
+        "SELECT input_sha FROM quarantine_mark WHERE project_id=?",
+        (project_id,)).fetchone()
+    if existing:
+        if existing[0] != sha:
+            raise ValueError(
+                "quarantine input_sha for %s is already %s and cannot be "
+                "rewritten" % (project_id, existing[0]))
+        return {"applied": False, "input_sha": existing[0]}
+    now = _ms()
+    with conn:
+        conn.execute(
+            "INSERT INTO quarantine_mark(project_id, input_sha, created) "
+            "VALUES(?,?,?)",
+            (project_id, sha, now))
+        conn.execute(
+            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
+            (None, "quarantine", json.dumps({
+                "project_id": project_id, "input_sha": sha,
+            }, ensure_ascii=False), now))
+    return {"applied": True, "input_sha": sha}
+
+
+def quarantine_mark(conn, project_id):
+    row = conn.execute(
+        "SELECT input_sha, created FROM quarantine_mark WHERE project_id=?",
+        (project_id,)).fetchone()
+    if not row:
+        return None
+    return {"input_sha": row[0], "created": row[1]}
+
+
+def record_signoff(conn, project_id, input_sha, reviewer, reason):
+    """Ledger sign-off for one new revision. Not a file the operator can edit.
+
+    Insert-only. UPDATE and DELETE are aborted by triggers.
+    """
+    reviewer = (reviewer or "").strip()
+    reason = (reason or "").strip()
+    input_sha = (input_sha or "").strip()
+    if not (project_id and input_sha and reviewer and reason):
+        raise ValueError("sign-off needs project, input_sha, reviewer, reason")
+    now = _ms()
+    with conn:
+        conn.execute(
+            "INSERT INTO review_signoff(project_id, input_sha, reviewer, "
+            "reason, created) VALUES(?,?,?,?,?)",
+            (project_id, input_sha, reviewer, reason, now))
+        conn.execute(
+            "INSERT INTO event(rev,kind,payload,created) VALUES(?,?,?,?)",
+            (None, "signoff", json.dumps({
+                "project_id": project_id, "input_sha": input_sha,
+                "reviewer": reviewer, "reason": reason,
+            }, ensure_ascii=False), now))
+    return {"applied": True, "input_sha": input_sha}
+
+
+def review_signoff(conn, project_id, input_sha):
+    row = conn.execute(
+        "SELECT input_sha, reviewer, reason FROM review_signoff "
+        "WHERE project_id=? AND input_sha=?",
+        (project_id, input_sha)).fetchone()
+    if not row:
+        return None
+    return {"input_sha": row[0], "reviewer": row[1], "reason": row[2]}
+
+
+def hold_legacy_publisher_lock(root, batch):
+    """Hold ``delivery/<batch>/.publisher.lock`` exclusive until the fd closes.
+
+    The old 0.5.0 engine and driver.py flock this same file for each
+    publish. Holding it for the whole run makes them block if they start
+    while this process is alive. Returns the fd, or None if another
+    process already holds it.
+    """
+    import fcntl
+    path = os.path.join(root, "delivery", batch, ".publisher.lock")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        return None
+    return fd
+
+
+def backup_ledger(root, dest_dir=None):
+    """Online ``backup`` of ledger.sqlite3. Returns (path, sha256) or None.
+
+    Uses the sqlite backup API, not a file copy, so a WAL writer cannot
+    leave the snapshot half-written.
+    """
+    src_path = os.path.join(root, "ledger.sqlite3")
+    if not os.path.isfile(src_path):
+        return None
+    dest_dir = dest_dir or os.path.join(root, "backups")
+    os.makedirs(dest_dir, exist_ok=True)
+    dest = os.path.join(
+        dest_dir, "ledger-%s.sqlite3" % time.strftime("%Y%m%d_%H%M%S"))
+    src = sqlite3.connect(src_path)
+    dst = sqlite3.connect(dest)
+    try:
+        src.backup(dst)
+    finally:
+        dst.close()
+        src.close()
+    return dest, sha256_file(dest)
 
 
 def retire_active_fingerprints(conn, project_id, reason):

@@ -141,6 +141,7 @@ class Recorder:
             for v in RENDER_VIEWS:
                 extra += _sha(os.path.join(bd, "renders", "view_%s.png" % v))
             extra += _sha(os.path.join(bd, pid + ".step")) + bsrc
+            extra += _sha(os.path.join(pr, "review", "receipts.json"))
             return _h(base, fc, extra)
         raise SystemExit("unknown stage " + stage)
 
@@ -155,8 +156,12 @@ class Recorder:
     def record(self, pid, stage, ok, error_class=None, max_attempts=3):
         conn = self._open(self.root)
         try:
+            if error_class == "pending_review":
+                state = "PENDING_REVIEW"
+            else:
+                state = "OK" if ok else "FAIL"
             return self._rec(conn, pid, stage, self.input_hash(pid, stage),
-                             self.rules, "OK" if ok else "FAIL", error_class,
+                             self.rules, state, error_class,
                              max_attempts=max_attempts)
         finally:
             conn.close()
@@ -309,6 +314,13 @@ def run_stage(freecad, entry, root, batch, pid, stage, mem_mb, timeout,
     opts = {}
     if stage == "package":
         opts["batch"] = batch
+        receipt = os.path.join(root, "projects", pid, "review", "receipts.json")
+        if not os.path.isfile(receipt):
+            return {"pid": pid, "stage": stage, "ok": False,
+                    "error": "PENDING_REVIEW: review/receipts.json missing",
+                    "pending_review": True, "rc": None, "seconds": 0.0,
+                    "degraded": False, "warns": []}
+        opts["review"] = "@" + os.path.abspath(receipt)
     if stage == "export":
         opts["long_side"] = 2400
     if stage == "dedupe":
@@ -461,37 +473,36 @@ def main():
                 for st in (ev.get("stages") or {}).values():
                     if isinstance(st, dict) and st.get("fingerprint"):
                         fp = st["fingerprint"]
-            qpath = os.path.join(root, "quarantine", pid + ".json")
-            qrec = None
-            if os.path.isfile(qpath):
-                try:
-                    qrec = json.load(open(qpath, encoding="utf-8"))
-                except (OSError, ValueError):
-                    qrec = {"input_sha": None, "unreadable": True}
             current_input = (((ev or {}).get("stages") or {}).get("build") or {}
                              ).get("input_sha")
             file_sha = None
             sealed = None
+            ledger_input = None
+            signoff = None
             ev_path = acceptance.evidence_path(root, pid)
             if os.path.isfile(ev_path):
                 file_sha = acceptance.sha256_file(ev_path)
             try:
-                from cadkit.ledger import evidence_seal, open_ledger
+                from cadkit.ledger import (evidence_seal, open_ledger,
+                                           quarantine_mark, review_signoff)
                 conn = open_ledger(root)
                 try:
                     sealed = evidence_seal(conn, pid)
+                    mark = quarantine_mark(conn, pid)
+                    if mark:
+                        ledger_input = mark["input_sha"]
+                    if current_input:
+                        signoff = review_signoff(conn, pid, current_input)
                 finally:
                     conn.close()
             except Exception:
                 sealed = None
-            sign_off = (qrec or {}).get("sign_off")
             status, why = acceptance.classify_part(
                 pid, ev, hashes,
-                quarantined=pid in QUARANTINE_PIDS or bool(qrec),
-                quarantine_record=qrec,
+                quarantined=pid in QUARANTINE_PIDS or bool(ledger_input),
+                ledger_input_sha=ledger_input,
                 current_input_sha=current_input,
-                sign_off=sign_off,
-                waiver=bool((qrec or {}).get("waiver")),
+                signoff=signoff,
                 file_sha=file_sha, sealed_sha=sealed)
             if status == "accepted" and fam_status != "ok":
                 status, why = "unverified", "family core unfrozen"
@@ -518,13 +529,15 @@ def main():
         emit_report()
         return 0
 
-    from cadkit.ledger import legacy_publisher_busy
-    old_lock = os.path.join(root, "delivery", a.batch, ".publisher.lock")
-    if legacy_publisher_busy(old_lock):
-        print("BLOCK 旧引擎正在占用 %s" % old_lock)
-        print("      0.5.0 tarball / driver.py 的批锁和本引擎的按件锁互不排斥。"
-              "先停掉旧进程，再跑。")
+    from cadkit.ledger import backup_ledger, hold_legacy_publisher_lock
+    held_lock = hold_legacy_publisher_lock(root, a.batch)
+    if held_lock is None:
+        print("BLOCK 旧引擎正在占用 delivery/%s/.publisher.lock" % a.batch)
+        print("      0.5.0 tarball / driver.py 用同一把批锁。本进程会一直占着它，"
+              "所以旧引擎中途启动会被挡住。先停掉已经在跑的旧进程。")
         return 2
+    import atexit
+    atexit.register(os.close, held_lock)
 
     q = queue.Queue()
     for pid, t in todo:
@@ -533,6 +546,20 @@ def main():
     log = open(a.log or os.path.join(REPO, "status", "runner_%s_%s.jsonl"
                                      % (a.batch, time.strftime("%Y%m%d_%H%M"))), "a",
                encoding="utf-8")
+    snap = backup_ledger(root)
+    if snap:
+        log.write(json.dumps({
+            "lane": "backup", "ledger_backup": snap[0],
+            "ledger_backup_sha256": snap[1],
+        }, ensure_ascii=False) + "\n")
+        log.flush()
+        print("台账快照 %s sha256 %s" % (snap[0], snap[1]))
+    else:
+        log.write(json.dumps({
+            "lane": "backup", "ledger_backup": None,
+            "note": "no ledger.sqlite3 yet",
+        }, ensure_ascii=False) + "\n")
+        log.flush()
     lock = threading.Lock()
     stop = threading.Event()
     stats = {"ok": 0, "fail": 0, "reviews": 0, "packaged": 0, "done_parts": 0}
@@ -596,7 +623,7 @@ def main():
             seal_evidence(conn, pid, acceptance.sha256_file(path))
         finally:
             conn.close()
-        if klass == "design":
+        if acceptance.counts_toward_family_pause(klass):
             design_fails[fam] = design_fails.get(fam, 0) + 1
             if design_fails[fam] >= 3:
                 paused.add(fam)

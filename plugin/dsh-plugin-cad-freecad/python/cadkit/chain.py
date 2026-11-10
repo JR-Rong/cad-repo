@@ -269,7 +269,12 @@ def apply_lost_cas(decision, *, final, trash, rmtree, rename, fsync_dir=None):
 
 
 def sql_is_unscoped_mutation(sql):
-    """True for a DELETE or UPDATE that has no WHERE clause."""
+    """Typo guard only: True when a DELETE or UPDATE has no WHERE word.
+
+    This does not make the ledger safe. ``WHERE 1``, a WHERE hidden in a
+    comment, and a CTE all pass. Real enforcement is the BEFORE DELETE /
+    BEFORE UPDATE triggers installed by ``open_ledger``.
+    """
     text = " ".join((sql or "").split()).strip().rstrip(";")
     if not re.match(r"(?i)^(DELETE|UPDATE)\b", text):
         return False
@@ -277,10 +282,15 @@ def sql_is_unscoped_mutation(sql):
 
 
 def assert_scoped_sql(sql):
+    """Refuse a DELETE/UPDATE that forgot WHERE. Not a security boundary.
+
+    See ``sql_is_unscoped_mutation``. Callers that need a guarantee use
+    the schema triggers, which abort even for raw sqlite3.
+    """
     if sql_is_unscoped_mutation(sql):
         raise ValueError(
-            "unscoped DELETE/UPDATE refused; ledger history is not "
-            "rewritten in place: %s" % " ".join(sql.split())[:160])
+            "unscoped DELETE/UPDATE refused (typo guard only): %s"
+            % " ".join(sql.split())[:160])
 
 
 TRANSIENT_CLASSES = {"timeout", "nojson", "rc", "spawn", "oserror"}
@@ -304,6 +314,14 @@ def job_transition(old_state, new_state, *, error_class=None,
     old = (old_state or "").upper()
     if not new:
         return ("keep", "empty job state")
+    # Missing review receipts are not a design failure and are not sticky.
+    if new == "PENDING_REVIEW":
+        if old in ("FAIL", "WAIVED", "INFEASIBLE"):
+            return ("keep",
+                    "N45: %s sticks; missing review does not replace it" % old)
+        return ("write", "PENDING_REVIEW")
+    if old == "PENDING_REVIEW" and new in ("OK", "PASS", "DONE", "RETRY"):
+        return ("write", new)
     if old in ("FAIL", "WAIVED", "INFEASIBLE") and new in (
             "OK", "PASS", "DONE", "RETRY"):
         return ("keep",

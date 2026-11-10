@@ -59,7 +59,11 @@ python3 tools/fleet_runner.py --root ~/cad-fleet --batch fleet_b_2026_11 \
     --machine B --freecad-bin /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 ```
 
-`--package-workers` 默认 **1**。按件锁和 0.5.0 / `driver.py` 的批级 `.publisher.lock` **互不排斥**。调度器若发现那个旧锁正被占用，会直接退出。在新 tarball 于 FreeCAD 1.1.1 上验证过并发之前，不要加大这个数。读交付目录时只有「文件确实不存在」才当作没有更新的修订；第一次放入用 `renameat2(RENAME_NOREPLACE)` / macOS `renamex_np(RENAME_EXCL)`，避免普通 `rename` 换掉一个空目录。
+`--package-workers` 默认 **1**。开跑时本进程会独占 `delivery/<批次>/.publisher.lock` 直到退出，所以 0.5.0 / `driver.py` 中途再启动会被挡住；如果进来时锁已经被旧进程占着，直接退出。在第 6 节的并发试验通过之前，不要把这个数加大。读交付目录时只有「文件确实不存在」才当作没有更新的修订；第一次放入用 `renameat2(RENAME_NOREPLACE)` / macOS `renamex_np(RENAME_EXCL)`。
+
+包装会读 `projects/<件号>/review/receipts.json` 交给打包器，并把这份文件的 sha256 算进 package 的 input hash。文件不在，或回执不完整，记 **PENDING_REVIEW**，不是设计 FAIL，也不计入「一族 3 次设计 FAIL 就停族」。补上合格回执后同一件可以再跑。没有 `review_status=complete` 仍然不能 accepted。
+
+每次实跑开始会做一次 sqlite backup，把快照路径和 sha256 写进 `status/runner_*.jsonl` 的第一条。Python 里那个「有没有 WHERE」的检查只防手滑（`WHERE 1`、注释、CTE 都绕得过）；真正挡住删除的是表上的触发器：`job` / `event` / `fingerprint` / `evidence_seal` 不能 DELETE，`event` 不能 UPDATE。指纹退役是把 `state` 改成 `withdrawn`，不是删行。
 
 同一条命令可以反复跑。已验收（证据文件里的哈希和磁盘一致）的阶段会跳过。超时 / 没有 JSON 这类瞬时失败最多试 `--max-attempts`（默认 3）次，记为 `RETRY`，还没变成粘滞 FAIL 之前可以被同一次修订上的成功盖过。一旦记成 FAIL，后来的 PASS **不能**抹掉它；要嘛换了字节（新的 input hash，即新修订），要嘛写明原因的豁免：
 
@@ -106,14 +110,20 @@ python3 tools/merge_check.py --mine <A 的 cadRoot> \
 | 原生校验失败 | 121、161 | 重建之后 validate 仍 FAIL（曲线/自交）。不在航空插座那一轴上。 |
 | 097 单独 | 097 | 不是航空插座，也不是 121/161。现行 FCStd 是后重建的；STEP/manifest 仍认证重建前的 native（.FCBak 对得上）。留下的 FAIL 收据说的是 V2 的 trough/cbore/tab，V4 核已经删了这些对象。台账里那条 probe PASS 的 `receipt_sha` 是 `-`，没有文件哈希。保留原件，按新修订重跑，不要拿旧收据当结论。 |
 
-这 14 件在验收报告里标 `quarantined`，同一批字节重跑也不会变成 accepted。要离开隔离，必须同时满足：`~/cad-fleet/quarantine/<件号>.json` 里的 `input_sha` 和现在的构建输入哈希不同，并且有人签字（`sign_off.reviewer` + `sign_off.reason`）或写了 waiver。不要在台账里把它们标成 design-infeasible，除非你看过新几何、确认这个轴组合做不出来，并用上面的 waiver 写下原因。
+这 14 件在验收报告里标 `quarantined`。隔离时的 build `input_sha` 由工具从台账读出并冻结，不能手写一份不同的哈希来放行：
 
-隔离记录例：
-
-```json
-{"input_sha": "<隔离时的 build input_sha>",
- "sign_off": {"reviewer": "你的名字", "reason": "新修订已目检"}}
+```sh
+python3 tools/quarantine_b_in01.py mark ~/cad-fleet b_in01_097
 ```
+
+台账里还没有这条 build job 时，命令会拒绝，不会编一个哈希。新修订的 build input hash 变了之后，签字写进台账（同样不能事后改）：
+
+```sh
+python3 tools/quarantine_b_in01.py signoff ~/cad-fleet b_in01_097 \
+    <新的 build input_sha> "你的名字" "新修订已目检"
+```
+
+两边都成立才离开隔离。手改 `quarantine/<件号>.json` 不算数。不要把它们标成 design-infeasible，除非看过新几何并写了 waiver。
 
 只重跑这 14 件：
 
@@ -164,7 +174,7 @@ python3 tools/emit_members.py --machine E --wave 1 > intake/waves/fleet_e_2026_1
 2. 172 件全部重新算哈希（FCStd、STEP、族核、指纹）。注册表和台账只追加，不整表删除、不用磁盘回填冒充当时的校验。
 3. 172 件在修好的判定上重跑 validate 和 probe。任一窗口记录是 FAIL，整件就是 FAIL；后来的 PASS 作废不了它。
 4. 用修好的指纹重跑 dedupe（候选 = 已交付 ∪ 本波已生成 ∪ 五机底表，缺 volume 或信封形状直接失败，不再把注册表缩成一行）。
-5. 第 2 节的 14 件有根因记录（见 quarantine 文件）；`b_in01_002` 的已交付包要用清单里的文件哈希再核一遍，对不上就重做，不要沿用旧检查表。
+5. 第 2 节的 14 件有根因记录。**097 仍是「暂时闭合」**：要在 Mac 的 FreeCAD 1.1.1 上打开当前 FCStd，确认已经没有 trough/cbore/tab，再对一下当前 FCStd、`.FCBak` 和 `manifest.fcstd_sha`，把这三份哈希存档。做完之前不要把 097 写成已经结案。`b_in01_002` 的已交付包要用清单里的文件哈希再核一遍，对不上就重做。
 6. 人工复核是验收的一部分，不是可选项。包装阶段一律带 `CADKIT_REQUIRE_REVIEW=1`：没有 L1/L2 回执，`review_status` 不是 `complete`，件就不会 accepted。抽件还要在 FreeCAD 里打开，并按冻结核重跑 build，对比体积/步数（字节级 FCStd 哈希不必相等；体积相对差大于 1e-12 或步数变化会标 `recompute_drift`，不能验收）。
 7. `ACCEPTANCE.json` 里按族计算 `accepted + quarantined + infeasible`。不等于 400，或者还有 unverified / needs_repair，结论就是 `NOT_ACCEPTED`。不要为了凑 400 改状态。
 
@@ -177,3 +187,10 @@ python3 tools/emit_members.py --machine E --wave 1 > intake/waves/fleet_e_2026_1
 - 渲染长边和 STEP 往返容差仍然不是自动签字。人工复核已经是验收门：没有回执就不能 accepted。STEP 往返本身还要你在抽件时做。
 - 全局发号/租约服务仍然没有。不要自造 `f3_` 新件号。
 - 本机若装的是旧 tarball，而仓库引擎的 `rules_sha` 已经不同：以仓库 `plugin/` 为准，并让 `shared/versions.json` 跟上。
+
+## 6. 上生产之前在 Mac 上做的两件事（云端没有 FreeCAD 1.1.1，这里不做）
+
+**并发试验通过之前，`--package-workers` 保持 1。**
+
+1. 两路包装试验：大约 20 件，`--package-workers 2`，其中一件的件号故意提交两次。日志要能证明走的是 `renamex_np`（macOS）那条不覆盖的改名；目录里不能剩下 `.stale.` / `.superseded.`；每一件的台账和磁盘要对得上。这三条都成立，才可以把 `--package-workers` 调到大于 1。
+2. 097 结案：用 1.1.1 打开当前 FCStd，确认没有 trough/cbore/tab；比较当前 FCStd、`.FCBak`、`manifest.fcstd_sha` 三份哈希并归档。在此之前，门禁 5 对 097 保持「暂时闭合」。

@@ -119,5 +119,42 @@ def main():
     return 0
 
 
+def mark(root, pid):
+    """Freeze this part's build input_sha from the ledger. No hash argument."""
+    sys.path.insert(0, os.path.join(REPO, "plugin", "dsh-plugin-cad-freecad", "python"))
+    from cadkit.ledger import mark_quarantine_from_ledger, open_ledger
+    conn = open_ledger(os.path.abspath(os.path.expanduser(root)))
+    try:
+        result = mark_quarantine_from_ledger(conn, pid)
+    finally:
+        conn.close()
+    print("%s input_sha %s applied=%s" % (
+        pid, result["input_sha"], result["applied"]))
+    return 0
+
+
+def signoff(root, pid, input_sha, reviewer, reason):
+    sys.path.insert(0, os.path.join(REPO, "plugin", "dsh-plugin-cad-freecad", "python"))
+    from cadkit.ledger import open_ledger, record_signoff
+    conn = open_ledger(os.path.abspath(os.path.expanduser(root)))
+    try:
+        record_signoff(conn, pid, input_sha, reviewer, reason)
+    finally:
+        conn.close()
+    print("sign-off %s %s" % (pid, input_sha))
+    return 0
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "mark":
+        if len(sys.argv) != 4:
+            raise SystemExit("usage: quarantine_b_in01.py mark <cadRoot> <pid>")
+        sys.exit(mark(sys.argv[2], sys.argv[3]))
+    if len(sys.argv) > 1 and sys.argv[1] == "signoff":
+        if len(sys.argv) != 7:
+            raise SystemExit(
+                "usage: quarantine_b_in01.py signoff <cadRoot> <pid> "
+                "<new-input-sha> <reviewer> <reason>")
+        sys.exit(signoff(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5],
+                         sys.argv[6]))
     sys.exit(main())

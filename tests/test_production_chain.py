@@ -503,21 +503,23 @@ def test_quarantine_same_bytes_cannot_become_accepted():
     ev = _full_evidence()
     ev["accepted"] = True
     ev["hashes"] = _three_hashes()
-    record = {"input_sha": "same"}
     status, _why = acceptance.classify_part(
         "b_in01_082", ev, _three_hashes(), quarantined=True,
-        quarantine_record=record, current_input_sha="same",
+        ledger_input_sha="same", current_input_sha="same",
         file_sha="file", sealed_sha="file")
     assert status == "quarantined"
+    # A hand-written sign-off that does not name the new hash does not release.
     status, why = acceptance.classify_part(
         "b_in01_082", ev, _three_hashes(), quarantined=True,
-        quarantine_record=record, current_input_sha="new-hash",
+        ledger_input_sha="same", current_input_sha="new-hash",
+        signoff={"reviewer": "owner", "reason": "rebuilt", "input_sha": "typed"},
         file_sha="file", sealed_sha="file")
     assert status == "quarantined" and "sign-off" in why
     status, _why = acceptance.classify_part(
         "b_in01_082", ev, _three_hashes(), quarantined=True,
-        quarantine_record=record, current_input_sha="new-hash",
-        sign_off={"reviewer": "owner", "reason": "rebuilt"},
+        ledger_input_sha="same", current_input_sha="new-hash",
+        signoff={"input_sha": "new-hash", "reviewer": "owner",
+                 "reason": "rebuilt"},
         file_sha="file", sealed_sha="file")
     assert status == "accepted"
 
@@ -743,6 +745,191 @@ def test_b_in01_097_root_cause_is_not_the_cable_axis():
     assert by["b_in01_097"]["audit_class"] == "stale_export"
     assert by["b_in01_121"]["audit_class"] == "native_validate_fail"
     assert "三孔 + 航空插座座" in by["b_in01_128"]["topo_signature"]
+
+
+def test_missing_receipts_are_pending_review_not_design_fail(tmp_path):
+    import acceptance
+    from cadkit.chain import job_transition
+    assert acceptance.classify_failure(
+        "PENDING_REVIEW: review/receipts.json missing") == "pending_review"
+    assert acceptance.classify_failure(
+        "human review receipts incomplete (L1/L2 required)") == "pending_review"
+    assert acceptance.counts_toward_family_pause("pending_review") is False
+    assert acceptance.counts_toward_family_pause("design") is True
+    action, state = job_transition("", "PENDING_REVIEW", error_class="pending_review")
+    assert action == "write" and state == "PENDING_REVIEW"
+    action, state = job_transition("PENDING_REVIEW", "OK")
+    assert action == "write" and state == "OK"
+    conn = open_ledger(str(tmp_path))
+    try:
+        first = job_record(conn, "p", "package", "h", "r", "PENDING_REVIEW",
+                           error_class="pending_review")
+        assert first["applied"] and first["state"] == "PENDING_REVIEW"
+        second = job_record(conn, "p", "package", "h", "r", "OK")
+        assert second["applied"] and second["state"] == "OK"
+    finally:
+        conn.close()
+    root = tmp_path / "cad"
+    (root / "projects" / "p1" / "build").mkdir(parents=True)
+    sys.path.insert(0, TOOLS)
+    import fleet_runner
+    r = fleet_runner.run_stage(
+        "/bin/false", str(tmp_path / "entry.py"), str(root), "batch", "p1",
+        "package", 128, 5)
+    assert r.get("pending_review") is True
+    assert r["ok"] is False
+    receipt = root / "projects" / "p1" / "review" / "receipts.json"
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text("{}", encoding="utf-8")
+    seen = tmp_path / "seen.txt"
+    fake = tmp_path / "freecadcmd"
+    fake.write_text(
+        "#!/bin/sh\nprintf '%%s\\n' \"$CADKIT_OPTS\" > '%s'\nexit 0\n" % seen,
+        encoding="utf-8")
+    fake.chmod(0o755)
+    fleet_runner.run_stage(
+        str(fake), str(tmp_path / "entry.py"), str(root), "batch", "p1",
+        "package", 128, 5)
+    opts = seen.read_text(encoding="utf-8")
+    assert "receipts.json" in opts
+    h_missing = None
+    rec = fleet_runner.Recorder(str(root), PY, "rules")
+    before = rec.input_hash("p1", "package")
+    receipt.write_text('{"L1": {"reviewer": "a"}}', encoding="utf-8")
+    after = rec.input_hash("p1", "package")
+    assert before != after
+    assert h_missing is None
+
+
+def test_legacy_lock_is_held_for_the_whole_run(tmp_path):
+    import subprocess
+    from cadkit.ledger import hold_legacy_publisher_lock, legacy_publisher_busy
+    root = tmp_path / "cad"
+    fd = hold_legacy_publisher_lock(str(root), "batch")
+    assert fd is not None
+    try:
+        lock = root / "delivery" / "batch" / ".publisher.lock"
+        holder = subprocess.Popen(
+            [sys.executable, "-c",
+             "import sys\n"
+             "sys.path.insert(0, sys.argv[1])\n"
+             "from cadkit.ledger import legacy_publisher_busy\n"
+             "print('busy' if legacy_publisher_busy(sys.argv[2]) else 'free')\n",
+             PY, str(lock)],
+            stdout=subprocess.PIPE, text=True)
+        out, _ = holder.communicate(timeout=10)
+        assert out.strip() == "busy"
+    finally:
+        os.close(fd)
+
+
+def test_quarantine_hash_comes_from_the_ledger(tmp_path):
+    from cadkit.ledger import (mark_quarantine_from_ledger, quarantine_mark,
+                               record_signoff, review_signoff)
+    conn = open_ledger(str(tmp_path))
+    try:
+        job_record(conn, "b_in01_097", "build", "hash-from-ledger", "rules", "OK")
+        marked = mark_quarantine_from_ledger(conn, "b_in01_097")
+        assert marked["input_sha"] == "hash-from-ledger"
+        job_record(conn, "b_in01_097", "build", "typed-by-hand", "rules", "OK")
+        with pytest.raises(ValueError):
+            mark_quarantine_from_ledger(conn, "b_in01_097")
+        assert quarantine_mark(conn, "b_in01_097")["input_sha"] == "hash-from-ledger"
+        record_signoff(conn, "b_in01_097", "new-rev", "owner", "rebuilt and looked at")
+        row = review_signoff(conn, "b_in01_097", "new-rev")
+        assert row["reviewer"] == "owner" and row["input_sha"] == "new-rev"
+        import sqlite3
+        raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+        try:
+            with pytest.raises(sqlite3.IntegrityError):
+                raw.execute(
+                    "UPDATE quarantine_mark SET input_sha='typed' "
+                    "WHERE project_id='b_in01_097'")
+        finally:
+            raw.close()
+    finally:
+        conn.close()
+
+
+def test_rules_rereview_is_a_point_lookup(tmp_path):
+    from cadkit.ledger import _rules_rereviewed, record_rules_rereview
+    conn = open_ledger(str(tmp_path))
+    try:
+        for i in range(30):
+            conn.execute(
+                "INSERT INTO event(rev, kind, payload, created) VALUES(?,?,?,?)",
+                (None, "noise", "{}", i))
+        conn.commit()
+        assert _rules_rereviewed(conn, "p", "validate", "in", "rules") is False
+        record_rules_rereview(conn, "p", "validate", "in", "rules", "looked again")
+        assert _rules_rereviewed(conn, "p", "validate", "in", "rules") is True
+        plan = conn.execute(
+            "EXPLAIN QUERY PLAN SELECT reason FROM rules_rereview "
+            "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=?",
+            ("p", "validate", "in", "rules")).fetchall()
+        text = " ".join(str(row) for row in plan)
+        assert "SCAN" not in text.upper() or "COVERING" in text.upper() or "SEARCH" in text.upper()
+    finally:
+        conn.close()
+
+
+def test_triggers_block_raw_sqlite_deletes(tmp_path):
+    import sqlite3
+    conn = open_ledger(str(tmp_path))
+    conn.close()
+    raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+    try:
+        raw.execute(
+            "INSERT INTO model(model_id, buyer_id, project_id) VALUES(?,?,?)",
+            ("local:p", "internal", "p"))
+        raw.execute(
+            "INSERT INTO revision(rev, model_id, fcstd_sha, rules_sha, created) "
+            "VALUES(?,?,?,?,?)",
+            ("rev1", "local:p", "sha", "rules", 1))
+        raw.execute(
+            "INSERT INTO job(project_id, stage, input_sha, rules_sha, state, "
+            "attempt, updated) VALUES(?,?,?,?,?,?,?)",
+            ("p", "build", "h", "r", "FAIL", 1, 1))
+        raw.execute(
+            "INSERT INTO event(rev, kind, payload, created) VALUES(?,?,?,?)",
+            (None, "note", "{}", 1))
+        raw.execute(
+            "INSERT INTO fingerprint(rev, version, project_id, structure_sha, "
+            "shape_bucket, state, created) VALUES(?,?,?,?,?,?,?)",
+            ("rev1", 2, "p", "s", "b", "active", 1))
+        raw.execute(
+            "INSERT INTO evidence_seal(project_id, sha, updated) VALUES(?,?,?)",
+            ("p", "a" * 64, 1))
+        raw.commit()
+        for sql in (
+            "DELETE FROM job",
+            "DELETE FROM job WHERE 1",
+            "DELETE FROM event",
+            "DELETE FROM fingerprint",
+            "DELETE FROM evidence_seal",
+            "UPDATE event SET payload='x'",
+        ):
+            with pytest.raises(sqlite3.IntegrityError):
+                raw.execute(sql)
+        raw.execute(
+            "UPDATE fingerprint SET state='withdrawn' WHERE project_id='p'")
+        raw.commit()
+        state = raw.execute("SELECT state FROM fingerprint").fetchone()[0]
+        assert state == "withdrawn"
+        assert raw.execute("SELECT state FROM job").fetchone()[0] == "FAIL"
+    finally:
+        raw.close()
+    from cadkit.chain import sql_is_unscoped_mutation
+    assert sql_is_unscoped_mutation("DELETE FROM job WHERE 1") is False
+
+
+def test_ledger_backup_sha_is_stable(tmp_path):
+    from cadkit.ledger import backup_ledger
+    open_ledger(str(tmp_path)).close()
+    dest, digest = backup_ledger(str(tmp_path), dest_dir=str(tmp_path / "backups"))
+    assert os.path.isfile(dest)
+    assert len(digest) == 64
+    assert backup_ledger(str(tmp_path / "empty")) is None
 
 
 def test_probe_and_packager_call_the_fail_closed_helpers():
