@@ -3,7 +3,7 @@
   "tarball": "local-dsh-plugin-cad-freecad-0.5.0.tgz",
   "tarball_sha256": "2c20ed9df517259616d3b22e4e8ce382ce491d7fef9e81adfdc3974b9f19a872",
   "tarball_note": "releases/0.5.0.tgz 不含 2026-11-10 的 N43/N44/N45 门禁。生产用仓库 plugin/dsh-plugin-cad-freecad/python，不要用旧包覆盖。新 tarball 需在 Mac 上重打。",
-  "rules_sha": "499d8d62df514c47",
+  "rules_sha": "e33d613142b20307",
   "engine_source": "handoff/plugin/dsh-plugin-cad-freecad/python（与 releases/*.tgz 同源）",
   "rules_sha_dev_checkout": "64a95367ef997904",
   "family_iec_endcap_sha256": "687e6cebde82d3e0d2665a6761dfeed129c352d9c52fa43e71c5750a169fa303",

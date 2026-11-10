@@ -241,6 +241,27 @@ BEFORE DELETE ON ledger_alarm
 BEGIN
   SELECT RAISE(ABORT, 'ledger_alarm rows cannot be deleted');
 END;
+-- Per-row acknowledgement of an authorization row that does not match
+-- the chain. The row stays unauthorized. A raw insert here is itself
+-- an orphan until a chain event names this ack_id.
+CREATE TABLE IF NOT EXISTS orphan_ack(
+  ack_id INTEGER PRIMARY KEY,
+  src_table TEXT NOT NULL,
+  src_rowid INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  event_id INTEGER,
+  content_hash TEXT);
+CREATE TRIGGER IF NOT EXISTS orphan_ack_no_update
+BEFORE UPDATE ON orphan_ack
+BEGIN
+  SELECT RAISE(ABORT, 'orphan_ack rows cannot be rewritten');
+END;
+CREATE TRIGGER IF NOT EXISTS orphan_ack_no_delete
+BEFORE DELETE ON orphan_ack
+BEGIN
+  SELECT RAISE(ABORT, 'orphan_ack rows cannot be deleted');
+END;
 CREATE TABLE IF NOT EXISTS buyer_stock(
   buyer_id TEXT NOT NULL, external_id TEXT NOT NULL, signature TEXT,
   eligibility TEXT NOT NULL, receipt_sha TEXT,
@@ -358,7 +379,12 @@ BACKFILL_EVENT_KIND = "event_hash_backfill"
 # include this text so the reason identifies the upgrade, not a blank note.
 UPGRADE_ACK = "upgrade 0.5.1"
 ALARM_KINDS = ("schema_tampered", "ledger_sha_mismatch",
-               "chain_anchor_mismatch", "orphan_authorization")
+               "chain_anchor_mismatch", "orphan_authorization",
+               "anchor_unverifiable")
+_ORPHAN_TABLES = (
+    "waiver", "rules_rereview", "review_signoff", "quarantine_mark",
+    "ledger_alarm", "orphan_ack",
+)
 
 
 def _ms():
@@ -592,6 +618,7 @@ EXPECTED_TRIGGERS = (
     "rules_rereview_no_update", "rules_rereview_no_delete",
     "state_transition_no_update", "state_transition_no_delete",
     "ledger_alarm_no_update", "ledger_alarm_no_delete",
+    "orphan_ack_no_update", "orphan_ack_no_delete",
     "job_update_guard", "job_update_event",
 )
 
@@ -775,21 +802,82 @@ def _iter_orphan_authorizations(conn):
             }, kind)
         if not ok:
             yield "ledger_alarm", alarm_id
+    rows = conn.execute(
+        "SELECT ack_id, src_table, src_rowid, reason, event_id, content_hash "
+        "FROM orphan_ack").fetchall()
+    for ack_id, src_table, src_rowid, reason, event_id, content_hash in rows:
+        if not _authorization_matches(conn, event_id, content_hash, {
+            "table": src_table, "rowid": int(src_rowid), "reason": reason or "",
+        }, "orphan_ack"):
+            yield "orphan_ack", ack_id
+
+
+def _orphan_row_acknowledged(conn, table, rowid):
+    """True when a chain-linked orphan_ack names this row and has a reason."""
+    rows = conn.execute(
+        "SELECT event_id, content_hash, reason FROM orphan_ack "
+        "WHERE src_table=? AND src_rowid=?",
+        (table, int(rowid))).fetchall()
+    for event_id, content_hash, reason in rows:
+        reason = reason or ""
+        if not str(reason).strip():
+            continue
+        if _authorization_matches(conn, event_id, content_hash, {
+            "table": table, "rowid": int(rowid), "reason": reason,
+        }, "orphan_ack"):
+            return True
+    return False
 
 
 def audit_orphan_authorizations(conn):
-    """Ignore is done by the readers. This raises the alarm for the rows they skip.
+    """Raise ``orphan_authorization`` for unmatched rows that are not acked.
 
-    One open ``orphan_authorization`` while any unmatched row exists. The
-    next check raises it again after an acknowledgement, because the row
-    cannot be deleted and still does not authorize anything.
+    An acknowledgement is per row and does not make the row authorize
+    anything. A raw insert into ``orphan_ack`` does not count: it is
+    itself an orphan until a chain event names that ack.
     """
-    orphans = list(_iter_orphan_authorizations(conn))
-    if orphans and not alarm_open(conn, "orphan_authorization"):
-        shown = ",".join("%s:%s" % pair for pair in orphans[:12])
+    pending = [(table, rowid) for table, rowid in _iter_orphan_authorizations(conn)
+               if not _orphan_row_acknowledged(conn, table, rowid)]
+    if pending and not alarm_open(conn, "orphan_authorization"):
+        shown = ",".join("%s:%s" % pair for pair in pending[:12])
         raise_alarm(conn, "orphan_authorization",
                     "unmatched authorization rows: %s" % shown)
-    return orphans
+    return pending
+
+
+def acknowledge_orphan(conn, table, rowid, reason):
+    """Stop re-alarming one orphan row. The row still authorizes nothing.
+
+    ``table`` is the authorization table and ``rowid`` is that row.
+    ``reason`` is required. The ack is an ``orphan_ack`` row plus a
+    chain event written in the same transaction. A later raw insert of
+    another ack does not replace this one and is reported on its own.
+    """
+    if table not in _ORPHAN_TABLES:
+        raise ValueError("unknown authorization table %s" % table)
+    reason = str(reason or "").strip()
+    if not reason:
+        raise ValueError("orphan acknowledgement requires a reason")
+    rowid = int(rowid)
+    found = conn.execute(
+        "SELECT 1 FROM %s WHERE rowid=?" % table, (rowid,)).fetchone()
+    if not found:
+        raise ValueError("no %s row %s" % (table, rowid))
+    now = _ms()
+    payload = {"table": table, "rowid": rowid, "reason": reason}
+    with conn:
+        event_id, content_hash = _insert_event(
+            conn, None, "orphan_ack", payload, now)
+        conn.execute(
+            "INSERT INTO orphan_ack(src_table, src_rowid, reason, created, "
+            "event_id, content_hash) VALUES(?,?,?,?,?,?)",
+            (table, rowid, reason, now, event_id, content_hash))
+    pending = [(src, src_id) for src, src_id in _iter_orphan_authorizations(conn)
+               if not _orphan_row_acknowledged(conn, src, src_id)]
+    if not pending and alarm_open(conn, "orphan_authorization"):
+        acknowledge_alarm(conn, "orphan_authorization", reason)
+    return {"table": table, "rowid": rowid, "reason": reason,
+            "event_id": event_id}
 
 
 def migrate_rules_rereview_from_events(conn):
@@ -901,7 +989,7 @@ def ledger_acceptance_blocks(conn):
     and remove the triggers; a missing trigger is recorded as an alarm
     event and stays until an acknowledgement with a reason.
     """
-    audit_orphan_authorizations(conn)
+    pending_orphans = audit_orphan_authorizations(conn)
     reasons = []
     if alarm_open(conn, "schema_tampered"):
         reasons.append("schema_tampered")
@@ -909,7 +997,9 @@ def ledger_acceptance_blocks(conn):
         reasons.append("ledger_changed_outside_runner")
     if alarm_open(conn, "chain_anchor_mismatch"):
         reasons.append("chain_anchor_mismatch")
-    if alarm_open(conn, "orphan_authorization"):
+    if alarm_open(conn, "anchor_unverifiable"):
+        reasons.append("anchor_unverifiable")
+    if pending_orphans:
         reasons.append("orphan_authorization")
     if not verify_event_chain(conn):
         reasons.append("event_chain_broken")
@@ -1876,28 +1966,57 @@ def write_status_anchor(repo, conn, end_sha=None, timestamp=None):
     return doc
 
 
-def read_committed_status_anchor(repo):
-    """The anchor committed at ``HEAD:status/ledger_anchor.json``, or None."""
+def read_committed_status_anchor(repo, remote="origin"):
+    """Fetch ``origin/<branch>`` and read its ``status/ledger_anchor.json``.
+
+    Returns ``(document or None, error or None)``. A local commit is not
+    the source. ``document`` is None when the fetch worked and that file
+    is not on the remote branch yet. ``error`` is set when fetch or the
+    branch cannot be resolved; callers must raise ``anchor_unverifiable``
+    and must not fall back to local ``HEAD``.
+    """
     import subprocess
     try:
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo, stderr=subprocess.DEVNULL).decode().strip()
+    except (subprocess.CalledProcessError, OSError) as exc:
+        return None, "git rev-parse failed: %s" % exc
+    if not branch or branch == "HEAD":
+        return None, "not on a branch; cannot read %s's anchor" % remote
+    try:
+        subprocess.check_call(
+            ["git", "fetch", remote,
+             "+refs/heads/%s:refs/remotes/%s/%s" % (branch, remote, branch)],
+            cwd=repo, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, OSError) as exc:
+        return None, "git fetch %s %s failed: %s" % (remote, branch, exc)
+    ref = "%s/%s:%s" % (
+        remote, branch, STATUS_ANCHOR_PATH.replace(os.sep, "/"))
+    try:
         out = subprocess.check_output(
-            ["git", "show", "HEAD:" + STATUS_ANCHOR_PATH.replace(os.sep, "/")],
-            cwd=repo, stderr=subprocess.DEVNULL)
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
-        return None
+            ["git", "show", ref], cwd=repo, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        return None, None
+    except OSError as exc:
+        return None, "git show %s failed: %s" % (ref, exc)
     try:
         doc = json.loads(out.decode("utf-8"))
     except ValueError:
-        return None
-    return doc if isinstance(doc, dict) else None
+        return None, "origin anchor is not json"
+    if not isinstance(doc, dict):
+        return None, "origin anchor is not an object"
+    return doc, None
 
 
 def note_anchor_state(conn, root, repo=None, backup_sha=None):
-    """Raise ``chain_anchor_mismatch`` when a local or committed anchor fails.
+    """Raise alarms when the local or origin anchor fails.
 
-    Missing ``ledger.chain.anchor`` counts once the chain has events or the
-    backfill event exists. The committed ``status/ledger_anchor.json`` is
-    checked only when ``HEAD`` has that file.
+    Missing ``ledger.chain.anchor`` counts once the chain has events or
+    the backfill event exists. The off-box copy is
+    ``origin/<current-branch>:status/ledger_anchor.json`` after
+    ``git fetch``. A failed fetch raises ``anchor_unverifiable`` and
+    does not treat a local commit as the anchor.
     """
     problems = []
     if not anchor_holds(conn, read_chain_anchor(root)):
@@ -1905,19 +2024,25 @@ def note_anchor_state(conn, root, repo=None, backup_sha=None):
             "ledger.chain.anchor missing or does not match the event "
             "at that position")
     if repo:
-        doc = read_committed_status_anchor(repo)
-        if doc is not None:
+        doc, fetch_error = read_committed_status_anchor(repo)
+        if fetch_error:
+            problems.append("origin anchor unverifiable: %s" % fetch_error)
+            if not alarm_open(conn, "anchor_unverifiable"):
+                raise_alarm(conn, "anchor_unverifiable", fetch_error)
+        elif doc is not None:
             if not anchor_holds(conn, doc):
                 problems.append(
-                    "committed status/ledger_anchor.json does not match "
+                    "origin status/ledger_anchor.json does not match "
                     "the chain")
             elif (doc.get("ledger_end_sha") and backup_sha
                   and doc.get("ledger_end_sha") != backup_sha):
                 problems.append(
-                    "committed status/ledger_anchor.json end sha does not "
+                    "origin status/ledger_anchor.json end sha does not "
                     "match the ledger backup")
-    if problems and not alarm_open(conn, "chain_anchor_mismatch"):
-        raise_alarm(conn, "chain_anchor_mismatch", "; ".join(problems))
+    chain_problems = [item for item in problems
+                      if not item.startswith("origin anchor unverifiable")]
+    if chain_problems and not alarm_open(conn, "chain_anchor_mismatch"):
+        raise_alarm(conn, "chain_anchor_mismatch", "; ".join(chain_problems))
     return problems
 
 

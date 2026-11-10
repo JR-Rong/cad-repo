@@ -198,6 +198,58 @@ def append_run_header(log, *, backup_sha, previous_end_sha, run_id,
     return rec
 
 
+class AnchorCheckFailed(Exception):
+    """The start-of-run anchor check did not finish. The run must not start."""
+
+
+def _record_anchor_check_failure(root, exc):
+    from cadkit.ledger import alarm_open, open_ledger, raise_alarm
+    try:
+        conn = open_ledger(root)
+    except Exception:
+        return
+    try:
+        if not alarm_open(conn, "anchor_unverifiable"):
+            raise_alarm(conn, "anchor_unverifiable",
+                        "anchor check failed: %s" % exc)
+    finally:
+        conn.close()
+
+
+def enforce_anchor_check(root, repo, backup_sha, previous_end):
+    """Compare anchors and the previous end sha. Fail closed.
+
+    Returns ``(chain_doc, chain_ok)``. Any exception is recorded as
+    ``anchor_unverifiable`` and re-raised as ``AnchorCheckFailed``.
+    A failed ``git fetch`` raises the same alarm and also refuses to
+    start: there is no origin anchor to compare.
+    """
+    from cadkit.ledger import (alarm_open, anchor_holds, chain_head,
+                               note_anchor_state, open_ledger,
+                               raise_alarm, read_chain_anchor)
+    try:
+        conn = open_ledger(root)
+        try:
+            chain_doc = read_chain_anchor(root) or chain_head(conn)
+            chain_ok = anchor_holds(conn, read_chain_anchor(root))
+            note_anchor_state(conn, root, repo=repo, backup_sha=backup_sha)
+            if alarm_open(conn, "anchor_unverifiable"):
+                raise AnchorCheckFailed(
+                    "origin anchor could not be fetched; not starting")
+            if (previous_end and backup_sha and previous_end != backup_sha
+                    and not alarm_open(conn, "ledger_sha_mismatch")):
+                raise_alarm(conn, "ledger_sha_mismatch",
+                            "sqlite backup sha differs from ledger.end.sha")
+            return chain_doc, chain_ok
+        finally:
+            conn.close()
+    except AnchorCheckFailed:
+        raise
+    except Exception as exc:
+        _record_anchor_check_failure(root, exc)
+        raise AnchorCheckFailed(str(exc))
+
+
 def read_part_ledger(root, pid, rules, stage_inputs, current_input):
     """Ledger facts for one part. Any read error is a FAIL, not a skip."""
     out = {"event_fail": False, "sealed": None, "ledger_input": None,
@@ -628,28 +680,17 @@ def main():
     log = open(a.log or os.path.join(REPO, "status", "runner_%s_%s.jsonl"
                                      % (a.batch, time.strftime("%Y%m%d_%H%M"))), "a",
                encoding="utf-8")
-    from cadkit.ledger import (alarm_open, anchor_holds, chain_head,
-                               note_anchor_state, open_ledger,
-                               raise_alarm, read_chain_anchor, read_end_sha)
+    from cadkit.ledger import read_end_sha
     snap = backup_ledger(root)
     backup_sha = snap[1] if snap else None
     previous_end = read_end_sha(root)
-    chain_doc = None
-    chain_ok = None
     try:
-        conn = open_ledger(root)
-        try:
-            chain_doc = read_chain_anchor(root) or chain_head(conn)
-            chain_ok = anchor_holds(conn, read_chain_anchor(root))
-            note_anchor_state(conn, root, repo=REPO, backup_sha=backup_sha)
-            if (previous_end and backup_sha and previous_end != backup_sha
-                    and not alarm_open(conn, "ledger_sha_mismatch")):
-                raise_alarm(conn, "ledger_sha_mismatch",
-                            "sqlite backup sha differs from ledger.end.sha")
-        finally:
-            conn.close()
-    except Exception as exc:
-        print("WARN 台账锚核对失败：%s" % exc)
+        chain_doc, chain_ok = enforce_anchor_check(
+            root, REPO, backup_sha, previous_end)
+    except AnchorCheckFailed as exc:
+        print("BLOCK 台账锚核对失败，本次不启动：%s" % exc)
+        log.close()
+        return 2
     header = append_run_header(
         log, backup_sha=backup_sha, previous_end_sha=previous_end,
         run_id=time.strftime("%Y%m%d_%H%M%S") + "-%d" % os.getpid(),

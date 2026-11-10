@@ -67,11 +67,13 @@ python3 tools/fleet_runner.py --root ~/cad-fleet --batch fleet_b_2026_11 \
 
 - `<cadRoot>/ledger.end.sha` — 上次 sqlite `.backup` 的 sha256。下次开跑拿**当前**备份和这个文件比。日志名带分钟，换一分钟就是另一个文件，从日志里读会永远读到空，等于没比。
 - `<cadRoot>/ledger.chain.anchor` — 链头锚，在台账文件旁边，仍在这台机器上。内容是 `{event_count, head_event_id, head_hash}`。每次开跑核对「第 event_count 条事件的 `row_hash` 仍然是 head_hash」。**文件不在，不是第一次运行**：只要 event 里已经有行，或者链上已经有 `event_hash_backfill` 这条不能删的事件，缺文件就是 `chain_anchor_mismatch`。删掉这个文件再把整条链重算一遍，`verify_event_chain` 仍会通过，但开跑会告警。
-- `status/ledger_anchor.json` — 同一份链头，写在**仓库**里，不在 cadRoot。字段是 `event_count`、`head_event_id`、`head_hash`、`ledger_end_sha`、`timestamp`。跑完会写这份工作区文件，**不会**自动提交。生产前必须单独推上去（见下面的命令）。下次开跑如果 `HEAD` 里已经有这份文件，会拿它再对一次链；对不上同样是 `chain_anchor_mismatch`。仓库里还没有这份文件时跳过这一次，不把「还没提交」当成篡改。
+- `status/ledger_anchor.json` — 同一份链头，写在**仓库**里，不在 cadRoot。字段是 `event_count`、`head_event_id`、`head_hash`、`ledger_end_sha`、`timestamp`。跑完会写这份工作区文件，**不会**自动提交。核对时用的不是本机 `HEAD`（本地再提交一次就能把锚换掉），而是 `git fetch` 之后的 `origin/<当前分支>:status/ledger_anchor.json`。对不上是 `chain_anchor_mismatch`。fetch 失败（网络、没有 origin、不在分支上）当作没有这份远程锚，并记 `anchor_unverifiable`，**本次运行直接退出，不生产**。远程分支上还没有这个文件时，不把「还没推送」当成篡改，但也不要在那之前开生产跑。
 
 **上 Mac 后先做一次：** 同一份没有改过的台账，连续跑两次。两次的 sqlite `.backup` sha 必须相同。不相同的话，`ledger_sha_mismatch` 会误报（备份字节不稳定），先查这个，不要当成有人改了库。
 
-新的空 cadRoot 第一次开跑也会记下 `chain_anchor_mismatch`：回填事件先落在链上，锚文件要等这次跑完才写出来。确认日志里的链头和刚写好的两个锚文件一致之后，用带原因的确认把这一条清掉，然后执行下面的推送。下一次运行起，缺锚或链被重算都会再次告警。
+新的空 cadRoot 第一次开跑也会记下 `chain_anchor_mismatch`：回填事件先落在链上，锚文件要等这次跑完才写出来。确认日志里的链头和刚写好的两个锚文件一致之后，用带原因的确认把这一条清掉，**马上**执行下面的推送。第一次干净跑完就要推，推上去之前不要再开生产跑。下一次运行起，缺锚或链被重算都会再次告警。
+
+开跑时的锚核对如果自己抛了异常（库打不开、比对代码出错），不再打一行 WARN 然后继续。进程以非 0 退出，并尽量在台账里写下 `anchor_unverifiable`。锚没对上就不要生产。
 
 对不上时追加一条告警，**不会**在下次对上时自动清成 0。`schema_tampered`、`ledger_sha_mismatch`、`chain_anchor_mismatch`、`orphan_authorization` 都写在 `ledger_alarm`（只插入）并各有一条链上的 event。要清掉，必须写一条带原因的确认，而且确认行自己也要挂在这条 event 上。直接往 `ledger_alarm` 里插一行 ack，没有对应的 event，清不掉。
 
@@ -90,7 +92,21 @@ conn.close()
 PY
 ```
 
-`waiver`、`rules_rereview`、`review_signoff`、`quarantine_mark` 和告警确认，都必须和一条 event 写在同一个事务里，行上记下那条 event 的 `event_id` 和 `row_hash`。验收和 `alarm_open` 只认对得上的行（id、哈希、payload 内容和行一致）。对不上的行当作没有，并且记 `orphan_authorization`。用 sqlite3 命令行直接 INSERT 一条 waiver 或一条 ack，不会生效。这种行删不掉，所以确认过 `orphan_authorization` 之后，下次打开仍会因为该行还在而再次告警；它始终不会变成一次有效的豁免。
+`waiver`、`rules_rereview`、`review_signoff`、`quarantine_mark` 和告警确认，都必须和一条 event 写在同一个事务里，行上记下那条 event 的 `event_id` 和 `row_hash`。验收和 `alarm_open` 只认对得上的行（id、哈希、payload 内容和行一致）。对不上的行当作没有，并且记 `orphan_authorization`。用 sqlite3 命令行直接 INSERT 一条 waiver 或一条 ack，不会生效。这种行删不掉。要让它停止反复告警，按行确认，原因不能空。确认之后它**仍然不能**当作豁免、签字或放行；只是不再因为这一行反复告警。手插的确认行自己也是孤儿，同样不生效：
+
+```sh
+python3 - << 'PY'
+import os, sys
+sys.path.insert(0, "plugin/dsh-plugin-cad-freecad/python")
+from cadkit.ledger import acknowledge_orphan, open_ledger
+conn = open_ledger(os.path.expanduser("~/cad-fleet"))
+# table 是 waiver / rules_rereview / review_signoff / quarantine_mark / ledger_alarm / orphan_ack
+acknowledge_orphan(conn, "waiver", 4, "核对过，这行是手插的，不认")
+conn.close()
+PY
+```
+
+已接受的残留风险（审查复现的第 11 种攻击）：有人在链尾追加一条伪造的 waiver 事件，再插入一条 `event_id` 和 `row_hash` 都对得上的 waiver 行。台账内部的检查会通过。两次运行之间，`ledger.end.sha` 和 GitHub 锚上的结束 sha 对不上，能发现。如果这件事发生在一次运行的中途，这一轮结束时写出的 sha 会把伪造算进去，当时发现不了。归类为「已经能写这个台账文件的人」。
 
 生产前，每次实跑结束后执行（这次运行本身不会 push）：
 
@@ -98,7 +114,7 @@ PY
 python3 tools/push_ledger_anchor.py
 ```
 
-它只提交并推送 `status/ledger_anchor.json`。没推之前，下一轮如果 `HEAD` 里的锚还是旧的，链或结束 sha 对不上就会告警。这是上生产之前的必做步骤，不是可选项。
+它只提交并推送 `status/ledger_anchor.json`。核对看的是 fetch 之后的 `origin/<当前分支>`，不是你本地多出来的那次提交。第一次干净跑完就要推；推上去之前不要开生产跑。这是上生产之前的必做步骤，不是可选项。
 
 Python 里那个「有没有 WHERE」的检查只防手滑（`WHERE 1`、注释、CTE 都绕得过）。真正挡住的是触发器，而且只挡得住还装着这些触发器的库：`job` / `event` / `fingerprint` / `evidence_seal` / `waiver` / `rules_rereview` / `state_transition` / `ledger_alarm` 不能 DELETE，`event`、`waiver`、`rules_rereview`、`state_transition`、`ledger_alarm` 不能 UPDATE。`job` 可以 UPDATE，但改不了身份列。粘滞状态（FAIL / WAIVED / INFEASIBLE）只允许两条路：FAIL→WAIVED 或 FAIL→INFEASIBLE，且已经有对应的 `waiver` 行；以及 `error_class` 以 `inherited:` 开头的 FAIL→OK，且同一把钥匙上有带原因的 `rules_rereview`。别的都不行，包括 FAIL→PENDING_REVIEW 再改成 OK。粘滞状态下 `error_class` 不能改，`attempt` 只能增加不能减小。合法更新的 event 里记下改之前和改之后的 attempt、error_class。
 

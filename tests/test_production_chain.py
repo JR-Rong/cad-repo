@@ -1449,18 +1449,22 @@ def test_deleted_anchor_is_not_a_first_run(tmp_path):
         conn.close()
 
 
-def test_committed_status_anchor_catches_a_local_rewrite(tmp_path):
+def test_origin_anchor_ignores_a_local_commit(tmp_path):
+    """A local commit must not replace the anchor fetched from origin."""
     import subprocess
     from cadkit.ledger import (chain_head, ledger_acceptance_blocks,
                                note_anchor_state, read_committed_status_anchor,
                                write_chain_anchor, write_status_anchor)
+    bare = tmp_path / "bare.git"
     repo = tmp_path / "repo"
-    repo.mkdir()
-    subprocess.check_call(["git", "init"], cwd=str(repo))
+    subprocess.check_call(["git", "init", "--bare", str(bare)])
+    subprocess.check_call(["git", "init", str(repo)])
     subprocess.check_call(
         ["git", "config", "user.email", "anchor@example.com"], cwd=str(repo))
     subprocess.check_call(
         ["git", "config", "user.name", "anchor-test"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "remote", "add", "origin", str(bare)], cwd=str(repo))
     ledger = tmp_path / "ledger"
     ledger.mkdir()
     conn = open_ledger(str(ledger))
@@ -1479,17 +1483,28 @@ def test_committed_status_anchor_catches_a_local_rewrite(tmp_path):
             ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
         subprocess.check_call(
             ["git", "commit", "-m", "stale anchor"], cwd=str(repo))
-        committed = read_committed_status_anchor(str(repo))
-        assert committed["head_hash"] == "0" * 64
+        subprocess.check_call(["git", "push", "origin", "HEAD"], cwd=str(repo))
+        swapped = chain_head(conn)
+        swapped["ledger_end_sha"] = "2" * 64
+        swapped["timestamp"] = "2026-11-10T00:00:01Z"
+        (status / "ledger_anchor.json").write_text(
+            json.dumps(swapped, sort_keys=True), encoding="utf-8")
+        subprocess.check_call(
+            ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
+        subprocess.check_call(
+            ["git", "commit", "-m", "local swap"], cwd=str(repo))
+        doc, err = read_committed_status_anchor(str(repo))
+        assert err is None
+        assert doc["head_hash"] == "0" * 64
         problems = note_anchor_state(
             conn, str(ledger), repo=str(repo), backup_sha="2" * 64)
-        assert any("committed" in item for item in problems)
+        assert any("origin" in item for item in problems)
         assert "chain_anchor_mismatch" in ledger_acceptance_blocks(conn)
-        write_status_anchor(str(repo), conn, "2" * 64, timestamp="2026-11-10T00:00:01Z")
-        doc = json.loads((status / "ledger_anchor.json").read_text(encoding="utf-8"))
-        assert doc["head_hash"] == chain_head(conn)["head_hash"]
-        assert doc["ledger_end_sha"] == "2" * 64
-        assert "timestamp" in doc
+        write_status_anchor(str(repo), conn, "2" * 64, timestamp="2026-11-10T00:00:02Z")
+        written = json.loads((status / "ledger_anchor.json").read_text(encoding="utf-8"))
+        assert written["head_hash"] == chain_head(conn)["head_hash"]
+        assert written["ledger_end_sha"] == "2" * 64
+        assert "timestamp" in written
     finally:
         conn.close()
 
@@ -1537,6 +1552,111 @@ def test_push_ledger_anchor_is_explicit(tmp_path):
         cwd=str(bare), text=True)
     assert "status/ledger_anchor.json" in pushed
     assert "other.txt" not in pushed
+
+
+def test_anchor_check_exception_stops_the_run(tmp_path, monkeypatch):
+    import fleet_runner
+    from cadkit import ledger as ledger_mod
+    root = tmp_path / "cad"
+    root.mkdir()
+    open_ledger(str(root)).close()
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("anchor probe failed")
+
+    monkeypatch.setattr(ledger_mod, "note_anchor_state", boom)
+    with pytest.raises(fleet_runner.AnchorCheckFailed):
+        fleet_runner.enforce_anchor_check(str(root), None, None, None)
+    conn = open_ledger(str(root))
+    try:
+        from cadkit.ledger import alarm_open, ledger_acceptance_blocks
+        assert alarm_open(conn, "anchor_unverifiable") is True
+        assert "anchor_unverifiable" in ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+    text = open(os.path.join(TOOLS, "fleet_runner.py"), encoding="utf-8").read()
+    assert "WARN 台账锚核对失败" not in text
+    guard = text.split("except AnchorCheckFailed as exc:", 1)[1][:500]
+    assert "return 2" in guard
+
+
+def test_fetch_failure_is_anchor_unverifiable(tmp_path):
+    import subprocess
+    from cadkit.ledger import (ledger_acceptance_blocks, note_anchor_state,
+                               read_committed_status_anchor, write_chain_anchor)
+    repo = tmp_path / "repo"
+    subprocess.check_call(["git", "init", str(repo)])
+    subprocess.check_call(
+        ["git", "config", "user.email", "anchor@example.com"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "config", "user.name", "anchor-test"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "remote", "add", "origin", str(tmp_path / "missing.git")],
+        cwd=str(repo))
+    status = repo / "status"
+    status.mkdir()
+    (status / "ledger_anchor.json").write_text(
+        '{"head_hash": "%s"}\n' % ("f" * 64), encoding="utf-8")
+    subprocess.check_call(["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
+    subprocess.check_call(["git", "commit", "-m", "local only"], cwd=str(repo))
+    doc, err = read_committed_status_anchor(str(repo))
+    assert doc is None and err
+    ledger = tmp_path / "ledger"
+    ledger.mkdir()
+    conn = open_ledger(str(ledger))
+    try:
+        write_chain_anchor(str(ledger), conn)
+        problems = note_anchor_state(conn, str(ledger), repo=str(repo))
+        assert any("unverifiable" in item for item in problems)
+        assert "anchor_unverifiable" in ledger_acceptance_blocks(conn)
+        assert "chain_anchor_mismatch" not in ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+
+
+def test_acknowledged_orphan_does_not_rearm_and_does_not_authorize(tmp_path):
+    import sqlite3
+    from cadkit.ledger import (acknowledge_orphan, event_unwaived_fail,
+                               ledger_acceptance_blocks)
+    conn = open_ledger(str(tmp_path))
+    try:
+        job_record(conn, "p", "validate", "in", "rules", "FAIL",
+                   error_class="design")
+        raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+        raw.execute(
+            "INSERT INTO waiver(project_id, stage, input_sha, rules_sha, "
+            "kind, reason, created) VALUES(?,?,?,?,?,?,?)",
+            ("p", "validate", "in", "rules", "waiver", "forged", 1))
+        raw.commit()
+        waiver_id = raw.execute(
+            "SELECT rowid FROM waiver WHERE reason='forged'").fetchone()[0]
+        raw.close()
+        assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
+        assert "orphan_authorization" in ledger_acceptance_blocks(conn)
+        with pytest.raises(ValueError):
+            acknowledge_orphan(conn, "waiver", waiver_id, " ")
+        acknowledge_orphan(conn, "waiver", waiver_id, "reviewed the forged row")
+        assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
+        assert conn.execute(
+            "SELECT state FROM job WHERE project_id='p'").fetchone()[0] == "FAIL"
+        assert "orphan_authorization" not in ledger_acceptance_blocks(conn)
+        raw = sqlite3.connect(os.path.join(str(tmp_path), "ledger.sqlite3"))
+        raw.execute(
+            "INSERT INTO orphan_ack(src_table, src_rowid, reason, created) "
+            "VALUES('waiver', ?, 'forged ack', 2)",
+            (waiver_id,))
+        raw.commit()
+        forged_ack = raw.execute(
+            "SELECT ack_id FROM orphan_ack WHERE reason='forged ack'").fetchone()[0]
+        raw.close()
+        assert "orphan_authorization" in ledger_acceptance_blocks(conn)
+        assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
+        acknowledge_orphan(conn, "orphan_ack", forged_ack,
+                           "the ack row itself was inserted by hand")
+        assert "orphan_authorization" not in ledger_acceptance_blocks(conn)
+        assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
+    finally:
+        conn.close()
 
 
 def test_wave_ledger_error_is_a_fail(tmp_path):
