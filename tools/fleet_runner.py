@@ -361,7 +361,15 @@ def pending(rec, intake, stages, limit=None, repair_failed=False,
                 raise
             except Exception:
                 ih = None
-            if ih and acceptance.stage_skippable(ev, stage, ih, hashes):
+            ledger_state = None
+            if ih and hasattr(rec, "state"):
+                try:
+                    ledger_state = rec.state(pid, stage)
+                except Exception:
+                    ledger_state = None
+            if ih and acceptance.stage_skippable(
+                    ev, stage, ih, hashes, rules_sha=getattr(rec, "rules", None),
+                    ledger_state=ledger_state):
                 continue
             st = ((ev or {}).get("stages") or {}).get(stage) or {}
             if (not repair_failed and st.get("state") == "FAIL"
@@ -680,17 +688,18 @@ def main():
     log = open(a.log or os.path.join(REPO, "status", "runner_%s_%s.jsonl"
                                      % (a.batch, time.strftime("%Y%m%d_%H%M"))), "a",
                encoding="utf-8")
-    from cadkit.ledger import read_end_sha
-    snap = backup_ledger(root)
-    backup_sha = snap[1] if snap else None
-    previous_end = read_end_sha(root)
-    try:
-        chain_doc, chain_ok = enforce_anchor_check(
-            root, REPO, backup_sha, previous_end)
-    except AnchorCheckFailed as exc:
-        print("BLOCK 台账锚核对失败，本次不启动：%s" % exc)
-        log.close()
-        return 2
+    from cadkit.ledger import ledger_file_lock, read_end_sha
+    with ledger_file_lock(root):
+        snap = backup_ledger(root)
+        backup_sha = snap[1] if snap else None
+        previous_end = read_end_sha(root)
+        try:
+            chain_doc, chain_ok = enforce_anchor_check(
+                root, REPO, backup_sha, previous_end)
+        except AnchorCheckFailed as exc:
+            print("BLOCK 台账锚核对失败，本次不启动：%s" % exc)
+            log.close()
+            return 2
     header = append_run_header(
         log, backup_sha=backup_sha, previous_end_sha=previous_end,
         run_id=time.strftime("%Y%m%d_%H%M%S") + "-%d" % os.getpid(),
@@ -886,20 +895,19 @@ def main():
     for t in pkg_threads:
         t.join(timeout=120)
     emit_report()
-    end = backup_ledger(root)
-    end_sha = end[1] if end else None
-    from cadkit.ledger import (open_ledger, write_chain_anchor, write_end_sha,
-                               write_status_anchor)
-    if end_sha:
-        write_end_sha(root, end_sha)
+    from cadkit.ledger import (ledger_file_lock, open_ledger, read_chain_anchor,
+                               remember_status_repo, refresh_external_anchors)
+    end_sha = None
     anchor = None
     try:
-        conn = open_ledger(root)
-        try:
-            anchor = write_chain_anchor(root, conn)
-            write_status_anchor(REPO, conn, end_sha)
-        finally:
-            conn.close()
+        with ledger_file_lock(root):
+            remember_status_repo(root, REPO)
+            conn = open_ledger(root)
+            try:
+                end_sha = refresh_external_anchors(conn, root, REPO)
+                anchor = read_chain_anchor(root)
+            finally:
+                conn.close()
     except Exception as exc:
         print("WARN 链锚没有写上：%s" % exc)
     else:

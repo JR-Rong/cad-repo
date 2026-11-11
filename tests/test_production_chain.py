@@ -1659,6 +1659,158 @@ def test_acknowledged_orphan_does_not_rearm_and_does_not_authorize(tmp_path):
         conn.close()
 
 
+def _git_repo_with_origin(tmp_path):
+    import subprocess
+    bare = tmp_path / "bare.git"
+    repo = tmp_path / "repo"
+    subprocess.check_call(["git", "init", "--bare", str(bare)])
+    subprocess.check_call(["git", "init", str(repo)])
+    subprocess.check_call(
+        ["git", "config", "user.email", "anchor@example.com"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "config", "user.name", "anchor-test"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "remote", "add", "origin", str(bare)], cwd=str(repo))
+    return repo
+
+
+def _push_status_anchor(repo):
+    import subprocess
+    subprocess.check_call(
+        ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
+    subprocess.check_call(["git", "commit", "-m", "ledger anchor"], cwd=str(repo))
+    subprocess.check_call(["git", "push", "origin", "HEAD"], cwd=str(repo))
+
+
+def test_ack_between_runs_does_not_alarm(tmp_path):
+    from cadkit.ledger import (acknowledge_alarm, backup_ledger,
+                               ledger_acceptance_blocks, note_anchor_state,
+                               raise_alarm, read_end_sha, remember_status_repo,
+                               refresh_external_anchors)
+    repo = _git_repo_with_origin(tmp_path)
+    root = tmp_path / "cad"
+    root.mkdir()
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "p", "build", "h", "r", "OK")
+        raise_alarm(conn, "chain_anchor_mismatch",
+                    "first run, anchor file was not written yet")
+        remember_status_repo(str(root), str(repo))
+        refresh_external_anchors(conn, str(root), str(repo))
+    finally:
+        conn.close()
+    _push_status_anchor(repo)
+    end_of_run = read_end_sha(str(root))
+    conn = open_ledger(str(root))
+    try:
+        acknowledge_alarm(conn, "chain_anchor_mismatch",
+                          "first-run anchor; file refreshed with this ack")
+    finally:
+        conn.close()
+    assert read_end_sha(str(root)) != end_of_run
+    _push_status_anchor(repo)
+    snap = backup_ledger(str(root))
+    assert snap[1] == read_end_sha(str(root))
+    conn = open_ledger(str(root))
+    try:
+        problems = note_anchor_state(
+            conn, str(root), repo=str(repo), backup_sha=snap[1])
+        blocked = ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+    assert problems == []
+    assert "ledger_sha_mismatch" not in blocked
+    assert "chain_anchor_mismatch" not in blocked
+
+
+def test_raw_sqlite_write_between_runs_still_alarms(tmp_path):
+    import sqlite3
+    from cadkit.ledger import (backup_ledger, ledger_acceptance_blocks,
+                               note_anchor_state, raise_alarm, read_end_sha,
+                               remember_status_repo, refresh_external_anchors)
+    repo = _git_repo_with_origin(tmp_path)
+    root = tmp_path / "cad"
+    root.mkdir()
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "p", "build", "h", "r", "OK")
+        remember_status_repo(str(root), str(repo))
+        refresh_external_anchors(conn, str(root), str(repo))
+    finally:
+        conn.close()
+    _push_status_anchor(repo)
+    raw = sqlite3.connect(os.path.join(str(root), "ledger.sqlite3"))
+    raw.execute("INSERT INTO meta(k, v) VALUES('tamper', '1')")
+    raw.commit()
+    raw.close()
+    previous = read_end_sha(str(root))
+    snap = backup_ledger(str(root))
+    assert snap[1] != previous
+    conn = open_ledger(str(root))
+    try:
+        problems = note_anchor_state(
+            conn, str(root), repo=str(repo), backup_sha=snap[1])
+        from cadkit.ledger import alarm_open
+        if previous and snap[1] != previous and not alarm_open(
+                conn, "ledger_sha_mismatch"):
+            raise_alarm(conn, "ledger_sha_mismatch",
+                        "sqlite backup sha differs from ledger.end.sha")
+        blocked = ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+    assert problems
+    assert ("ledger_sha_mismatch" in blocked or "ledger_changed_outside_runner" in blocked
+            or "chain_anchor_mismatch" in blocked)
+
+
+def test_second_run_skips_unchanged_inputs(tmp_path):
+    import acceptance
+    import fleet_runner
+    root = tmp_path / "cad"
+    proj = root / "projects" / "b_in01_001"
+    (proj / "build").mkdir(parents=True)
+    (root / "family").mkdir()
+    (proj / "project.yml").write_text(
+        json.dumps({"family": "in01"}), encoding="utf-8")
+    (proj / "build.py").write_text("build-src", encoding="utf-8")
+    (root / "family" / "in01.py").write_text("core", encoding="utf-8")
+    (proj / "build" / "b_in01_001.FCStd").write_text("final-fcstd", encoding="utf-8")
+    (proj / "build" / "b_in01_001.step").write_text("step", encoding="utf-8")
+    rec = fleet_runner.Recorder(str(root), PY, "rules-stable")
+    stages = ["build", "validate", "probe", "dedupe", "export"]
+    conn = open_ledger(str(root))
+    try:
+        for stage in stages:
+            job_record(conn, "b_in01_001", stage, rec.input_hash("b_in01_001", stage),
+                       "rules-stable", "OK")
+    finally:
+        conn.close()
+    ev = acceptance.fresh_evidence("b_in01_001", "in01", "core-sha", "rules-stable")
+    for stage in stages:
+        ev["stages"][stage] = {
+            "state": "OK",
+            "input_sha": rec.input_hash("b_in01_001", stage),
+            "source": "fleet_runner",
+            # Later stages rewrite the FCStd. The snapshot stored when
+            # build finished is not the file on disk at the next run.
+            "fcstd_sha256": "stale-after-a-later-stage",
+            "step_sha256": "stale-step",
+        }
+    path = acceptance.save_evidence(str(root), "b_in01_001", ev)
+    conn = open_ledger(str(root))
+    try:
+        from cadkit.ledger import seal_evidence
+        seal_evidence(conn, "b_in01_001", acceptance.sha256_file(path))
+    finally:
+        conn.close()
+    intake = tmp_path / "w.json"
+    intake.write_text(json.dumps({"parts": ["b_in01_001"]}), encoding="utf-8")
+    assert fleet_runner.pending(rec, str(intake), stages) == []
+    (proj / "build.py").write_text("build-src-edited", encoding="utf-8")
+    assert fleet_runner.pending(rec, str(intake), stages) == [
+        ("b_in01_001", ["build"])]
+
+
 def test_wave_ledger_error_is_a_fail(tmp_path):
     import fleet_runner
     broken = tmp_path / "ledger.sqlite3"

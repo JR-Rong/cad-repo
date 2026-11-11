@@ -211,16 +211,27 @@ def is_transient(error_class):
     return kind in TRANSIENT_PREFIXES
 
 
-def stage_skippable(ev, stage, input_sha, hashes):
-    """Skip a stage only when this runner accepted it for these exact bytes."""
+def stage_skippable(ev, stage, input_sha, hashes=None, rules_sha=None,
+                    ledger_state=None):
+    """Skip a stage already OK for this input hash under this rules_sha.
+
+    The ledger row and ``chain_evidence.json`` both have to say OK for
+    that same input hash. File hashes stored on the stage row are the
+    bytes at the moment the stage finished. A later stage rewrites the
+    FCStd, so those snapshots must not force build/validate/probe/dedupe
+    to run again. The input hash already names the bytes the stage read.
+    ``hashes`` is accepted so older callers keep working.
+    """
+    del hashes
+    if ledger_state != "OK":
+        return False
     if not isinstance(ev, dict) or ev.get("source") != "fleet_runner":
+        return False
+    if rules_sha and ev.get("rules_sha") and ev.get("rules_sha") != rules_sha:
         return False
     st = (ev.get("stages") or {}).get(stage) or {}
     if st.get("state") != "OK" or st.get("input_sha") != input_sha:
         return False
-    for key in ("fcstd_sha256", "step_sha256", "family_core_sha256"):
-        if key in st and st[key] != (hashes or {}).get(key):
-            return False
     return True
 
 
