@@ -116,6 +116,31 @@ python3 tools/push_ledger_anchor.py
 
 它只提交并推送 `status/ledger_anchor.json`。核对看的是 fetch 之后的 `origin/<当前分支>`，不是你本地多出来的那次提交。第一次干净跑完就要推；推上去之前不要开生产跑。这是上生产之前的必做步骤，不是可选项。
 
+跑完之后如果要做台账确认（`acknowledge_alarm`、`acknowledge_orphan`、waiver、签字、隔离、`rules_rereview`），顺序固定为：**先确认，再 `push_ledger_anchor.py`，然后才开下一轮**。这些确认会往链上追加事件。这一版会在同一次加锁里把 `ledger.end.sha`、`ledger.chain.anchor` 和仓库里的 `status/ledger_anchor.json` 一起改到新的链头。不推送的话，下一轮拿 origin 上的旧结束 sha 比对，仍会告警。绕过 `ledger.py` 直接改 sqlite 的写入不会改这三个文件，下一轮照样告警。
+
+已经在 Mac 上跑出来的那两条告警（`ledger_sha_mismatch` 和 `chain_anchor_mismatch`，出在第二轮开头：第一轮结束后按手册做了 `acknowledge_alarm`，事件从 22 条变成 23 条，结束 sha 和锚还停在 `71ed1087…`）用这一版收尾，**不要先开跑**：
+
+```sh
+python3 - << 'PY'
+import os, sys
+sys.path.insert(0, "plugin/dsh-plugin-cad-freecad/python")
+from cadkit.ledger import acknowledge_alarm, open_ledger
+conn = open_ledger(os.path.expanduser("~/cad-fleet"))
+acknowledge_alarm(
+    conn, "ledger_sha_mismatch",
+    "upgrade: between-run ack appended an event; end sha refreshed by the fixed ledger.py")
+acknowledge_alarm(
+    conn, "chain_anchor_mismatch",
+    "upgrade: between-run ack appended an event; anchor refreshed by the fixed ledger.py")
+conn.close()
+PY
+python3 tools/push_ledger_anchor.py
+```
+
+这两次确认自己会把三个锚文件改到确认之后的链头。推完再开下一轮。
+
+同一 `input_sha` 和 `rules_sha` 下，台账是 OK 且 `chain_evidence.json` 里该阶段也是 OK，下一轮就跳过这个阶段。后面的阶段改写了 FCStd，不会把已经 OK 的 build/validate/probe/dedupe 再打开。`rules_sha` 变了则输入哈希变了，已导出的件会整段重跑。
+
 Python 里那个「有没有 WHERE」的检查只防手滑（`WHERE 1`、注释、CTE 都绕得过）。真正挡住的是触发器，而且只挡得住还装着这些触发器的库：`job` / `event` / `fingerprint` / `evidence_seal` / `waiver` / `rules_rereview` / `state_transition` / `ledger_alarm` 不能 DELETE，`event`、`waiver`、`rules_rereview`、`state_transition`、`ledger_alarm` 不能 UPDATE。`job` 可以 UPDATE，但改不了身份列。粘滞状态（FAIL / WAIVED / INFEASIBLE）只允许两条路：FAIL→WAIVED 或 FAIL→INFEASIBLE，且已经有对应的 `waiver` 行；以及 `error_class` 以 `inherited:` 开头的 FAIL→OK，且同一把钥匙上有带原因的 `rules_rereview`。别的都不行，包括 FAIL→PENDING_REVIEW 再改成 OK。粘滞状态下 `error_class` 不能改，`attempt` 只能增加不能减小。合法更新的 event 里记下改之前和改之后的 attempt、error_class。
 
 `rules_rereview` 只解开 **n45_inherit** 记下来的 FAIL。设计 FAIL 只能靠 waiver。这个判断查 `state_transition`（只插入，按 project/stage/input/rules 建了索引），不再对每一件扫整张 event。

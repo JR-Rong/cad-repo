@@ -25,6 +25,7 @@ import os
 import json
 import sqlite3
 import stat
+import threading
 import time
 
 SCHEMA_VERSION = 1
@@ -865,17 +866,20 @@ def acknowledge_orphan(conn, table, rowid, reason):
         raise ValueError("no %s row %s" % (table, rowid))
     now = _ms()
     payload = {"table": table, "rowid": rowid, "reason": reason}
-    with conn:
-        event_id, content_hash = _insert_event(
-            conn, None, "orphan_ack", payload, now)
-        conn.execute(
-            "INSERT INTO orphan_ack(src_table, src_rowid, reason, created, "
-            "event_id, content_hash) VALUES(?,?,?,?,?,?)",
-            (table, rowid, reason, now, event_id, content_hash))
-    pending = [(src, src_id) for src, src_id in _iter_orphan_authorizations(conn)
-               if not _orphan_row_acknowledged(conn, src, src_id)]
-    if not pending and alarm_open(conn, "orphan_authorization"):
-        acknowledge_alarm(conn, "orphan_authorization", reason)
+    with ledger_file_lock(ledger_root(conn)):
+        with conn:
+            event_id, content_hash = _insert_event(
+                conn, None, "orphan_ack", payload, now)
+            conn.execute(
+                "INSERT INTO orphan_ack(src_table, src_rowid, reason, created, "
+                "event_id, content_hash) VALUES(?,?,?,?,?,?)",
+                (table, rowid, reason, now, event_id, content_hash))
+        pending = [(src, src_id) for src, src_id in _iter_orphan_authorizations(conn)
+                   if not _orphan_row_acknowledged(conn, src, src_id)]
+        if not pending and alarm_open(conn, "orphan_authorization"):
+            acknowledge_alarm(conn, "orphan_authorization", reason)
+        else:
+            _after_sanctioned_write(conn)
     return {"table": table, "rowid": rowid, "reason": reason,
             "event_id": event_id}
 
@@ -943,13 +947,15 @@ def raise_alarm(conn, kind, reason):
         raise ValueError("unknown alarm kind %s" % kind)
     reason = str(reason or "").strip()
     now = _ms()
-    with conn:
-        event_id, content_hash = _insert_event(
-            conn, None, kind, {"reason": reason}, now)
-        conn.execute(
-            "INSERT INTO ledger_alarm(kind, action, reason, created, "
-            "event_id, content_hash) VALUES(?, 'raise', ?, ?, ?, ?)",
-            (kind, reason, now, event_id, content_hash))
+    with ledger_file_lock(ledger_root(conn)):
+        with conn:
+            event_id, content_hash = _insert_event(
+                conn, None, kind, {"reason": reason}, now)
+            conn.execute(
+                "INSERT INTO ledger_alarm(kind, action, reason, created, "
+                "event_id, content_hash) VALUES(?, 'raise', ?, ?, ?, ?)",
+                (kind, reason, now, event_id, content_hash))
+        _after_sanctioned_write(conn)
     return {"kind": kind, "action": "raise", "event_id": event_id}
 
 
@@ -970,14 +976,16 @@ def acknowledge_alarm(conn, kind, reason):
             "schema_tampered acknowledgement must name the upgrade "
             "(%s)" % UPGRADE_ACK)
     now = _ms()
-    with conn:
-        event_id, content_hash = _insert_event(conn, None, "alarm_ack", {
-            "alarm": kind, "reason": reason,
-        }, now)
-        conn.execute(
-            "INSERT INTO ledger_alarm(kind, action, reason, created, "
-            "event_id, content_hash) VALUES(?, 'ack', ?, ?, ?, ?)",
-            (kind, reason, now, event_id, content_hash))
+    with ledger_file_lock(ledger_root(conn)):
+        with conn:
+            event_id, content_hash = _insert_event(conn, None, "alarm_ack", {
+                "alarm": kind, "reason": reason,
+            }, now)
+            conn.execute(
+                "INSERT INTO ledger_alarm(kind, action, reason, created, "
+                "event_id, content_hash) VALUES(?, 'ack', ?, ?, ?, ?)",
+                (kind, reason, now, event_id, content_hash))
+        _after_sanctioned_write(conn)
     return {"kind": kind, "action": "ack", "reason": reason,
             "event_id": event_id}
 
@@ -1696,15 +1704,17 @@ def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
         "input_sha": input_sha, "rules_sha": rules_sha,
         "reason": reason,
     }
-    with conn:
-        event_id, content_hash = _insert_event(
-            conn, None, "rules_rereview", payload, now)
-        conn.execute(
-            "INSERT INTO rules_rereview(project_id, stage, input_sha, "
-            "rules_sha, reason, created, event_id, content_hash) "
-            "VALUES(?,?,?,?,?,?,?,?)",
-            (project_id, stage, input_sha, rules_sha, reason, now,
-             event_id, content_hash))
+    with ledger_file_lock(ledger_root(conn)):
+        with conn:
+            event_id, content_hash = _insert_event(
+                conn, None, "rules_rereview", payload, now)
+            conn.execute(
+                "INSERT INTO rules_rereview(project_id, stage, input_sha, "
+                "rules_sha, reason, created, event_id, content_hash) "
+                "VALUES(?,?,?,?,?,?,?,?)",
+                (project_id, stage, input_sha, rules_sha, reason, now,
+                 event_id, content_hash))
+        _after_sanctioned_write(conn)
     return {"applied": True, "reason": reason}
 
 
@@ -1739,13 +1749,15 @@ def mark_quarantine_from_ledger(conn, project_id):
         return {"applied": False, "input_sha": existing[0]}
     now = _ms()
     payload = {"project_id": project_id, "input_sha": sha}
-    with conn:
-        event_id, content_hash = _insert_event(
-            conn, None, "quarantine", payload, now)
-        conn.execute(
-            "INSERT INTO quarantine_mark(project_id, input_sha, created, "
-            "event_id, content_hash) VALUES(?,?,?,?,?)",
-            (project_id, sha, now, event_id, content_hash))
+    with ledger_file_lock(ledger_root(conn)):
+        with conn:
+            event_id, content_hash = _insert_event(
+                conn, None, "quarantine", payload, now)
+            conn.execute(
+                "INSERT INTO quarantine_mark(project_id, input_sha, created, "
+                "event_id, content_hash) VALUES(?,?,?,?,?)",
+                (project_id, sha, now, event_id, content_hash))
+        _after_sanctioned_write(conn)
     return {"applied": True, "input_sha": sha}
 
 
@@ -1786,14 +1798,16 @@ def record_signoff(conn, project_id, input_sha, reviewer, reason):
         "project_id": project_id, "input_sha": input_sha,
         "reviewer": reviewer, "reason": reason,
     }
-    with conn:
-        event_id, content_hash = _insert_event(
-            conn, None, "signoff", payload, now)
-        conn.execute(
-            "INSERT INTO review_signoff(project_id, input_sha, reviewer, "
-            "reason, created, event_id, content_hash) VALUES(?,?,?,?,?,?,?)",
-            (project_id, input_sha, reviewer, reason, now,
-             event_id, content_hash))
+    with ledger_file_lock(ledger_root(conn)):
+        with conn:
+            event_id, content_hash = _insert_event(
+                conn, None, "signoff", payload, now)
+            conn.execute(
+                "INSERT INTO review_signoff(project_id, input_sha, reviewer, "
+                "reason, created, event_id, content_hash) VALUES(?,?,?,?,?,?,?)",
+                (project_id, input_sha, reviewer, reason, now,
+                 event_id, content_hash))
+        _after_sanctioned_write(conn)
     return {"applied": True, "input_sha": input_sha}
 
 
@@ -1835,6 +1849,21 @@ def hold_legacy_publisher_lock(root, batch):
     return fd
 
 
+def _stable_backup_sha(path):
+    """SHA-256 of a sqlite backup, ignoring header counters that drift.
+
+    The file change counter, schema cookie, and version-valid-for field
+    move when a connection closes even though no row changed. Page bytes
+    still change when someone writes, so a real edit does not hash the same.
+    """
+    with open(path, "rb") as f:
+        data = bytearray(f.read())
+    if len(data) >= 100 and data[:16] == b"SQLite format 3\x00":
+        for start in (24, 40, 92):
+            data[start:start + 4] = b"\x00\x00\x00\x00"
+    return hashlib.sha256(data).hexdigest()
+
+
 def backup_ledger(root, dest_dir=None):
     """Online ``backup`` of ledger.sqlite3. Returns (path, sha256) or None.
 
@@ -1848,14 +1877,19 @@ def backup_ledger(root, dest_dir=None):
     os.makedirs(dest_dir, exist_ok=True)
     dest = os.path.join(
         dest_dir, "ledger-%s.sqlite3" % time.strftime("%Y%m%d_%H%M%S"))
-    src = sqlite3.connect(src_path)
+    # A read-write connection checkpoints on close and changes the live
+    # file after the snapshot hash was recorded. Read-only leaves it alone,
+    # so the next run's backup matches this one when nothing else wrote.
+    from urllib.parse import quote
+    uri = "file:%s?mode=ro" % quote(os.path.abspath(src_path), safe="/:")
+    src = sqlite3.connect(uri, uri=True)
     dst = sqlite3.connect(dest)
     try:
         src.backup(dst)
     finally:
         dst.close()
         src.close()
-    return dest, sha256_file(dest)
+    return dest, _stable_backup_sha(dest)
 
 
 def _atomic_text(path, text):
@@ -1952,6 +1986,139 @@ def read_end_sha(root):
         return None
     text = open(path, encoding="utf-8").read().strip()
     return text or None
+
+
+REPO_HINT_NAME = "ledger.repo"
+_LOCK_DEPTH = threading.local()
+
+
+def ledger_root(conn):
+    """Directory that holds ``ledger.sqlite3`` for this connection."""
+    try:
+        rows = conn.execute("PRAGMA database_list").fetchall()
+    except sqlite3.Error:
+        return None
+    for _seq, name, path in rows:
+        if name == "main" and path:
+            return os.path.dirname(os.path.abspath(path))
+    return None
+
+
+def ledger_file_lock(root):
+    """Exclusive lock around a sanctioned write and the anchor refresh.
+
+    Re-entrant in the thread that already holds it, so an acknowledgement
+    that also closes the orphan alarm does not deadlock. Other processes
+    block until the sqlite snapshot and the three anchor files match.
+    """
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _locked():
+        if not root:
+            yield
+            return
+        import fcntl
+        key = os.path.abspath(root)
+        depth = getattr(_LOCK_DEPTH, "depth", None)
+        if depth is None:
+            depth = {}
+            _LOCK_DEPTH.depth = depth
+        if depth.get(key, 0) == 0:
+            fd = os.open(os.path.join(key, "ledger.lock"),
+                         os.O_CREAT | os.O_RDWR, 0o644)
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            depth[key] = 1
+            depth[key + ":fd"] = fd
+        else:
+            depth[key] += 1
+        try:
+            yield
+        finally:
+            depth[key] -= 1
+            if depth[key] == 0:
+                fd = depth.pop(key + ":fd")
+                fcntl.flock(fd, fcntl.LOCK_UN)
+                os.close(fd)
+
+    return _locked()
+
+
+def remember_status_repo(root, repo):
+    """Remember which checkout holds ``status/ledger_anchor.json``."""
+    if root and repo:
+        _atomic_text(os.path.join(root, REPO_HINT_NAME),
+                     os.path.abspath(repo) + "\n")
+
+
+def status_repo(root):
+    if not root:
+        return None
+    path = os.path.join(root, REPO_HINT_NAME)
+    if os.path.isfile(path):
+        text = open(path, encoding="utf-8").read().strip()
+        if text:
+            return text
+    env = os.environ.get("CADKIT_REPO")
+    return env or None
+
+
+def refresh_external_anchors(conn, root=None, repo=None):
+    """Rewrite the three out-of-database anchors from the committed ledger.
+
+    ``ledger.end.sha`` and ``ledger.chain.anchor`` sit next to the database.
+    ``status/ledger_anchor.json`` is the local repo file. Pushing it stays
+    a separate ``push_ledger_anchor.py`` step. A raw sqlite write does not
+    call this, so the next run still sees a mismatch.
+    """
+    root = root or ledger_root(conn)
+    if not root:
+        return None
+    repo = repo if repo is not None else status_repo(root)
+    # Read the chain head before the checkpoint. Any later query on this
+    # connection recreates the WAL, and closing it then changes the bytes
+    # the next run will back up.
+    head = chain_head(conn)
+    # WAL left behind makes the next process's backup hash differ from the
+    # one taken while this connection is still open. DELETE mode checkpoints
+    # and removes the WAL. The next open_ledger turns WAL back on, but only
+    # after that next run has already compared the saved hash.
+    try:
+        conn.execute("PRAGMA journal_mode=DELETE")
+    except sqlite3.Error:
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except sqlite3.Error:
+            pass
+    try:
+        conn.commit()
+    except sqlite3.Error:
+        pass
+    snap = backup_ledger(root)
+    end_sha = snap[1] if snap else None
+    if end_sha:
+        write_end_sha(root, end_sha)
+    _atomic_text(
+        os.path.join(root, CHAIN_ANCHOR_NAME),
+        json.dumps(head, sort_keys=True) + "\n")
+    if repo:
+        doc = dict(head)
+        doc["ledger_end_sha"] = end_sha
+        doc["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        path = os.path.join(repo, STATUS_ANCHOR_PATH)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        _atomic_text(path, json.dumps(doc, indent=2, sort_keys=True) + "\n")
+    return end_sha
+
+
+def _after_sanctioned_write(conn):
+    """Update anchors after a ledger.py write that can happen between runs."""
+    try:
+        refresh_external_anchors(conn)
+    except Exception:
+        # The row is already committed. Leaving the anchors stale is the
+        # bug we are fixing, so surface it to the caller.
+        raise
 
 
 def write_status_anchor(repo, conn, end_sha=None, timestamp=None):
@@ -2133,23 +2300,25 @@ def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,
         "input_sha": input_sha, "rules_sha": rules_sha,
         "kind": kind, "reason": reason,
     }
-    with conn:
-        event_id, content_hash = _insert_event(conn, None, kind, payload, now)
-        conn.execute(
-            "INSERT INTO waiver(project_id, stage, input_sha, rules_sha, "
-            "kind, reason, created, event_id, content_hash) "
-            "VALUES(?,?,?,?,?,?,?,?,?)",
-            (project_id, stage, input_sha, rules_sha, kind, reason, now,
-             event_id, content_hash))
-        cur = conn.execute(
-            "UPDATE job SET state=?, updated=? "
-            "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=? "
-            "AND state='FAIL'",
-            (new_state, now, project_id, stage, input_sha, rules_sha))
-        if cur.rowcount != 1:
-            raise ValueError(
-                "waiver applies only to an existing FAIL row for this "
-                "revision")
+    with ledger_file_lock(ledger_root(conn)):
+        with conn:
+            event_id, content_hash = _insert_event(conn, None, kind, payload, now)
+            conn.execute(
+                "INSERT INTO waiver(project_id, stage, input_sha, rules_sha, "
+                "kind, reason, created, event_id, content_hash) "
+                "VALUES(?,?,?,?,?,?,?,?,?)",
+                (project_id, stage, input_sha, rules_sha, kind, reason, now,
+                 event_id, content_hash))
+            cur = conn.execute(
+                "UPDATE job SET state=?, updated=? "
+                "WHERE project_id=? AND stage=? AND input_sha=? AND rules_sha=? "
+                "AND state='FAIL'",
+                (new_state, now, project_id, stage, input_sha, rules_sha))
+            if cur.rowcount != 1:
+                raise ValueError(
+                    "waiver applies only to an existing FAIL row for this "
+                    "revision")
+        _after_sanctioned_write(conn)
     return {"applied": True, "state": new_state, "reason": reason}
 
 
