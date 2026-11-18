@@ -118,26 +118,36 @@ python3 tools/push_ledger_anchor.py
 
 跑完之后如果要做台账确认（`acknowledge_alarm`、`acknowledge_orphan`、waiver、签字、隔离、`rules_rereview`），顺序固定为：**先确认，再 `push_ledger_anchor.py`，然后才开下一轮**。这些确认会往链上追加事件。这一版会在同一次加锁里把 `ledger.end.sha`、`ledger.chain.anchor` 和仓库里的 `status/ledger_anchor.json` 一起改到新的链头。不推送的话，下一轮拿 origin 上的旧结束 sha 比对，仍会告警。绕过 `ledger.py` 直接改 sqlite 的写入不会改这三个文件，下一轮照样告警。
 
-已经在 Mac 上跑出来的那两条告警（`ledger_sha_mismatch` 和 `chain_anchor_mismatch`，出在第二轮开头：第一轮结束后按手册做了 `acknowledge_alarm`，事件从 22 条变成 23 条，结束 sha 和锚还停在 `71ed1087…`）用这一版收尾，**不要先开跑**：
+普通的 `acknowledge_alarm` 会先核对：当前库的稳定备份 sha 必须等于 `ledger.end.sha`，本地链锚也必须还对得上。对不上就只记 `ledger_sha_mismatch`，**不改**三个锚文件，确认本身也不写进去。`raise_alarm` 永远不改锚。所以不能靠「先告警再确认」把一次手改洗掉。
+
+已经在 Mac 上跑出来的那两条告警（`ledger_sha_mismatch` 和 `chain_anchor_mismatch`，出在第二轮开头：第一轮结束后按手册做了 `acknowledge_alarm`，事件从 22 条变成 23 条，结束 sha 和锚还停在 `71ed1087…`）不能再直接 `acknowledge_alarm`。用 `recover_known_drift`：它在 `~/cad-fleet/backups/` 里找到 sha 以 `71ed1087` 开头的那份备份，核对 `origin/main` 上 `status/ledger_anchor.json` 的 `ledger_end_sha` 就是这一份，再按表比较备份和当前库。多出来的行必须逐条写在允许列表里，而且新增的 event 必须从那份备份的链头接得上。对不上就拒绝，并打印差在哪。对上了才确认这两条告警并刷新锚。**不要先开跑。**
 
 ```sh
 python3 - << 'PY'
 import os, sys
 sys.path.insert(0, "plugin/dsh-plugin-cad-freecad/python")
-from cadkit.ledger import acknowledge_alarm, open_ledger
-conn = open_ledger(os.path.expanduser("~/cad-fleet"))
-acknowledge_alarm(
-    conn, "ledger_sha_mismatch",
-    "upgrade: between-run ack appended an event; end sha refreshed by the fixed ledger.py")
-acknowledge_alarm(
-    conn, "chain_anchor_mismatch",
-    "upgrade: between-run ack appended an event; anchor refreshed by the fixed ledger.py")
-conn.close()
+from cadkit.ledger import recover_known_drift
+# 先只允许第二轮开头的告警。若脚本退出，读它打印的差异：
+# 只有确实是第二轮合法跑出来的 job / state_transition / job_transition
+# 才能加进行。不要把 waiver 或手改的 meta 加进去。
+allowed = [
+    {"table": "event", "kind": "ledger_sha_mismatch"},
+    {"table": "event", "kind": "chain_anchor_mismatch"},
+    {"table": "event", "kind": "alarm_ack"},
+    {"table": "ledger_alarm", "kind": "ledger_sha_mismatch"},
+    {"table": "ledger_alarm", "kind": "chain_anchor_mismatch"},
+]
+recover_known_drift(
+    os.path.expanduser("~/cad-fleet"),
+    os.getcwd(),  # 仓库根，里面要能 git fetch origin main
+    "71ed1087",
+    allowed,
+    "upgrade: run-2 drift is only the known anchor alarms")
 PY
 python3 tools/push_ledger_anchor.py
 ```
 
-这两次确认自己会把三个锚文件改到确认之后的链头。推完再开下一轮。
+推完再开下一轮。
 
 同一 `input_sha` 和 `rules_sha` 下，台账是 OK 且 `chain_evidence.json` 里该阶段也是 OK，下一轮就跳过这个阶段。后面的阶段改写了 FCStd，不会把已经 OK 的 build/validate/probe/dedupe 再打开。`rules_sha` 变了则输入哈希变了，已导出的件会整段重跑。
 

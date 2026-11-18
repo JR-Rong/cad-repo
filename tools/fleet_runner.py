@@ -145,11 +145,12 @@ class Recorder:
             return _h(base, fc, extra)
         raise SystemExit("unknown stage " + stage)
 
-    def state(self, pid, stage):
+    def state(self, pid, stage, input_sha=None):
         conn = self._open(self.root)
         try:
-            return self._state(conn, pid, stage,
-                               self.input_hash(pid, stage), self.rules)
+            return self._state(
+                conn, pid, stage,
+                input_sha or self.input_hash(pid, stage), self.rules)
         finally:
             conn.close()
 
@@ -361,10 +362,20 @@ def pending(rec, intake, stages, limit=None, repair_failed=False,
                 raise
             except Exception:
                 ih = None
+            recorded = (((ev or {}).get("stages") or {}).get(stage) or {}
+                        ).get("input_sha")
+            current_fc = (hashes or {}).get("fcstd_sha256")
+            if (recorded and ih and recorded != ih
+                    and acceptance.downstream_fcstd_matches(
+                        ev, stage, current_fc)):
+                ih = recorded
             ledger_state = None
             if ih and hasattr(rec, "state"):
                 try:
-                    ledger_state = rec.state(pid, stage)
+                    try:
+                        ledger_state = rec.state(pid, stage, ih)
+                    except TypeError:
+                        ledger_state = rec.state(pid, stage)
                 except Exception:
                     ledger_state = None
             if ih and acceptance.stage_skippable(
@@ -377,6 +388,12 @@ def pending(rec, intake, stages, limit=None, repair_failed=False,
                 continue
             todo.append(stage)
         if todo:
+            order = {name: index for index, name in enumerate(
+                acceptance.STAGE_ORDER)}
+            first = min(order[name] for name in todo if name in order)
+            forced = {name for name in stages
+                      if name in order and order[name] >= first}
+            todo = [name for name in stages if name in todo or name in forced]
             out.append((pid, todo))
     return out[:limit] if limit else out
 

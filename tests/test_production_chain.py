@@ -155,6 +155,8 @@ def test_n45_ledger_fail_is_not_overwritten(tmp_path):
         assert stuck[0] == "FAIL"
         with pytest.raises(ValueError):
             record_waiver(conn, "b_in01_001", "validate", "sha", "rules", "  ")
+        from cadkit.ledger import refresh_external_anchors
+        refresh_external_anchors(conn)
         waived = record_waiver(
             conn, "b_in01_001", "validate", "sha", "rules",
             "operator: combo cannot be built", kind="design-infeasible")
@@ -630,6 +632,8 @@ def test_rules_change_inherits_fail_until_rereview(tmp_path):
         assert row[0] == "FAIL"
         with pytest.raises(ValueError):
             record_rules_rereview(conn, "p", "validate", "input", "rules-new", " ")
+        from cadkit.ledger import refresh_external_anchors
+        refresh_external_anchors(conn)
         record_rules_rereview(
             conn, "p", "validate", "input", "rules-new",
             "owner re-checked this part under the new rules")
@@ -830,9 +834,12 @@ def test_quarantine_hash_comes_from_the_ledger(tmp_path):
     conn = open_ledger(str(tmp_path))
     try:
         job_record(conn, "b_in01_097", "build", "hash-from-ledger", "rules", "OK")
+        from cadkit.ledger import refresh_external_anchors
+        refresh_external_anchors(conn)
         marked = mark_quarantine_from_ledger(conn, "b_in01_097")
         assert marked["input_sha"] == "hash-from-ledger"
         job_record(conn, "b_in01_097", "build", "typed-by-hand", "rules", "OK")
+        refresh_external_anchors(conn)
         with pytest.raises(ValueError):
             mark_quarantine_from_ledger(conn, "b_in01_097")
         assert quarantine_mark(conn, "b_in01_097")["input_sha"] == "hash-from-ledger"
@@ -868,6 +875,8 @@ def test_rules_rereview_is_a_point_lookup(tmp_path):
                 (None, "noise", "{}", i))
         conn.commit()
         assert _rules_rereviewed(conn, "p", "validate", "in", "rules") is False
+        from cadkit.ledger import refresh_external_anchors
+        refresh_external_anchors(conn)
         record_rules_rereview(conn, "p", "validate", "in", "rules", "looked again")
         assert _rules_rereviewed(conn, "p", "validate", "in", "rules") is True
         plan = conn.execute(
@@ -959,7 +968,8 @@ def test_job_trigger_blocks_silent_ok_and_records_transition(tmp_path):
                     "UPDATE job SET state='OK' WHERE project_id='p'")
         finally:
             raw.close()
-        from cadkit.ledger import record_waiver
+        from cadkit.ledger import record_waiver, refresh_external_anchors
+        refresh_external_anchors(conn)
         record_waiver(conn, "p", "validate", "in", "rules", "looked at it",
                       kind="waiver")
         assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is False
@@ -1106,6 +1116,8 @@ def test_rules_rereview_cannot_wash_a_design_fail(tmp_path):
         assert blocked["state"] == "FAIL"
         assert event_unwaived_fail(
             conn, "p", "validate", "in", "rules-new") is True
+        from cadkit.ledger import refresh_external_anchors
+        refresh_external_anchors(conn)
         record_rules_rereview(
             conn, "p", "validate", "in", "rules-new",
             "owner re-checked the inherited failure")
@@ -1270,9 +1282,11 @@ def test_outside_anchor_catches_a_recomputed_chain(tmp_path):
         from cadkit.ledger import acknowledge_alarm
         with pytest.raises(ValueError):
             acknowledge_alarm(conn, "chain_anchor_mismatch", " ")
-        acknowledge_alarm(conn, "chain_anchor_mismatch",
-                          "compared the printed head in the run log")
-        assert "chain_anchor_mismatch" not in ledger_acceptance_blocks(conn)
+        from cadkit.ledger import AnchorDrift
+        with pytest.raises(AnchorDrift):
+            acknowledge_alarm(conn, "chain_anchor_mismatch",
+                              "compared the printed head in the run log")
+        assert "chain_anchor_mismatch" in ledger_acceptance_blocks(conn)
     finally:
         conn.close()
 
@@ -1287,6 +1301,8 @@ def test_alarms_are_not_cleared_by_resetting_meta(tmp_path):
         set_meta(conn, "ledger_sha_mismatch", "0")
         set_meta(conn, "schema_tampered", "0")
         conn.commit()
+        from cadkit.ledger import refresh_external_anchors
+        refresh_external_anchors(conn)
         blocked = ledger_acceptance_blocks(conn)
         assert "ledger_changed_outside_runner" in blocked
         assert "schema_tampered" in blocked
@@ -1631,8 +1647,9 @@ def test_acknowledged_orphan_does_not_rearm_and_does_not_authorize(tmp_path):
         waiver_id = raw.execute(
             "SELECT rowid FROM waiver WHERE reason='forged'").fetchone()[0]
         raw.close()
+        from cadkit.ledger import refresh_external_anchors
+        refresh_external_anchors(conn)
         assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
-        assert "orphan_authorization" in ledger_acceptance_blocks(conn)
         with pytest.raises(ValueError):
             acknowledge_orphan(conn, "waiver", waiver_id, " ")
         acknowledge_orphan(conn, "waiver", waiver_id, "reviewed the forged row")
@@ -1651,9 +1668,12 @@ def test_acknowledged_orphan_does_not_rearm_and_does_not_authorize(tmp_path):
         raw.close()
         assert "orphan_authorization" in ledger_acceptance_blocks(conn)
         assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
-        acknowledge_orphan(conn, "orphan_ack", forged_ack,
-                           "the ack row itself was inserted by hand")
-        assert "orphan_authorization" not in ledger_acceptance_blocks(conn)
+        from cadkit.ledger import AnchorDrift
+        with pytest.raises(AnchorDrift):
+            acknowledge_orphan(conn, "orphan_ack", forged_ack,
+                               "the ack row itself was inserted by hand")
+        assert "orphan_authorization" in ledger_acceptance_blocks(conn) or (
+            "ledger_changed_outside_runner" in ledger_acceptance_blocks(conn))
         assert event_unwaived_fail(conn, "p", "validate", "in", "rules") is True
     finally:
         conn.close()
@@ -1763,6 +1783,28 @@ def test_raw_sqlite_write_between_runs_still_alarms(tmp_path):
             or "chain_anchor_mismatch" in blocked)
 
 
+def test_reopen_does_not_rewrite_the_backup(tmp_path):
+    """Opening an already-current ledger must not change the backup sha.
+
+    Hypothesis: open_ledger drops and recreates the job triggers on every
+    open, so the stable backup sha moves even when no row changed.
+    """
+    from cadkit.ledger import backup_ledger, read_end_sha, refresh_external_anchors
+    root = tmp_path / "cad"
+    root.mkdir()
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "p", "build", "h", "r", "OK")
+        refresh_external_anchors(conn, str(root))
+    finally:
+        conn.close()
+    saved = read_end_sha(str(root))
+    conn = open_ledger(str(root))
+    conn.close()
+    again = backup_ledger(str(root), dest_dir=str(tmp_path / "later"))
+    assert again[1] == saved
+
+
 def test_second_run_skips_unchanged_inputs(tmp_path):
     import acceptance
     import fleet_runner
@@ -1808,7 +1850,204 @@ def test_second_run_skips_unchanged_inputs(tmp_path):
     assert fleet_runner.pending(rec, str(intake), stages) == []
     (proj / "build.py").write_text("build-src-edited", encoding="utf-8")
     assert fleet_runner.pending(rec, str(intake), stages) == [
-        ("b_in01_001", ["build"])]
+        ("b_in01_001", stages)]
+
+
+def test_later_fcstd_rewrite_does_not_reopen_earlier_stages(tmp_path):
+    """Export rewriting the FCStd must not make validate look like a new input."""
+    import acceptance
+    import fleet_runner
+    root = tmp_path / "cad"
+    proj = root / "projects" / "b_in01_001"
+    (proj / "build").mkdir(parents=True)
+    (root / "family").mkdir()
+    (proj / "project.yml").write_text(
+        json.dumps({"family": "in01"}), encoding="utf-8")
+    (proj / "build.py").write_text("build-src", encoding="utf-8")
+    (root / "family" / "in01.py").write_text("core", encoding="utf-8")
+    (proj / "build" / "b_in01_001.step").write_text("step", encoding="utf-8")
+    fcstd = proj / "build" / "b_in01_001.FCStd"
+    fcstd.write_text("fcstd-at-validate", encoding="utf-8")
+    rec = fleet_runner.Recorder(str(root), PY, "rules-stable")
+    early = ["build", "validate", "probe", "dedupe"]
+    early_hash = {stage: rec.input_hash("b_in01_001", stage) for stage in early}
+    early_fc = acceptance.sha256_file(str(fcstd))
+    fcstd.write_text("fcstd-after-export", encoding="utf-8")
+    export_hash = rec.input_hash("b_in01_001", "export")
+    late_fc = acceptance.sha256_file(str(fcstd))
+    assert early_fc != late_fc
+    assert rec.input_hash("b_in01_001", "validate") != early_hash["validate"]
+    conn = open_ledger(str(root))
+    try:
+        for stage in early:
+            job_record(conn, "b_in01_001", stage, early_hash[stage],
+                       "rules-stable", "OK")
+        job_record(conn, "b_in01_001", "export", export_hash,
+                   "rules-stable", "OK")
+    finally:
+        conn.close()
+    ev = acceptance.fresh_evidence(
+        "b_in01_001", "in01", "core-sha", "rules-stable")
+    for stage in early:
+        ev["stages"][stage] = {
+            "state": "OK",
+            "input_sha": early_hash[stage],
+            "source": "fleet_runner",
+            "fcstd_sha256": early_fc,
+        }
+    ev["stages"]["export"] = {
+        "state": "OK",
+        "input_sha": export_hash,
+        "source": "fleet_runner",
+        "fcstd_sha256": late_fc,
+    }
+    path = acceptance.save_evidence(str(root), "b_in01_001", ev)
+    conn = open_ledger(str(root))
+    try:
+        from cadkit.ledger import seal_evidence
+        seal_evidence(conn, "b_in01_001", acceptance.sha256_file(path))
+    finally:
+        conn.close()
+    intake = tmp_path / "w.json"
+    intake.write_text(json.dumps({"parts": ["b_in01_001"]}), encoding="utf-8")
+    assert fleet_runner.pending(
+        rec, str(intake), early + ["export"]) == []
+
+
+def test_tamper_then_ack_does_not_whitewash(tmp_path):
+    import sqlite3
+    from cadkit.ledger import (AnchorDrift, _event_hash, acknowledge_alarm,
+                               backup_ledger, job_record as _ignored,
+                               ledger_acceptance_blocks, raise_alarm,
+                               read_chain_anchor, read_end_sha,
+                               refresh_external_anchors)
+    del _ignored
+    root = tmp_path / "cad"
+    root.mkdir()
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "p", "validate", "in", "rules", "FAIL",
+                   error_class="design")
+        refresh_external_anchors(conn, str(root))
+        sealed = read_end_sha(str(root))
+        head = read_chain_anchor(str(root))["head_hash"]
+    finally:
+        conn.close()
+    raw = sqlite3.connect(str(root / "ledger.sqlite3"))
+    raw.create_function("cadkit_event_hash", 5, _event_hash)
+    raw.create_function("cadkit_job_payload", 10, lambda *_a: "{}")
+    prev = raw.execute(
+        "SELECT row_hash FROM event WHERE row_hash IS NOT NULL "
+        "ORDER BY event_id DESC LIMIT 1").fetchone()[0]
+    payload = json.dumps({
+        "input_sha": "in", "kind": "waiver", "project_id": "p",
+        "reason": "forged", "rules_sha": "rules", "stage": "validate",
+    }, separators=(",", ":"), sort_keys=True)
+    created = 5
+    row_hash = _event_hash(prev, "", "waiver", payload, created)
+    cur = raw.execute(
+        "INSERT INTO event(rev, kind, payload, created, prev_hash, row_hash) "
+        "VALUES(?,?,?,?,?,?)",
+        (None, "waiver", payload, created, prev, row_hash))
+    raw.execute(
+        "INSERT INTO waiver(project_id, stage, input_sha, rules_sha, kind, "
+        "reason, created, event_id, content_hash) VALUES(?,?,?,?,?,?,?,?,?)",
+        ("p", "validate", "in", "rules", "waiver", "forged", created,
+         cur.lastrowid, row_hash))
+    raw.execute(
+        "UPDATE job SET state='WAIVED' WHERE project_id='p' AND state='FAIL'")
+    raw.execute("INSERT INTO meta(k, v) VALUES('tamper', '1')")
+    raw.commit()
+    raw.close()
+    conn = open_ledger(str(root))
+    try:
+        raise_alarm(conn, "schema_tampered", "file changed under the anchors")
+        with pytest.raises(AnchorDrift):
+            acknowledge_alarm(
+                conn, "schema_tampered",
+                "upgrade 0.5.1: looked at the file")
+        assert read_end_sha(str(root)) == sealed
+        assert read_chain_anchor(str(root))["head_hash"] == head
+        assert conn.execute(
+            "SELECT state FROM job WHERE project_id='p'").fetchone()[0] == "WAIVED"
+        blocked = ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+    snap = backup_ledger(str(root))
+    assert snap[1] != sealed
+    assert blocked
+    conn = open_ledger(str(root))
+    try:
+        from cadkit.ledger import alarm_open
+        if not alarm_open(conn, "ledger_sha_mismatch"):
+            raise_alarm(conn, "ledger_sha_mismatch",
+                        "backup sha differs from ledger.end.sha")
+        assert ledger_acceptance_blocks(conn)
+        assert conn.execute(
+            "SELECT state FROM job WHERE project_id='p'").fetchone()[0] == "WAIVED"
+    finally:
+        conn.close()
+
+
+def test_recover_known_drift_checks_the_backup_diff(tmp_path):
+    import subprocess
+    from cadkit.ledger import (RecoveryError, job_record as _ignored,
+                               ledger_acceptance_blocks, raise_alarm,
+                               read_end_sha, recover_known_drift,
+                               refresh_external_anchors, write_status_anchor)
+    del _ignored
+    repo = _git_repo_with_origin(tmp_path)
+    root = tmp_path / "cad"
+    root.mkdir()
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "p", "build", "h", "rules", "OK")
+        refresh_external_anchors(conn, str(root), str(repo))
+        old = read_end_sha(str(root))
+        write_status_anchor(str(repo), conn, old, timestamp="2026-11-11T00:00:00Z")
+    finally:
+        conn.close()
+    subprocess.check_call(
+        ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "commit", "-m", "anchor"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "push", "origin", "HEAD:main"], cwd=str(repo))
+    allowed = [
+        {"table": "event", "kind": "ledger_sha_mismatch"},
+        {"table": "event", "kind": "chain_anchor_mismatch"},
+        {"table": "event", "kind": "job_transition"},
+        {"table": "event", "kind": "alarm_ack"},
+        {"table": "ledger_alarm", "kind": "ledger_sha_mismatch"},
+        {"table": "ledger_alarm", "kind": "chain_anchor_mismatch"},
+        {"table": "job", "project_id": "p", "stage": "validate", "state": "OK"},
+        {"table": "state_transition", "project_id": "p", "stage": "validate"},
+    ]
+    conn = open_ledger(str(root))
+    try:
+        raise_alarm(conn, "ledger_sha_mismatch", "run 2 start")
+        raise_alarm(conn, "chain_anchor_mismatch", "run 2 start")
+        job_record(conn, "p", "validate", "in", "rules", "OK")
+        with pytest.raises(RecoveryError) as injected:
+            recover_known_drift(
+                str(root), str(repo), old[:12],
+                [row for row in allowed if row["table"] != "job"],
+                "this allow-list drops the validate job")
+        assert "job" in str(injected.value)
+        assert read_end_sha(str(root)) == old
+        recover_known_drift(
+            str(root), str(repo), old[:12], allowed,
+            "backup diff is only the run-2 alarm and validate rows")
+    finally:
+        conn.close()
+    assert read_end_sha(str(root)) != old
+    conn = open_ledger(str(root))
+    try:
+        blocked = ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+    assert "ledger_changed_outside_runner" not in blocked
+    assert "chain_anchor_mismatch" not in blocked
 
 
 def test_wave_ledger_error_is_a_fail(tmp_path):

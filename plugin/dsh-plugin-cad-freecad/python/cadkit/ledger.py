@@ -864,24 +864,26 @@ def acknowledge_orphan(conn, table, rowid, reason):
         "SELECT 1 FROM %s WHERE rowid=?" % table, (rowid,)).fetchone()
     if not found:
         raise ValueError("no %s row %s" % (table, rowid))
-    now = _ms()
-    payload = {"table": table, "rowid": rowid, "reason": reason}
-    with ledger_file_lock(ledger_root(conn)):
+    def write():
+        now = _ms()
+        payload = {"table": table, "rowid": rowid, "reason": reason}
         with conn:
-            event_id, content_hash = _insert_event(
+            event_id, _content_hash = _insert_event(
                 conn, None, "orphan_ack", payload, now)
             conn.execute(
                 "INSERT INTO orphan_ack(src_table, src_rowid, reason, created, "
                 "event_id, content_hash) VALUES(?,?,?,?,?,?)",
-                (table, rowid, reason, now, event_id, content_hash))
+                (table, rowid, reason, now, event_id, _content_hash))
         pending = [(src, src_id) for src, src_id in _iter_orphan_authorizations(conn)
                    if not _orphan_row_acknowledged(conn, src, src_id)]
         if not pending and alarm_open(conn, "orphan_authorization"):
-            acknowledge_alarm(conn, "orphan_authorization", reason)
-        else:
-            _after_sanctioned_write(conn)
-    return {"table": table, "rowid": rowid, "reason": reason,
-            "event_id": event_id}
+            _insert_alarm(conn, "orphan_authorization", "ack", reason, "alarm_ack", {
+                "alarm": "orphan_authorization", "reason": reason,
+            })
+        return {"table": table, "rowid": rowid, "reason": reason,
+                "event_id": event_id}
+
+    return _sanctioned(conn, write)
 
 
 def migrate_rules_rereview_from_events(conn):
@@ -941,21 +943,31 @@ def alarm_open(conn, kind):
     return open_
 
 
+def _insert_alarm(conn, kind, action, reason, event_kind, payload):
+    """Insert one alarm row and its chain event. Does not refresh anchors."""
+    now = _ms()
+    with conn:
+        event_id, content_hash = _insert_event(
+            conn, None, event_kind, payload, now)
+        conn.execute(
+            "INSERT INTO ledger_alarm(kind, action, reason, created, "
+            "event_id, content_hash) VALUES(?,?,?,?,?,?)",
+            (kind, action, reason, now, event_id, content_hash))
+    return event_id
+
+
 def raise_alarm(conn, kind, reason):
-    """Append an alarm and the chain event that authorizes it, one transaction."""
+    """Append an alarm and its chain event. Never refreshes the anchors.
+
+    Refreshing here would seal whatever was already in the database,
+    including a raw tamper that the alarm was raised to report.
+    """
     if kind not in ALARM_KINDS:
         raise ValueError("unknown alarm kind %s" % kind)
     reason = str(reason or "").strip()
-    now = _ms()
     with ledger_file_lock(ledger_root(conn)):
-        with conn:
-            event_id, content_hash = _insert_event(
-                conn, None, kind, {"reason": reason}, now)
-            conn.execute(
-                "INSERT INTO ledger_alarm(kind, action, reason, created, "
-                "event_id, content_hash) VALUES(?, 'raise', ?, ?, ?, ?)",
-                (kind, reason, now, event_id, content_hash))
-        _after_sanctioned_write(conn)
+        event_id = _insert_alarm(
+            conn, kind, "raise", reason, kind, {"reason": reason})
     return {"kind": kind, "action": "raise", "event_id": event_id}
 
 
@@ -975,19 +987,14 @@ def acknowledge_alarm(conn, kind, reason):
         raise ValueError(
             "schema_tampered acknowledgement must name the upgrade "
             "(%s)" % UPGRADE_ACK)
-    now = _ms()
-    with ledger_file_lock(ledger_root(conn)):
-        with conn:
-            event_id, content_hash = _insert_event(conn, None, "alarm_ack", {
-                "alarm": kind, "reason": reason,
-            }, now)
-            conn.execute(
-                "INSERT INTO ledger_alarm(kind, action, reason, created, "
-                "event_id, content_hash) VALUES(?, 'ack', ?, ?, ?, ?)",
-                (kind, reason, now, event_id, content_hash))
-        _after_sanctioned_write(conn)
-    return {"kind": kind, "action": "ack", "reason": reason,
-            "event_id": event_id}
+    def write():
+        event_id = _insert_alarm(conn, kind, "ack", reason, "alarm_ack", {
+            "alarm": kind, "reason": reason,
+        })
+        return {"kind": kind, "action": "ack", "reason": reason,
+                "event_id": event_id}
+
+    return _sanctioned(conn, write)
 
 
 def ledger_acceptance_blocks(conn):
@@ -1064,7 +1071,9 @@ def open_ledger(cad_root):
     missing = _missing_triggers(raw)
     conn = _install_sql_guard(raw)
     conn.execute("PRAGMA foreign_keys=ON")
-    conn.execute("PRAGMA journal_mode=WAL")
+    mode = conn.execute("PRAGMA journal_mode").fetchone()
+    if not mode or str(mode[0]).lower() != "wal":
+        conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=FULL")
     _ensure_event_columns(conn)
     conn.executescript(_SCHEMA)
@@ -1076,13 +1085,47 @@ def open_ledger(cad_root):
     _migrate(conn)
     _ensure_auth_link_columns(conn)
     _backfill_event_hashes(conn, cad_root)
-    conn.executescript(_JOB_TRIGGERS)
+    _ensure_job_triggers(conn)
     migrate_rules_rereview_from_events(conn)
     if missing:
         raise_alarm(conn, "schema_tampered",
                     "missing triggers: %s" % ",".join(missing))
     audit_orphan_authorizations(conn)
     return conn
+
+
+def _ensure_job_triggers(conn):
+    """Install the job triggers only when their body is not already current.
+
+    Dropping and recreating them on every open rewrites pages, so the
+    backup sha changes even though no ledger row changed.
+    """
+    source = hashlib.sha256(_JOB_TRIGGERS.encode("utf-8")).hexdigest()
+    row = conn.execute(
+        "SELECT v FROM meta WHERE k='job_trigger_source'").fetchone()
+    rows = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='trigger' "
+        "AND name IN ('job_update_guard', 'job_update_event') "
+        "ORDER BY name").fetchall()
+    saved = conn.execute(
+        "SELECT v FROM meta WHERE k='job_trigger_sql'").fetchone()
+    current_sql = "\n".join((sql or "") for (sql,) in rows)
+    if (row and row[0] == source and saved and saved[0] == current_sql
+            and len(rows) == 2):
+        return
+    conn.executescript(_JOB_TRIGGERS)
+    current_sql = "\n".join(
+        sql or "" for (sql,) in conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='trigger' "
+            "AND name IN ('job_update_guard', 'job_update_event') "
+            "ORDER BY name"))
+    conn.execute(
+        "INSERT INTO meta(k, v) VALUES('job_trigger_source', ?) "
+        "ON CONFLICT(k) DO UPDATE SET v=excluded.v", (source,))
+    conn.execute(
+        "INSERT INTO meta(k, v) VALUES('job_trigger_sql', ?) "
+        "ON CONFLICT(k) DO UPDATE SET v=excluded.v", (current_sql,))
+    conn.commit()
 
 
 def _ensure_auth_link_columns(conn):
@@ -1704,7 +1747,7 @@ def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
         "input_sha": input_sha, "rules_sha": rules_sha,
         "reason": reason,
     }
-    with ledger_file_lock(ledger_root(conn)):
+    def write():
         with conn:
             event_id, content_hash = _insert_event(
                 conn, None, "rules_rereview", payload, now)
@@ -1714,8 +1757,9 @@ def record_rules_rereview(conn, project_id, stage, input_sha, rules_sha,
                 "VALUES(?,?,?,?,?,?,?,?)",
                 (project_id, stage, input_sha, rules_sha, reason, now,
                  event_id, content_hash))
-        _after_sanctioned_write(conn)
-    return {"applied": True, "reason": reason}
+        return {"applied": True, "reason": reason}
+
+    return _sanctioned(conn, write)
 
 
 def latest_build_input_sha(conn, project_id):
@@ -1749,7 +1793,7 @@ def mark_quarantine_from_ledger(conn, project_id):
         return {"applied": False, "input_sha": existing[0]}
     now = _ms()
     payload = {"project_id": project_id, "input_sha": sha}
-    with ledger_file_lock(ledger_root(conn)):
+    def write():
         with conn:
             event_id, content_hash = _insert_event(
                 conn, None, "quarantine", payload, now)
@@ -1757,8 +1801,9 @@ def mark_quarantine_from_ledger(conn, project_id):
                 "INSERT INTO quarantine_mark(project_id, input_sha, created, "
                 "event_id, content_hash) VALUES(?,?,?,?,?)",
                 (project_id, sha, now, event_id, content_hash))
-        _after_sanctioned_write(conn)
-    return {"applied": True, "input_sha": sha}
+        return {"applied": True, "input_sha": sha}
+
+    return _sanctioned(conn, write)
 
 
 def quarantine_mark(conn, project_id):
@@ -1798,7 +1843,7 @@ def record_signoff(conn, project_id, input_sha, reviewer, reason):
         "project_id": project_id, "input_sha": input_sha,
         "reviewer": reviewer, "reason": reason,
     }
-    with ledger_file_lock(ledger_root(conn)):
+    def write():
         with conn:
             event_id, content_hash = _insert_event(
                 conn, None, "signoff", payload, now)
@@ -1807,8 +1852,9 @@ def record_signoff(conn, project_id, input_sha, reviewer, reason):
                 "reason, created, event_id, content_hash) VALUES(?,?,?,?,?,?,?)",
                 (project_id, input_sha, reviewer, reason, now,
                  event_id, content_hash))
-        _after_sanctioned_write(conn)
-    return {"applied": True, "input_sha": input_sha}
+        return {"applied": True, "input_sha": input_sha}
+
+    return _sanctioned(conn, write)
 
 
 def review_signoff(conn, project_id, input_sha):
@@ -1853,12 +1899,15 @@ def _stable_backup_sha(path):
     """SHA-256 of a sqlite backup, ignoring header counters that drift.
 
     The file change counter, schema cookie, and version-valid-for field
-    move when a connection closes even though no row changed. Page bytes
-    still change when someone writes, so a real edit does not hash the same.
+    move when a connection closes even though no row changed. Bytes 18-19
+    are the journal mode; opening the ledger switches delete to WAL without
+    changing rows. Page bytes still change when someone writes, so a real
+    edit does not hash the same.
     """
     with open(path, "rb") as f:
         data = bytearray(f.read())
     if len(data) >= 100 and data[:16] == b"SQLite format 3\x00":
+        data[18:20] = b"\x00\x00"
         for start in (24, 40, 92):
             data[start:start + 4] = b"\x00\x00\x00\x00"
     return hashlib.sha256(data).hexdigest()
@@ -2111,14 +2160,256 @@ def refresh_external_anchors(conn, root=None, repo=None):
     return end_sha
 
 
-def _after_sanctioned_write(conn):
-    """Update anchors after a ledger.py write that can happen between runs."""
+class RecoveryError(Exception):
+    """``recover_known_drift`` refused to acknowledge. ``report`` says why."""
+
+    def __init__(self, report):
+        self.report = report
+        super().__init__(report)
+
+
+def _backup_matching(root, expected):
+    expected = (expected or "").strip().lower()
+    if len(expected) < 8 or any(c not in "0123456789abcdef" for c in expected):
+        raise RecoveryError(
+            "expected_old_end_sha must be at least 8 hex characters")
+    folder = os.path.join(root, "backups")
+    hits = []
+    if os.path.isdir(folder):
+        for name in sorted(os.listdir(folder)):
+            if not name.endswith(".sqlite3"):
+                continue
+            path = os.path.join(folder, name)
+            digest = _stable_backup_sha(path)
+            if digest.startswith(expected):
+                hits.append((path, digest))
+    if len(hits) != 1:
+        raise RecoveryError(
+            "expected one backup whose sha starts with %s, found %d"
+            % (expected, len(hits)))
+    return hits[0]
+
+
+def _origin_main_anchor(repo, remote="origin"):
+    import subprocess
     try:
-        refresh_external_anchors(conn)
-    except Exception:
-        # The row is already committed. Leaving the anchors stale is the
-        # bug we are fixing, so surface it to the caller.
-        raise
+        subprocess.check_call(
+            ["git", "fetch", remote,
+             "+refs/heads/main:refs/remotes/origin/main"],
+            cwd=repo, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        out = subprocess.check_output(
+            ["git", "show", "origin/main:status/ledger_anchor.json"],
+            cwd=repo, stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, OSError) as exc:
+        raise RecoveryError("cannot read origin/main anchor: %s" % exc)
+    try:
+        doc = json.loads(out.decode("utf-8"))
+    except ValueError as exc:
+        raise RecoveryError("origin/main anchor is not json: %s" % exc)
+    if not isinstance(doc, dict):
+        raise RecoveryError("origin/main anchor is not an object")
+    return doc
+
+
+def _table_pk(conn, table):
+    info = conn.execute("PRAGMA table_info(%s)" % table).fetchall()
+    pks = sorted((row[5], row[1]) for row in info if row[5])
+    if not pks:
+        return ["rowid"]
+    return [name for _order, name in pks]
+
+
+def _table_maps(conn, table):
+    pk = _table_pk(conn, table)
+    info = conn.execute("PRAGMA table_info(%s)" % table).fetchall()
+    cols = ["rowid"] + [row[1] for row in info]
+    out = {}
+    for rec in conn.execute("SELECT rowid, * FROM %s" % table):
+        row = dict(zip(cols, rec))
+        key = tuple(row.get(col) for col in pk)
+        out[key] = row
+    return out
+
+
+def _user_tables(conn):
+    return [row[0] for row in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' "
+        "AND name NOT LIKE 'sqlite_%' ORDER BY 1")]
+
+
+def _spec_matches(table, row, spec):
+    if spec.get("table") != table:
+        return False
+    for key, value in spec.items():
+        if key == "table":
+            continue
+        if row.get(key) != value:
+            return False
+    return True
+
+
+def _format_change(kind, table, key, row):
+    brief = {k: row.get(k) for k in (
+        "kind", "action", "project_id", "stage", "state", "k", "reason")
+        if k in row}
+    return "%s %s %s %s" % (kind, table, key, brief)
+
+
+def _diff_against_backup(backup_path, live_path):
+    from urllib.parse import quote
+    old = sqlite3.connect(
+        "file:%s?mode=ro" % quote(os.path.abspath(backup_path), safe="/:"),
+        uri=True)
+    new = sqlite3.connect(
+        "file:%s?mode=ro" % quote(os.path.abspath(live_path), safe="/:"),
+        uri=True)
+    try:
+        changes = []
+        old_names = set(_user_tables(old))
+        for table in _user_tables(new):
+            new_rows = _table_maps(new, table)
+            if table not in old_names:
+                for key, row in sorted(new_rows.items(), key=lambda item: str(item[0])):
+                    changes.append(("added", table, key, row))
+                continue
+            old_rows = _table_maps(old, table)
+            for key in sorted(set(old_rows) | set(new_rows), key=str):
+                if key not in old_rows:
+                    changes.append(("added", table, key, new_rows[key]))
+                elif key not in new_rows:
+                    changes.append(("removed", table, key, old_rows[key]))
+                elif old_rows[key] != new_rows[key]:
+                    changes.append(("changed", table, key, new_rows[key]))
+        for table in sorted(old_names - set(_user_tables(new))):
+            for key, row in _table_maps(old, table).items():
+                changes.append(("removed", table, key, row))
+        return changes
+    finally:
+        old.close()
+        new.close()
+
+
+def _extra_events_chain(backup_path, live_path):
+    """Walk events added since the backup and require each hash to extend it."""
+    from urllib.parse import quote
+    old = sqlite3.connect(
+        "file:%s?mode=ro" % quote(os.path.abspath(backup_path), safe="/:"),
+        uri=True)
+    new = sqlite3.connect(
+        "file:%s?mode=ro" % quote(os.path.abspath(live_path), safe="/:"),
+        uri=True)
+    try:
+        head = old.execute(
+            "SELECT row_hash FROM event ORDER BY event_id DESC LIMIT 1"
+        ).fetchone()
+        prev = head[0] if head and head[0] else ""
+        old_ids = {row[0] for row in old.execute("SELECT event_id FROM event")}
+        added = new.execute(
+            "SELECT event_id, rev, kind, payload, created, prev_hash, row_hash "
+            "FROM event ORDER BY event_id").fetchall()
+        problems = []
+        checked = []
+        for event_id, rev, kind, payload, created, prev_hash, row_hash in added:
+            if event_id in old_ids:
+                continue
+            if (prev_hash or "") != prev:
+                problems.append(
+                    "event %s prev_hash does not extend the backup head" % event_id)
+            elif _event_hash(prev_hash, rev, kind, payload, created) != row_hash:
+                problems.append("event %s row_hash does not match its bytes" % event_id)
+            else:
+                checked.append(event_id)
+            prev = row_hash or prev
+        return checked, problems
+    finally:
+        old.close()
+        new.close()
+
+
+def recover_known_drift(root, repo, expected_old_end_sha, allowed_extra,
+                        reason, remote="origin"):
+    """Ack a known between-run drift only after the backup still explains it.
+
+    ``expected_old_end_sha`` is the full sha or a unique prefix (the Mac
+    snapshot starts with ``71ed1087``). The backup with that sha must be
+    the ``ledger_end_sha`` on ``origin/main``. The current database may
+    differ from that backup only by rows described in ``allowed_extra``.
+    Each added event must extend that backup's hash chain. Only then are
+    the open sha and anchor alarms acknowledged and the anchors refreshed.
+    """
+    reason = str(reason or "").strip()
+    if not reason:
+        raise RecoveryError("recovery requires a reason")
+    path, digest = _backup_matching(root, expected_old_end_sha)
+    origin = _origin_main_anchor(repo, remote=remote)
+    if origin.get("ledger_end_sha") != digest:
+        raise RecoveryError(
+            "origin/main ledger_end_sha %s != backup %s" % (
+                origin.get("ledger_end_sha"), digest))
+    live = os.path.join(root, "ledger.sqlite3")
+    changes = _diff_against_backup(path, live)
+    unexplained = []
+    for kind, table, key, row in changes:
+        if any(_spec_matches(table, row, spec) for spec in allowed_extra):
+            continue
+        unexplained.append(_format_change(kind, table, key, row))
+    checked, chain_problems = _extra_events_chain(path, live)
+    if unexplained or chain_problems:
+        lines = ["recovery refused"] + unexplained + chain_problems
+        if checked:
+            lines.append("chain-checked events: %s" % ",".join(
+                str(item) for item in checked))
+        raise RecoveryError("\n".join(lines))
+    conn = open_ledger(root)
+    try:
+        for kind in ("ledger_sha_mismatch", "chain_anchor_mismatch"):
+            if alarm_open(conn, kind):
+                _insert_alarm(conn, kind, "ack", reason, "alarm_ack", {
+                    "alarm": kind, "reason": reason,
+                })
+        refresh_external_anchors(conn, root, repo)
+    finally:
+        conn.close()
+    return {"backup": path, "end_sha": digest,
+            "events_checked": checked}
+
+
+class AnchorDrift(Exception):
+    """Saved anchors do not describe this database. The write was refused."""
+
+
+def _anchors_match(conn, root):
+    """True when the stable backup sha and the local chain anchor both hold."""
+    if not root:
+        return False, "no ledger directory"
+    saved = read_end_sha(root)
+    snap = backup_ledger(root)
+    current = snap[1] if snap else None
+    anchor = read_chain_anchor(root)
+    if not saved or saved != current:
+        return False, "backup sha does not match ledger.end.sha"
+    if not anchor_holds(conn, anchor):
+        return False, "local chain anchor does not hold"
+    return True, ""
+
+
+def _sanctioned(conn, write_fn):
+    """Run ``write_fn`` only when the saved anchors still match, then refresh.
+
+    The check happens after the lock and before the write. A mismatch
+    records ``ledger_sha_mismatch`` and leaves every anchor file as it was.
+    """
+    root = ledger_root(conn)
+    with ledger_file_lock(root):
+        ok, why = _anchors_match(conn, root)
+        if not ok:
+            if not alarm_open(conn, "ledger_sha_mismatch"):
+                _insert_alarm(conn, "ledger_sha_mismatch", "raise", why,
+                              "ledger_sha_mismatch", {"reason": why})
+            raise AnchorDrift(why)
+        result = write_fn()
+        refresh_external_anchors(conn, root)
+        return result
 
 
 def write_status_anchor(repo, conn, end_sha=None, timestamp=None):
@@ -2300,7 +2591,7 @@ def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,
         "input_sha": input_sha, "rules_sha": rules_sha,
         "kind": kind, "reason": reason,
     }
-    with ledger_file_lock(ledger_root(conn)):
+    def write():
         with conn:
             event_id, content_hash = _insert_event(conn, None, kind, payload, now)
             conn.execute(
@@ -2318,8 +2609,9 @@ def record_waiver(conn, project_id, stage, input_sha, rules_sha, reason,
                 raise ValueError(
                     "waiver applies only to an existing FAIL row for this "
                     "revision")
-        _after_sanctioned_write(conn)
-    return {"applied": True, "state": new_state, "reason": reason}
+        return {"applied": True, "state": new_state, "reason": reason}
+
+    return _sanctioned(conn, write)
 
 
 def is_committed(conn, batch, project_id, fcstd_sha=None):
