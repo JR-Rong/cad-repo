@@ -117,7 +117,7 @@ class Recorder:
         self.root, self.rules = root, rules
         self._open, self._state, self._rec = open_ledger, job_state, job_record
 
-    def input_hash(self, pid, stage):
+    def input_hash(self, pid, stage, fcstd_sha=None):
         pr = os.path.join(self.root, "projects", pid)
         try:
             fam = (json.load(open(os.path.join(pr, "project.yml"),
@@ -130,7 +130,11 @@ class Recorder:
         base = _h(yml, famsha, self.rules)
         bsrc = _sha(os.path.join(pr, "build.py"))
         bd = os.path.join(pr, "build")
-        fc = _sha(os.path.join(bd, pid + ".FCStd"))
+        # build never reads the FCStd. Callers may pass a recorded FCStd
+        # sha only to recompute validate/probe/dedupe after a later stage
+        # rewrote the file.
+        fc = fcstd_sha if fcstd_sha is not None else _sha(
+            os.path.join(bd, pid + ".FCStd"))
         if stage == "build":
             return _h(base, bsrc)
         if stage in ("validate", "probe", "dedupe", "export"):
@@ -145,11 +149,12 @@ class Recorder:
             return _h(base, fc, extra)
         raise SystemExit("unknown stage " + stage)
 
-    def state(self, pid, stage):
+    def state(self, pid, stage, input_sha=None):
         conn = self._open(self.root)
         try:
-            return self._state(conn, pid, stage,
-                               self.input_hash(pid, stage), self.rules)
+            return self._state(
+                conn, pid, stage,
+                input_sha or self.input_hash(pid, stage), self.rules)
         finally:
             conn.close()
 
@@ -323,6 +328,28 @@ def _family_file(root, pid):
     return family, path if path and os.path.isfile(path) else None
 
 
+def _later_ok_fcstd(ev, stage, current_fc):
+    """True when a later OK stage recorded this FCStd sha.
+
+    Export rewrites the FCStd after validate. That rewrite is the file on
+    disk at the next run, so validate/probe/dedupe may keep their recorded
+    input hash. Any other bytes on disk are a new input.
+    """
+    if not current_fc or not isinstance(ev, dict):
+        return False
+    try:
+        index = acceptance.STAGE_ORDER.index(stage)
+    except ValueError:
+        return False
+    stages = ev.get("stages") or {}
+    for later in acceptance.STAGE_ORDER[index + 1:]:
+        row = stages.get(later) or {}
+        if (row.get("state") == "OK"
+                and row.get("fcstd_sha256") == current_fc):
+            return True
+    return False
+
+
 def pending(rec, intake, stages, limit=None, repair_failed=False,
             max_attempts=3, only=None):
     """Queue stages that do not have re-verified evidence for these bytes.
@@ -361,7 +388,37 @@ def pending(rec, intake, stages, limit=None, repair_failed=False,
                 raise
             except Exception:
                 ih = None
-            if ih and acceptance.stage_skippable(ev, stage, ih, hashes):
+            row = ((ev or {}).get("stages") or {}).get(stage) or {}
+            recorded = row.get("input_sha")
+            recorded_fc = row.get("fcstd_sha256")
+            current_fc = (hashes or {}).get("fcstd_sha256")
+            # validate/probe/dedupe may replay only the FCStd term, and only
+            # when the file on disk is the snapshot a later OK stage (export)
+            # already recorded. project.yml, the family core and rules stay
+            # current. build has no FCStd term, so it never substitutes.
+            # A file that matches neither snapshot is a new input.
+            if (stage in ("validate", "probe", "dedupe")
+                    and recorded and recorded_fc and ih and recorded != ih
+                    and _later_ok_fcstd(ev, stage, current_fc)):
+                try:
+                    substituted = rec.input_hash(
+                        pid, stage, fcstd_sha=recorded_fc)
+                except TypeError:
+                    substituted = None
+                if substituted == recorded:
+                    ih = recorded
+            ledger_state = None
+            if ih and hasattr(rec, "state"):
+                try:
+                    try:
+                        ledger_state = rec.state(pid, stage, ih)
+                    except TypeError:
+                        ledger_state = rec.state(pid, stage)
+                except Exception:
+                    ledger_state = None
+            if ih and acceptance.stage_skippable(
+                    ev, stage, ih, hashes, rules_sha=getattr(rec, "rules", None),
+                    ledger_state=ledger_state):
                 continue
             st = ((ev or {}).get("stages") or {}).get(stage) or {}
             if (not repair_failed and st.get("state") == "FAIL"
@@ -369,6 +426,12 @@ def pending(rec, intake, stages, limit=None, repair_failed=False,
                 continue
             todo.append(stage)
         if todo:
+            order = {name: index for index, name in enumerate(
+                acceptance.STAGE_ORDER)}
+            first = min(order[name] for name in todo if name in order)
+            forced = {name for name in stages
+                      if name in order and order[name] >= first}
+            todo = [name for name in stages if name in todo or name in forced]
             out.append((pid, todo))
     return out[:limit] if limit else out
 
@@ -680,17 +743,18 @@ def main():
     log = open(a.log or os.path.join(REPO, "status", "runner_%s_%s.jsonl"
                                      % (a.batch, time.strftime("%Y%m%d_%H%M"))), "a",
                encoding="utf-8")
-    from cadkit.ledger import read_end_sha
-    snap = backup_ledger(root)
-    backup_sha = snap[1] if snap else None
-    previous_end = read_end_sha(root)
-    try:
-        chain_doc, chain_ok = enforce_anchor_check(
-            root, REPO, backup_sha, previous_end)
-    except AnchorCheckFailed as exc:
-        print("BLOCK 台账锚核对失败，本次不启动：%s" % exc)
-        log.close()
-        return 2
+    from cadkit.ledger import ledger_file_lock, read_end_sha
+    with ledger_file_lock(root):
+        snap = backup_ledger(root)
+        backup_sha = snap[1] if snap else None
+        previous_end = read_end_sha(root)
+        try:
+            chain_doc, chain_ok = enforce_anchor_check(
+                root, REPO, backup_sha, previous_end)
+        except AnchorCheckFailed as exc:
+            print("BLOCK 台账锚核对失败，本次不启动：%s" % exc)
+            log.close()
+            return 2
     header = append_run_header(
         log, backup_sha=backup_sha, previous_end_sha=previous_end,
         run_id=time.strftime("%Y%m%d_%H%M%S") + "-%d" % os.getpid(),
@@ -886,20 +950,19 @@ def main():
     for t in pkg_threads:
         t.join(timeout=120)
     emit_report()
-    end = backup_ledger(root)
-    end_sha = end[1] if end else None
-    from cadkit.ledger import (open_ledger, write_chain_anchor, write_end_sha,
-                               write_status_anchor)
-    if end_sha:
-        write_end_sha(root, end_sha)
+    from cadkit.ledger import (ledger_file_lock, open_ledger, read_chain_anchor,
+                               remember_status_repo, refresh_external_anchors)
+    end_sha = None
     anchor = None
     try:
-        conn = open_ledger(root)
-        try:
-            anchor = write_chain_anchor(root, conn)
-            write_status_anchor(REPO, conn, end_sha)
-        finally:
-            conn.close()
+        with ledger_file_lock(root):
+            remember_status_repo(root, REPO)
+            conn = open_ledger(root)
+            try:
+                end_sha = refresh_external_anchors(conn, root, REPO)
+                anchor = read_chain_anchor(root)
+            finally:
+                conn.close()
     except Exception as exc:
         print("WARN 链锚没有写上：%s" % exc)
     else:
