@@ -120,7 +120,7 @@ python3 tools/push_ledger_anchor.py
 
 普通的 `acknowledge_alarm` 会先核对：当前库的稳定备份 sha 必须等于 `ledger.end.sha`，本地链锚也必须还对得上。对不上就只记 `ledger_sha_mismatch`，**不改**三个锚文件，确认本身也不写进去。`raise_alarm` 永远不改锚。所以不能靠「先告警再确认」把一次手改洗掉。
 
-已经在 Mac 上跑出来的那两条告警（`ledger_sha_mismatch` 和 `chain_anchor_mismatch`，出在第二轮开头：第一轮结束后按手册做了 `acknowledge_alarm`，事件从 22 条变成 23 条，结束 sha 和锚还停在 `71ed1087…`）不能再直接 `acknowledge_alarm`。用 `recover_known_drift`。它只认 sha 以 `71ed1087` 开头的那份备份，并且 `origin/main` 上 `status/ledger_anchor.json` 的 `ledger_end_sha` 必须就是这一份。当前库和这份备份按表对比，`job`、`waiver`、`state_transition`、`meta`、`sqlite_master` 必须一模一样。多出来的只能是备份链尾之后的告警事件，以及指向这些 `event_id` 的 `ledger_alarm` 行。对不上就拒绝，锚不动。对上了才写一条恢复事件、确认这两条告警并刷新锚。这条恢复事件已经在链上的话，再跑一次会直接拒绝。**不要先开跑。** 不要往允许范围里加 job 或 waiver。
+已经在 Mac 上跑出来的那两条告警（`ledger_sha_mismatch` 和 `chain_anchor_mismatch`，出在第二轮开头：第一轮结束后按手册做了 `acknowledge_alarm`，事件从 22 条变成 23 条，结束 sha 和锚还停在 `71ed1087…`）不能再直接 `acknowledge_alarm`。用 `recover_known_drift`。它只认 sha 以 `71ed1087` 开头的那份备份，并且 `origin/main` 上 `status/ledger_anchor.json` 的 `ledger_end_sha` 必须就是这一份。当前库和这份备份按表对比，`job`、`waiver`、`state_transition`、`meta`、`sqlite_master` 必须一模一样。多出来的只能是：事件 23，也就是那次 `alarm_ack`（payload 里的 alarm 是 `ledger_sha_mismatch` 或 `chain_anchor_mismatch`），加上它那条 action 为 ack 的 `ledger_alarm` 行；以及备份链尾之后、action 为 raise 的告警事件和指向这些 `event_id` 的 `ledger_alarm` 行。别的新增事件不行。对不上就拒绝，锚不动。对上了才写一条恢复事件、确认这两条告警并刷新锚。这条恢复事件已经在链上的话，再跑一次会直接拒绝。**不要先开跑。** 不要往允许范围里加 job 或 waiver。
 
 ```sh
 python3 - << 'PY'
@@ -137,7 +137,24 @@ python3 tools/push_ledger_anchor.py
 
 推完再开下一轮。
 
-同一 `input_sha` 和 `rules_sha` 下，台账是 OK 且 `chain_evidence.json` 里该阶段也是 OK，下一轮就跳过这个阶段。validate / probe / dedupe 只会把当时记下的 FCStd sha 代回输入哈希，project.yml、族核和 rules 仍按现在的文件重算。build 不代换。改了 `build.py`、`project.yml` 或族核，从 build 起后面每一段都重跑。后面的阶段改写了 FCStd、别的输入没变，则整段仍跳过。`rules_sha` 变了则输入哈希变了，已导出的件会整段重跑。
+如果 `recover_known_drift` 因为 `job differs` 拒绝，那是第二轮在告警之后继续跑了，给 `b_in01_001` 和 `b_in01_003` 写了 job / state_transition。不要把这些行加进恢复的允许范围。改用 `restore_to_anchor`。它同样只认 sha 以 `71ed1087` 开头的那份备份，并且这份 sha 必须等于 `origin/main` 的 `ledger_end_sha`，对不上就拒绝，当前库原样不动。对上了才把当前库挪成 `ledger.pre-restore.<时间>.sqlite3`，把那份备份拷回来，再按 origin 核对链和结束 sha。链上不追加事件，因为拷回来的就是锚上的那一份。已经放过一次的话，再跑会直接拒绝。`b_in01_001` 和 `b_in01_003` 的输出可以再生成，下一轮重跑这两件。
+
+```sh
+python3 - << 'PY'
+import os, sys
+sys.path.insert(0, "plugin/dsh-plugin-cad-freecad/python")
+from cadkit.ledger import restore_to_anchor
+restore_to_anchor(
+    os.path.expanduser("~/cad-fleet"),
+    os.getcwd(),
+    "run-2 wrote job rows for b_in01_001 and b_in01_003; restore and rerun them")
+PY
+python3 tools/push_ledger_anchor.py
+```
+
+推完再开下一轮。
+
+同一 `input_sha` 和 `rules_sha` 下，台账是 OK 且 `chain_evidence.json` 里该阶段也是 OK，下一轮就跳过这个阶段。validate / probe / dedupe 只有在两件事都成立时代换 FCStd：用现在的 project.yml、族核和 rules，加上该阶段当时记下的 FCStd sha，重算出来等于当时的输入哈希；并且磁盘上的 FCStd 等于后面某个 OK 阶段（export）记下的那份。build 不代换。改了 `build.py`、`project.yml` 或族核，从 build 起后面每一段都重跑。后面的阶段改写了 FCStd、别的输入没变，则整段仍跳过。磁盘上的 FCStd 被换成别的内容，则从 validate 起后面每一段都重跑。`rules_sha` 变了则输入哈希变了，已导出的件会整段重跑。
 
 Python 里那个「有没有 WHERE」的检查只防手滑（`WHERE 1`、注释、CTE 都绕得过）。真正挡住的是触发器，而且只挡得住还装着这些触发器的库：`job` / `event` / `fingerprint` / `evidence_seal` / `waiver` / `rules_rereview` / `state_transition` / `ledger_alarm` 不能 DELETE，`event`、`waiver`、`rules_rereview`、`state_transition`、`ledger_alarm` 不能 UPDATE。`job` 可以 UPDATE，但改不了身份列。粘滞状态（FAIL / WAIVED / INFEASIBLE）只允许两条路：FAIL→WAIVED 或 FAIL→INFEASIBLE，且已经有对应的 `waiver` 行；以及 `error_class` 以 `inherited:` 开头的 FAIL→OK，且同一把钥匙上有带原因的 `rules_rereview`。别的都不行，包括 FAIL→PENDING_REVIEW 再改成 OK。粘滞状态下 `error_class` 不能改，`attempt` 只能增加不能减小。合法更新的 event 里记下改之前和改之后的 attempt、error_class。
 

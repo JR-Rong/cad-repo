@@ -1949,6 +1949,16 @@ def test_editing_family_core_reruns_from_build(tmp_path):
         ("b_in01_001", stages)]
 
 
+def test_replacing_the_fcstd_reruns_from_validate(tmp_path):
+    import fleet_runner
+    rec, intake, stages, proj, _root = _fcstd_rewrite_ready(tmp_path)
+    assert fleet_runner.pending(rec, str(intake), stages) == []
+    (proj / "build" / "b_in01_001.FCStd").write_text(
+        "replaced-with-other-content", encoding="utf-8")
+    assert fleet_runner.pending(rec, str(intake), stages) == [
+        ("b_in01_001", ["validate", "probe", "dedupe", "export"])]
+
+
 def test_tamper_then_ack_does_not_whitewash(tmp_path):
     import sqlite3
     from cadkit.ledger import (AnchorDrift, _event_hash, acknowledge_alarm,
@@ -2065,8 +2075,9 @@ def _recover(root, repo, monkeypatch, reason):
 
 
 def test_known_drift_prefix_is_fixed():
-    from cadkit.ledger import KNOWN_DRIFT_BACKUP_PREFIX
+    from cadkit.ledger import KNOWN_DRIFT_ACK_EVENT_ID, KNOWN_DRIFT_BACKUP_PREFIX
     assert KNOWN_DRIFT_BACKUP_PREFIX == "71ed1087"
+    assert KNOWN_DRIFT_ACK_EVENT_ID == 23
 
 
 def test_recover_known_drift_acks_the_alarm_tail_once(tmp_path, monkeypatch):
@@ -2174,6 +2185,135 @@ def test_recover_known_drift_refuses_a_widened_diff(tmp_path, monkeypatch):
 
     dropped = attempt("trigger", drop_trigger)
     assert "sqlite_master" in dropped
+
+
+def _push_anchor(repo):
+    import subprocess
+    subprocess.check_call(
+        ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
+    subprocess.check_call(["git", "commit", "-m", "anchor"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "push", "origin", "HEAD:main"], cwd=str(repo))
+
+
+def test_recover_known_drift_accepts_the_mac_ack(tmp_path, monkeypatch):
+    """backup → alarm_ack at event 23 → run 2 raises two alarms."""
+    import cadkit.ledger as ledger
+    repo = _git_repo_with_origin(tmp_path)
+    root = tmp_path / "cad"
+    root.mkdir()
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "p", "build", "h", "rules", "OK")
+        ledger.raise_alarm(conn, "ledger_sha_mismatch", "open during run 1")
+        while (conn.execute(
+                "SELECT MAX(event_id) FROM event").fetchone()[0] or 0) < 22:
+            current = conn.execute(
+                "SELECT MAX(event_id) FROM event").fetchone()[0] or 0
+            ledger._insert_event(conn, None, "pad", {"n": current + 1})
+        assert conn.execute(
+            "SELECT MAX(event_id) FROM event").fetchone()[0] == 22
+        ledger.refresh_external_anchors(conn, str(root), str(repo))
+        old = ledger.read_end_sha(str(root))
+        ledger.write_status_anchor(
+            str(repo), conn, old, timestamp="2026-11-11T00:00:00Z")
+    finally:
+        conn.close()
+    _push_anchor(repo)
+    # backup_ledger names files by the second. The ack refreshes anchors
+    # and must not overwrite the run-1 snapshot.
+    import time
+    time.sleep(1.1)
+    conn = open_ledger(str(root))
+    try:
+        ledger.acknowledge_alarm(
+            conn, "ledger_sha_mismatch", "between runs, before the anchors moved")
+        ack = conn.execute(
+            "SELECT event_id, kind, payload FROM event WHERE event_id=23"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert ack[0] == 23
+    assert ack[1] == "alarm_ack"
+    assert json.loads(ack[2])["alarm"] == "ledger_sha_mismatch"
+    _raise_known_alarms(root)
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    ledger.recover_known_drift(
+        str(root), str(repo),
+        "upgrade: run-2 drift is the event-23 ack plus the two start alarms")
+    assert ledger.read_end_sha(str(root)) != old
+    conn = open_ledger(str(root))
+    try:
+        blocked = ledger.ledger_acceptance_blocks(conn)
+    finally:
+        conn.close()
+    assert "ledger_changed_outside_runner" not in blocked
+    assert "chain_anchor_mismatch" not in blocked
+
+
+def test_restore_to_anchor_when_run2_wrote_jobs(tmp_path, monkeypatch):
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "b_in01_001", "build", "h1", "rules", "OK")
+        job_record(conn, "b_in01_003", "build", "h3", "rules", "OK")
+    finally:
+        conn.close()
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    with pytest.raises(ledger.RecoveryError, match="job"):
+        ledger.recover_known_drift(
+            str(root), str(repo), "run-2 wrote job rows")
+    assert ledger.read_end_sha(str(root)) == old
+    restored = ledger.restore_to_anchor(
+        str(root), str(repo),
+        "run-2 wrote job rows for b_in01_001 and b_in01_003; restore and rerun them")
+    assert restored["end_sha"] == old
+    assert ledger.read_end_sha(str(root)) == old
+    aside = list(root.glob("ledger.pre-restore.*.sqlite3"))
+    assert len(aside) == 1
+    conn = open_ledger(str(root))
+    try:
+        ids = [row[0] for row in conn.execute("SELECT project_id FROM job")]
+        assert ledger.verify_event_chain(conn)
+    finally:
+        conn.close()
+    assert "b_in01_001" not in ids
+    assert "b_in01_003" not in ids
+    assert "p" in ids
+    with pytest.raises(ledger.RecoveryError, match="restore already recorded"):
+        ledger.restore_to_anchor(str(root), str(repo), "second call")
+    assert ledger.read_end_sha(str(root)) == old
+    assert list(root.glob("ledger.pre-restore.*.sqlite3")) == aside
+
+
+def test_restore_to_anchor_refuses_when_origin_differs(tmp_path, monkeypatch):
+    import json as _json
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "b_in01_001", "build", "h1", "rules", "OK")
+    finally:
+        conn.close()
+    status = repo / "status" / "ledger_anchor.json"
+    doc = _json.loads(status.read_text(encoding="utf-8"))
+    doc["ledger_end_sha"] = "0" * 64
+    status.write_text(_json.dumps(doc, indent=2, sort_keys=True) + "\n",
+                      encoding="utf-8")
+    _push_anchor(repo)
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    with pytest.raises(ledger.RecoveryError, match="ledger_end_sha"):
+        ledger.restore_to_anchor(
+            str(root), str(repo), "origin anchor is not this backup")
+    assert list(root.glob("ledger.pre-restore.*.sqlite3")) == []
+    assert ledger.read_end_sha(str(root)) == old
+    conn = open_ledger(str(root))
+    try:
+        ids = [row[0] for row in conn.execute("SELECT project_id FROM job")]
+    finally:
+        conn.close()
+    assert "b_in01_001" in ids
 
 
 def test_wave_ledger_error_is_a_fail(tmp_path):

@@ -328,6 +328,28 @@ def _family_file(root, pid):
     return family, path if path and os.path.isfile(path) else None
 
 
+def _later_ok_fcstd(ev, stage, current_fc):
+    """True when a later OK stage recorded this FCStd sha.
+
+    Export rewrites the FCStd after validate. That rewrite is the file on
+    disk at the next run, so validate/probe/dedupe may keep their recorded
+    input hash. Any other bytes on disk are a new input.
+    """
+    if not current_fc or not isinstance(ev, dict):
+        return False
+    try:
+        index = acceptance.STAGE_ORDER.index(stage)
+    except ValueError:
+        return False
+    stages = ev.get("stages") or {}
+    for later in acceptance.STAGE_ORDER[index + 1:]:
+        row = stages.get(later) or {}
+        if (row.get("state") == "OK"
+                and row.get("fcstd_sha256") == current_fc):
+            return True
+    return False
+
+
 def pending(rec, intake, stages, limit=None, repair_failed=False,
             max_attempts=3, only=None):
     """Queue stages that do not have re-verified evidence for these bytes.
@@ -369,11 +391,15 @@ def pending(rec, intake, stages, limit=None, repair_failed=False,
             row = ((ev or {}).get("stages") or {}).get(stage) or {}
             recorded = row.get("input_sha")
             recorded_fc = row.get("fcstd_sha256")
-            # Only the FCStd half may be replayed from the stage snapshot.
-            # project.yml, the family core and rules are always current.
-            # build has no FCStd term, so it never substitutes.
+            current_fc = (hashes or {}).get("fcstd_sha256")
+            # validate/probe/dedupe may replay only the FCStd term, and only
+            # when the file on disk is the snapshot a later OK stage (export)
+            # already recorded. project.yml, the family core and rules stay
+            # current. build has no FCStd term, so it never substitutes.
+            # A file that matches neither snapshot is a new input.
             if (stage in ("validate", "probe", "dedupe")
-                    and recorded and recorded_fc and ih and recorded != ih):
+                    and recorded and recorded_fc and ih and recorded != ih
+                    and _later_ok_fcstd(ev, stage, current_fc)):
                 try:
                     substituted = rec.input_hash(
                         pid, stage, fcstd_sha=recorded_fc)

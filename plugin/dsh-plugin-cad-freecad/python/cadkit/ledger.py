@@ -2240,6 +2240,9 @@ def _user_tables(conn):
 # The Mac snapshot taken at the end of the first real run. Not a parameter:
 # callers cannot point this at a later, already-tampered backup.
 KNOWN_DRIFT_BACKUP_PREFIX = "71ed1087"
+# The out-of-run ack the old code appended after that backup. Not a parameter.
+KNOWN_DRIFT_ACK_EVENT_ID = 23
+_KNOWN_DRIFT_ACK_ALARMS = ("ledger_sha_mismatch", "chain_anchor_mismatch")
 RECOVERY_EVENT_KIND = "known_drift_recovery"
 
 
@@ -2249,14 +2252,33 @@ def _sqlite_master_rows(conn):
     ).fetchall()
 
 
+def _known_drift_ack(event_id, kind, payload):
+    """The one post-backup ack the Mac ledger actually contains.
+
+    Event 23 was written by the old code after backup ``71ed1087``. Its
+    kind is ``alarm_ack`` and the payload names ``ledger_sha_mismatch`` or
+    ``chain_anchor_mismatch``. No other ack is accepted.
+    """
+    if event_id != KNOWN_DRIFT_ACK_EVENT_ID or kind != "alarm_ack":
+        return False
+    try:
+        doc = json.loads(payload or "")
+    except (TypeError, ValueError):
+        return False
+    return (isinstance(doc, dict)
+            and doc.get("alarm") in _KNOWN_DRIFT_ACK_ALARMS)
+
+
 def _alarm_tail_problems(backup_path, live_path):
     """Diff the live ledger against the backup.
 
-    The only permitted difference is alarm events whose ``event_id`` is
-    past the backup's last event, each with the ``ledger_alarm`` row that
-    points at that id. ``job``, ``waiver``, ``state_transition``, ``meta``
-    and ``sqlite_master`` have to match exactly. Identification is by
-    those ids, not by event kind supplied from outside.
+    Past the backup's last event, event ``KNOWN_DRIFT_ACK_EVENT_ID`` (23)
+    may be the known ``alarm_ack``. Every other new event must be a raise
+    of an alarm kind. Each of those events needs the ``ledger_alarm`` row
+    that points at its id (action ``ack`` for 23, ``raise`` otherwise).
+    ``job``, ``waiver``, ``state_transition``, ``meta`` and ``sqlite_master``
+    have to match exactly. Identification is by those ids, not by a caller
+    allow-list.
     """
     from urllib.parse import quote
 
@@ -2302,10 +2324,14 @@ def _alarm_tail_problems(backup_path, live_path):
                 if previous != current:
                     problems.append("event %s changed" % event_id)
                 continue
-            bad_kind = kind not in ALARM_KINDS
+            known_ack = _known_drift_ack(event_id, kind, payload)
+            bad_kind = not known_ack and kind not in ALARM_KINDS
             bad_chain = ((prev_hash or "") != prev or _event_hash(
                 prev_hash, rev, kind, payload, created) != row_hash)
-            if bad_kind:
+            if event_id == KNOWN_DRIFT_ACK_EVENT_ID and not known_ack:
+                problems.append(
+                    "event %s is not the known alarm_ack" % event_id)
+            elif bad_kind:
                 problems.append(
                     "event %s kind %s is not an alarm appended after "
                     "the backup" % (event_id, kind))
@@ -2313,7 +2339,8 @@ def _alarm_tail_problems(backup_path, live_path):
                 problems.append(
                     "event %s does not extend the backup hash chain"
                     % event_id)
-            if not bad_kind and not bad_chain:
+            if not bad_kind and not bad_chain and (
+                    known_ack or event_id != KNOWN_DRIFT_ACK_EVENT_ID):
                 allowed_ids.append(event_id)
             prev = row_hash or prev
         old_alarms = _table_maps(old, "ledger_alarm")
@@ -2326,7 +2353,13 @@ def _alarm_tail_problems(backup_path, live_path):
             if key in old_alarms:
                 continue
             event_id = row.get("event_id")
-            if event_id not in allowed_ids or row.get("action") != "raise":
+            if event_id == KNOWN_DRIFT_ACK_EVENT_ID:
+                action_ok = row.get("action") == "ack"
+                kind_ok = row.get("kind") in _KNOWN_DRIFT_ACK_ALARMS
+            else:
+                action_ok = row.get("action") == "raise"
+                kind_ok = True
+            if event_id not in allowed_ids or not action_ok or not kind_ok:
                 problems.append(
                     "ledger_alarm %s is not the row for an alarm event "
                     "after the backup" % (key,))
@@ -2348,9 +2381,11 @@ def recover_known_drift(root, repo, reason, remote="origin"):
     The backup is the one whose stable sha starts with
     ``KNOWN_DRIFT_BACKUP_PREFIX`` (``71ed1087``). ``origin/main``'s
     ``ledger_end_sha`` must be that same sha. The live database may differ
-    only by alarm events appended after that backup and the
-    ``ledger_alarm`` rows that point at those event ids. A second call
-    finds the recovery event and refuses.
+    by event ``KNOWN_DRIFT_ACK_EVENT_ID`` (the Mac ``alarm_ack``), by raise
+    alarms appended after that backup, and by the ``ledger_alarm`` rows
+    that point at those event ids. A second call finds the recovery event
+    and refuses. Job rows from a run that continued are not accepted; use
+    ``restore_to_anchor`` for that.
     """
     reason = str(reason or "").strip()
     if not reason:
@@ -2398,6 +2433,127 @@ def recover_known_drift(root, repo, reason, remote="origin"):
     finally:
         conn.close()
     return {"backup": path, "end_sha": digest, "events_checked": checked}
+
+
+def _pre_restore_path(root):
+    if not root or not os.path.isdir(root):
+        return None
+    for name in sorted(os.listdir(root)):
+        if (name.startswith("ledger.pre-restore.")
+                and name.endswith(".sqlite3")):
+            return os.path.join(root, name)
+    return None
+
+
+def _read_only_ledger(path):
+    from urllib.parse import quote
+    return sqlite3.connect(
+        "file:%s?mode=ro" % quote(os.path.abspath(path), safe="/:"), uri=True)
+
+
+def _move_ledger_aside(root, aside):
+    live = os.path.join(root, "ledger.sqlite3")
+    os.replace(live, aside)
+    for suffix in ("-wal", "-shm"):
+        src = live + suffix
+        if os.path.exists(src):
+            os.replace(src, aside + suffix)
+    return live
+
+
+def _put_ledger_back(live, aside):
+    if os.path.exists(live):
+        os.remove(live)
+    if os.path.exists(aside):
+        os.replace(aside, live)
+    for suffix in ("-wal", "-shm"):
+        src = aside + suffix
+        if os.path.exists(src):
+            dest = live + suffix
+            if os.path.exists(dest):
+                os.remove(dest)
+            os.replace(src, dest)
+
+
+def restore_to_anchor(root, repo, reason, remote="origin"):
+    """Replace the ledger with the anchored backup. One shot.
+
+    ``recover_known_drift`` refuses when run 2 kept going and wrote job
+    rows. Those rows are not added to its allow-list. This copies the
+    backup whose sha starts with ``71ed1087`` over the live ledger after
+    moving that file to ``ledger.pre-restore.<timestamp>.sqlite3``. The
+    backup sha must equal ``origin/main``'s ``ledger_end_sha``. The
+    restored chain and that end sha are checked against the origin anchor.
+    No event is appended: the restored file is the anchored database, and
+    a new event would no longer match origin. A second call finds the
+    pre-restore file and refuses. Parts written only in the discarded run
+    rerun; their outputs are reproducible.
+    """
+    import shutil
+    reason = str(reason or "").strip()
+    if not reason:
+        raise RecoveryError("restore requires a reason")
+    if _pre_restore_path(root):
+        raise RecoveryError("restore already recorded")
+    live = os.path.join(root, "ledger.sqlite3")
+    if not os.path.isfile(live):
+        raise RecoveryError("no ledger")
+    path, digest = _backup_matching(root, KNOWN_DRIFT_BACKUP_PREFIX)
+    origin = _origin_main_anchor(repo, remote=remote)
+    if origin.get("ledger_end_sha") != digest:
+        raise RecoveryError(
+            "origin/main ledger_end_sha %s != backup %s" % (
+                origin.get("ledger_end_sha"), digest))
+    backup = _read_only_ledger(path)
+    try:
+        if not verify_event_chain(backup):
+            raise RecoveryError("backup event chain does not verify")
+        if not anchor_holds(backup, origin):
+            raise RecoveryError("backup chain does not match the origin anchor")
+    finally:
+        backup.close()
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    aside = os.path.join(root, "ledger.pre-restore.%s.sqlite3" % ts)
+    if os.path.exists(aside):
+        raise RecoveryError("restore already recorded")
+    live = _move_ledger_aside(root, aside)
+    try:
+        shutil.copyfile(path, live)
+        restored_sha = _stable_backup_sha(live)
+        if restored_sha != digest:
+            raise RecoveryError(
+                "restored ledger sha %s != backup %s" % (restored_sha, digest))
+        restored = _read_only_ledger(live)
+        try:
+            if not verify_event_chain(restored):
+                raise RecoveryError("restored event chain does not verify")
+            if not anchor_holds(restored, origin):
+                raise RecoveryError(
+                    "restored chain does not match the origin anchor")
+            head = chain_head(restored)
+        finally:
+            restored.close()
+        if origin.get("ledger_end_sha") != digest:
+            raise RecoveryError(
+                "origin/main ledger_end_sha %s != backup %s" % (
+                    origin.get("ledger_end_sha"), digest))
+        write_end_sha(root, digest)
+        _atomic_text(
+            os.path.join(root, CHAIN_ANCHOR_NAME),
+            json.dumps(head, sort_keys=True) + "\n")
+        if repo:
+            doc = dict(head)
+            doc["ledger_end_sha"] = digest
+            doc["timestamp"] = origin.get("timestamp") or time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            status_path = os.path.join(repo, STATUS_ANCHOR_PATH)
+            os.makedirs(os.path.dirname(status_path), exist_ok=True)
+            _atomic_text(
+                status_path, json.dumps(doc, indent=2, sort_keys=True) + "\n")
+    except Exception:
+        _put_ledger_back(live, aside)
+        raise
+    return {"backup": path, "end_sha": digest, "aside": aside, "reason": reason}
 
 
 class AnchorDrift(Exception):
