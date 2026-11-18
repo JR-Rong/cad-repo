@@ -2053,12 +2053,14 @@ def ledger_root(conn):
     return None
 
 
-def ledger_file_lock(root):
+def ledger_file_lock(root, nonblocking=False):
     """Exclusive lock around a sanctioned write and the anchor refresh.
 
     Re-entrant in the thread that already holds it, so an acknowledgement
     that also closes the orphan alarm does not deadlock. Other processes
     block until the sqlite snapshot and the three anchor files match.
+    ``nonblocking`` raises ``BlockingIOError`` instead of waiting when
+    another holder already has the lock.
     """
     from contextlib import contextmanager
 
@@ -2076,7 +2078,12 @@ def ledger_file_lock(root):
         if depth.get(key, 0) == 0:
             fd = os.open(os.path.join(key, "ledger.lock"),
                          os.O_CREAT | os.O_RDWR, 0o644)
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            flags = fcntl.LOCK_EX | (fcntl.LOCK_NB if nonblocking else 0)
+            try:
+                fcntl.flock(fd, flags)
+            except BlockingIOError:
+                os.close(fd)
+                raise
             depth[key] = 1
             depth[key + ":fd"] = fd
         else:
@@ -2435,14 +2442,7 @@ def recover_known_drift(root, repo, reason, remote="origin"):
     return {"backup": path, "end_sha": digest, "events_checked": checked}
 
 
-def _pre_restore_path(root):
-    if not root or not os.path.isdir(root):
-        return None
-    for name in sorted(os.listdir(root)):
-        if (name.startswith("ledger.pre-restore.")
-                and name.endswith(".sqlite3")):
-            return os.path.join(root, name)
-    return None
+RESTORE_RECORD_PATH = os.path.join("status", "ledger_restore.json")
 
 
 def _read_only_ledger(path):
@@ -2475,6 +2475,152 @@ def _put_ledger_back(live, aside):
             os.replace(src, dest)
 
 
+def _origin_restore_record(repo, remote="origin"):
+    """The ``status/ledger_restore.json`` on ``origin/main``, or None.
+
+    A missing file means this restore has not been pushed. A failed fetch
+    is a refusal, not an invitation to restore again.
+    """
+    import subprocess
+    try:
+        subprocess.check_call(
+            ["git", "fetch", remote,
+             "+refs/heads/main:refs/remotes/origin/main"],
+            cwd=repo, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, OSError) as exc:
+        raise RecoveryError("cannot read origin/main restore record: %s" % exc)
+    try:
+        out = subprocess.check_output(
+            ["git", "show", "origin/main:" + RESTORE_RECORD_PATH.replace(
+                os.sep, "/")],
+            cwd=repo, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        return None
+    except OSError as exc:
+        raise RecoveryError("cannot read origin/main restore record: %s" % exc)
+    try:
+        doc = json.loads(out.decode("utf-8"))
+    except ValueError as exc:
+        raise RecoveryError("origin/main restore record is not json: %s" % exc)
+    if not isinstance(doc, dict):
+        raise RecoveryError("origin/main restore record is not an object")
+    return doc
+
+
+def _active_writer_locks(root):
+    """Publisher and per-part lock files another process is holding."""
+    delivery = os.path.join(root, "delivery")
+    if not os.path.isdir(delivery):
+        return []
+    busy = []
+    for dirpath, _dirs, names in os.walk(delivery):
+        base = os.path.basename(dirpath)
+        for name in names:
+            if name != ".publisher.lock" and base != ".locks":
+                continue
+            if name != ".publisher.lock" and not name.endswith(".lock"):
+                continue
+            path = os.path.join(dirpath, name)
+            if legacy_publisher_busy(path):
+                busy.append(path)
+    return busy
+
+
+def _save_anchor_files(root, repo):
+    paths = [
+        os.path.join(root, END_SHA_NAME),
+        os.path.join(root, CHAIN_ANCHOR_NAME),
+    ]
+    if repo:
+        paths.append(os.path.join(repo, STATUS_ANCHOR_PATH))
+        paths.append(os.path.join(repo, RESTORE_RECORD_PATH))
+    saved = {}
+    for path in paths:
+        if os.path.isfile(path):
+            with open(path, "rb") as handle:
+                saved[path] = handle.read()
+        else:
+            saved[path] = None
+    return saved
+
+
+def _restore_anchor_files(saved):
+    for path, data in saved.items():
+        if data is None:
+            if os.path.isfile(path):
+                os.remove(path)
+            continue
+        tmp = path + ".tmp"
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(tmp, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+
+
+def _quarantine_unsealed_evidence(root, conn, ts, moved):
+    """Move build dirs whose evidence seal is not in this ledger.
+
+    Run 2 left ``chain_evidence.json`` and outputs on disk. The restored
+    ledger does not seal them, and a later skip must not trust those files.
+    The project file and ``build.py`` stay, so the part can rerun from build.
+    Successful moves are appended to ``moved`` before the next part, so a
+    later failure can put them back.
+    """
+    projects = os.path.join(root, "projects")
+    if not os.path.isdir(projects):
+        return
+    quarantine = os.path.join(root, "quarantine-restore.%s" % ts)
+    for pid in sorted(os.listdir(projects)):
+        build = os.path.join(projects, pid, "build")
+        evidence = os.path.join(build, "chain_evidence.json")
+        if not os.path.isfile(evidence):
+            continue
+        sealed = evidence_seal(conn, pid)
+        if sealed and sealed == sha256_file(evidence):
+            continue
+        dest = os.path.join(quarantine, pid, "build")
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        os.replace(build, dest)
+        moved.append((build, dest, pid))
+
+
+def _undo_quarantine(moved):
+    for src, dest, _pid in reversed(moved):
+        if os.path.exists(dest) and not os.path.exists(src):
+            os.makedirs(os.path.dirname(src), exist_ok=True)
+            os.replace(dest, src)
+
+
+def _anchors_match_origin(root, repo, origin, digest, conn):
+    end = read_end_sha(root)
+    if end != digest or end != origin.get("ledger_end_sha"):
+        raise RecoveryError(
+            "ledger.end.sha %s does not match the origin anchor %s" % (
+                end, origin.get("ledger_end_sha")))
+    chain = read_chain_anchor(root)
+    if not chain or not anchor_holds(conn, chain):
+        raise RecoveryError("ledger.chain.anchor does not hold on the restored ledger")
+    for key in ("event_count", "head_event_id", "head_hash"):
+        if chain.get(key) != origin.get(key):
+            raise RecoveryError(
+                "ledger.chain.anchor %s does not match the origin anchor" % key)
+    if not repo:
+        return
+    status_path = os.path.join(repo, STATUS_ANCHOR_PATH)
+    with open(status_path, encoding="utf-8") as handle:
+        status = json.loads(handle.read())
+    if status.get("ledger_end_sha") != origin.get("ledger_end_sha"):
+        raise RecoveryError(
+            "status/ledger_anchor.json end sha does not match the origin anchor")
+    for key in ("event_count", "head_event_id", "head_hash"):
+        if status.get(key) != origin.get(key):
+            raise RecoveryError(
+                "status/ledger_anchor.json %s does not match the origin anchor"
+                % key)
+
+
 def restore_to_anchor(root, repo, reason, remote="origin"):
     """Replace the ledger with the anchored backup. One shot.
 
@@ -2482,22 +2628,54 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
     rows. Those rows are not added to its allow-list. This copies the
     backup whose sha starts with ``71ed1087`` over the live ledger after
     moving that file to ``ledger.pre-restore.<timestamp>.sqlite3``. The
-    backup sha must equal ``origin/main``'s ``ledger_end_sha``. The
-    restored chain and that end sha are checked against the origin anchor.
-    No event is appended: the restored file is the anchored database, and
-    a new event would no longer match origin. A second call finds the
-    pre-restore file and refuses. Parts written only in the discarded run
-    rerun; their outputs are reproducible.
+    backup sha must equal ``origin/main``'s ``ledger_end_sha``. The work
+    runs under the ledger lock and refuses while that lock or a publisher
+    lock is already held, so a live runner cannot keep writing into the
+    file that was just moved aside.
+
+    The restored database is byte-for-byte the backup, so the one-shot
+    marker cannot live in it. ``status/ledger_restore.json`` sits in the
+    repo: backup sha, timestamp, reason, and the pre-restore file's name
+    and sha. A second call fetches ``origin/main`` and refuses when that
+    file is there, and also refuses when the local copy is there. Push
+    it with ``push_ledger_anchor.py`` after this returns. Renaming the
+    moved-aside database does not clear the marker.
+
+    Parts whose on-disk evidence is not sealed in the restored ledger
+    have that evidence and their build outputs moved to
+    ``quarantine-restore.<timestamp>/<pid>/``. They rerun from build.
+    No chain event is appended.
     """
     import shutil
     reason = str(reason or "").strip()
     if not reason:
         raise RecoveryError("restore requires a reason")
-    if _pre_restore_path(root):
+    if not repo:
+        raise RecoveryError("restore requires the status repo")
+    record_path = os.path.join(repo, RESTORE_RECORD_PATH)
+    if _origin_restore_record(repo, remote=remote) is not None:
+        raise RecoveryError("restore already recorded")
+    if os.path.isfile(record_path):
         raise RecoveryError("restore already recorded")
     live = os.path.join(root, "ledger.sqlite3")
     if not os.path.isfile(live):
         raise RecoveryError("no ledger")
+    try:
+        with ledger_file_lock(root, nonblocking=True):
+            return _restore_to_anchor_locked(
+                root, repo, reason, remote, record_path)
+    except BlockingIOError:
+        raise RecoveryError(
+            "ledger lock is held; stop the runner before restore")
+
+
+def _restore_to_anchor_locked(root, repo, reason, remote, record_path):
+    import shutil
+    busy = _active_writer_locks(root)
+    if busy:
+        raise RecoveryError(
+            "publisher is busy; stop the runner before restore: %s"
+            % ", ".join(busy))
     path, digest = _backup_matching(root, KNOWN_DRIFT_BACKUP_PREFIX)
     origin = _origin_main_anchor(repo, remote=remote)
     if origin.get("ledger_end_sha") != digest:
@@ -2514,9 +2692,9 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
         backup.close()
     ts = time.strftime("%Y%m%d_%H%M%S")
     aside = os.path.join(root, "ledger.pre-restore.%s.sqlite3" % ts)
-    if os.path.exists(aside):
-        raise RecoveryError("restore already recorded")
+    saved_anchors = _save_anchor_files(root, repo)
     live = _move_ledger_aside(root, aside)
+    moved = []
     try:
         shutil.copyfile(path, live)
         restored_sha = _stable_backup_sha(live)
@@ -2531,17 +2709,10 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
                 raise RecoveryError(
                     "restored chain does not match the origin anchor")
             head = chain_head(restored)
-        finally:
-            restored.close()
-        if origin.get("ledger_end_sha") != digest:
-            raise RecoveryError(
-                "origin/main ledger_end_sha %s != backup %s" % (
-                    origin.get("ledger_end_sha"), digest))
-        write_end_sha(root, digest)
-        _atomic_text(
-            os.path.join(root, CHAIN_ANCHOR_NAME),
-            json.dumps(head, sort_keys=True) + "\n")
-        if repo:
+            write_end_sha(root, digest)
+            _atomic_text(
+                os.path.join(root, CHAIN_ANCHOR_NAME),
+                json.dumps(head, sort_keys=True) + "\n")
             doc = dict(head)
             doc["ledger_end_sha"] = digest
             doc["timestamp"] = origin.get("timestamp") or time.strftime(
@@ -2550,10 +2721,33 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
             os.makedirs(os.path.dirname(status_path), exist_ok=True)
             _atomic_text(
                 status_path, json.dumps(doc, indent=2, sort_keys=True) + "\n")
+            _anchors_match_origin(root, repo, origin, digest, restored)
+            _quarantine_unsealed_evidence(root, restored, ts, moved)
+        finally:
+            restored.close()
+        record = {
+            "backup_sha": digest,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "reason": reason,
+            "pre_restore": os.path.basename(aside),
+            "pre_restore_sha": sha256_file(aside),
+        }
+        os.makedirs(os.path.dirname(record_path), exist_ok=True)
+        _atomic_text(
+            record_path, json.dumps(record, indent=2, sort_keys=True) + "\n")
     except Exception:
+        _undo_quarantine(moved)
+        _restore_anchor_files(saved_anchors)
         _put_ledger_back(live, aside)
         raise
-    return {"backup": path, "end_sha": digest, "aside": aside, "reason": reason}
+    return {
+        "backup": path,
+        "end_sha": digest,
+        "aside": aside,
+        "reason": reason,
+        "record": record_path,
+        "quarantine": [pid for _src, _dest, pid in moved],
+    }
 
 
 class AnchorDrift(Exception):

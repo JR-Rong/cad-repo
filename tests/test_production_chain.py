@@ -2316,6 +2316,167 @@ def test_restore_to_anchor_refuses_when_origin_differs(tmp_path, monkeypatch):
     assert "b_in01_001" in ids
 
 
+def _seal_run2_part(root, pid):
+    import acceptance
+    import fleet_runner
+    proj = root / "projects" / pid
+    (proj / "build").mkdir(parents=True)
+    (root / "family").mkdir(exist_ok=True)
+    (proj / "project.yml").write_text(
+        json.dumps({"family": "in01"}), encoding="utf-8")
+    (proj / "build.py").write_text("build-src", encoding="utf-8")
+    fam = root / "family" / "in01.py"
+    if not fam.exists():
+        fam.write_text("core", encoding="utf-8")
+    fc = proj / "build" / (pid + ".FCStd")
+    fc.write_text("fcstd-" + pid, encoding="utf-8")
+    (proj / "build" / (pid + ".step")).write_text("step-" + pid, encoding="utf-8")
+    rec = fleet_runner.Recorder(str(root), PY, "rules-stable")
+    stages = ["build", "validate", "probe", "dedupe", "export"]
+    conn = open_ledger(str(root))
+    try:
+        ev = acceptance.fresh_evidence(pid, "in01", "core-sha", "rules-stable")
+        for stage in stages:
+            ih = rec.input_hash(pid, stage)
+            job_record(conn, pid, stage, ih, "rules-stable", "OK")
+            ev["stages"][stage] = {
+                "state": "OK",
+                "input_sha": ih,
+                "source": "fleet_runner",
+                "fcstd_sha256": acceptance.sha256_file(str(fc)),
+            }
+        path = acceptance.save_evidence(str(root), pid, ev)
+        from cadkit.ledger import seal_evidence
+        seal_evidence(conn, pid, acceptance.sha256_file(path))
+    finally:
+        conn.close()
+    return rec, stages
+
+
+def test_restore_quarantines_unsealed_evidence(tmp_path, monkeypatch):
+    import fleet_runner
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    rec, stages = _seal_run2_part(root, "b_in01_001")
+    _seal_run2_part(root, "b_in01_003")
+    intake = tmp_path / "w.json"
+    intake.write_text(json.dumps(
+        {"parts": ["b_in01_001", "b_in01_003"]}), encoding="utf-8")
+    assert fleet_runner.pending(rec, str(intake), stages) == []
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    restored = ledger.restore_to_anchor(
+        str(root), str(repo),
+        "run-2 wrote job rows for b_in01_001 and b_in01_003; restore and rerun them")
+    assert restored["quarantine"] == ["b_in01_001", "b_in01_003"]
+    assert ledger.read_end_sha(str(root)) == old
+    chain = ledger.read_chain_anchor(str(root))
+    status = json.loads(
+        (repo / "status" / "ledger_anchor.json").read_text(encoding="utf-8"))
+    assert status["ledger_end_sha"] == old
+    assert status["head_hash"] == chain["head_hash"]
+    assert status["event_count"] == chain["event_count"]
+    record = json.loads(
+        (repo / "status" / "ledger_restore.json").read_text(encoding="utf-8"))
+    assert record["backup_sha"] == old
+    assert record["pre_restore"].startswith("ledger.pre-restore.")
+    assert record["pre_restore_sha"]
+    for pid in ("b_in01_001", "b_in01_003"):
+        assert not (root / "projects" / pid / "build").exists()
+        assert (root / "projects" / pid / "project.yml").is_file()
+        assert (root / "projects" / pid / "build.py").is_file()
+        parked = list(root.glob(
+            "quarantine-restore.*/%s/build/chain_evidence.json" % pid))
+        assert len(parked) == 1
+        assert (parked[0].parent / (pid + ".FCStd")).is_file()
+    assert fleet_runner.pending(rec, str(intake), stages) == [
+        ("b_in01_001", stages),
+        ("b_in01_003", stages),
+    ]
+
+
+def test_renaming_the_aside_db_does_not_allow_a_second_restore(
+        tmp_path, monkeypatch):
+    import subprocess
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    restored = ledger.restore_to_anchor(
+        str(root), str(repo), "restore once, then a rerun must stick")
+    subprocess.check_call(["git", "branch", "-M", "main"], cwd=str(repo))
+    script = os.path.join(TOOLS, "push_ledger_anchor.py")
+    subprocess.check_call(
+        [sys.executable, script, "--repo", str(repo), "--remote", "origin"])
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "b_in01_001", "build", "rerun", "rules", "OK")
+    finally:
+        conn.close()
+    aside = restored["aside"]
+    renamed = os.path.join(os.path.dirname(aside), "renamed-" + os.path.basename(aside))
+    os.replace(aside, renamed)
+    os.remove(os.path.join(repo, "status", "ledger_restore.json"))
+    with pytest.raises(ledger.RecoveryError, match="restore already recorded"):
+        ledger.restore_to_anchor(str(root), str(repo), "second call after rename")
+    conn = open_ledger(str(root))
+    try:
+        ids = [row[0] for row in conn.execute(
+            "SELECT project_id FROM job WHERE project_id='b_in01_001'")]
+    finally:
+        conn.close()
+    assert ids == ["b_in01_001"]
+    assert not os.path.exists(aside)
+    assert os.path.isfile(renamed)
+
+
+def test_restore_refuses_while_lock_or_publisher_busy(tmp_path, monkeypatch):
+    import subprocess
+    import threading
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    ready = threading.Event()
+    release = threading.Event()
+
+    def hold_ledger():
+        with ledger.ledger_file_lock(str(root)):
+            ready.set()
+            assert release.wait(10)
+
+    holder = threading.Thread(target=hold_ledger)
+    holder.start()
+    assert ready.wait(5)
+    try:
+        with pytest.raises(ledger.RecoveryError, match="ledger lock is held"):
+            ledger.restore_to_anchor(
+                str(root), str(repo), "must not restore under the ledger lock")
+    finally:
+        release.set()
+        holder.join(timeout=5)
+    assert not list(root.glob("ledger.pre-restore.*.sqlite3"))
+    lock = root / "delivery" / "batch" / ".publisher.lock"
+    lock.parent.mkdir(parents=True)
+    lock.write_text("", encoding="utf-8")
+    publisher = subprocess.Popen(
+        [sys.executable, "-c",
+         "import fcntl,os,sys,time\n"
+         "fd=os.open(sys.argv[1], os.O_RDWR)\n"
+         "fcntl.flock(fd, fcntl.LOCK_EX)\n"
+         "sys.stdout.write('ready\\n'); sys.stdout.flush()\n"
+         "time.sleep(30)\n",
+         str(lock)],
+        stdout=subprocess.PIPE, text=True)
+    try:
+        assert publisher.stdout.readline().strip() == "ready"
+        with pytest.raises(ledger.RecoveryError, match="publisher is busy"):
+            ledger.restore_to_anchor(
+                str(root), str(repo), "must not restore while publishing")
+    finally:
+        publisher.kill()
+        publisher.wait(timeout=5)
+    assert not (repo / "status" / "ledger_restore.json").exists()
+    assert ledger.read_end_sha(str(root)) == old
+
+
 def test_wave_ledger_error_is_a_fail(tmp_path):
     import fleet_runner
     broken = tmp_path / "ledger.sqlite3"

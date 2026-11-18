@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Commit and push ``status/ledger_anchor.json``.
+"""Commit and push the ledger anchor, and the restore record when present.
 
-``fleet_runner`` writes that file at the end of a run and does not commit
-or push. Run this yourself after a production run, before the next one:
+``fleet_runner`` writes ``status/ledger_anchor.json`` at the end of a run
+and does not commit or push. ``restore_to_anchor`` also writes
+``status/ledger_restore.json``. Run this yourself after a production run
+or a restore, before the next run:
 
     python3 tools/push_ledger_anchor.py
 
-Only that path is added. Other dirty files in the worktree stay unstaged.
+Only those paths are added. Other dirty files in the worktree stay unstaged.
 """
 import argparse
 import os
@@ -16,6 +18,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 ANCHOR = "status/ledger_anchor.json"
+RESTORE = "status/ledger_restore.json"
 
 
 def main(argv=None):
@@ -30,8 +33,11 @@ def main(argv=None):
     if not os.path.isfile(path):
         print("没有 %s。先跑完一轮 fleet_runner，它会写这个文件。" % ANCHOR)
         return 2
+    paths = [ANCHOR]
+    if os.path.isfile(os.path.join(args.repo, RESTORE)):
+        paths.append(RESTORE)
     commands = [
-        ["git", "add", "--", ANCHOR],
+        ["git", "add", "--"] + paths,
         ["git", "commit", "-m", "ledger anchor"],
         ["git", "push", args.remote, "HEAD"],
     ]
