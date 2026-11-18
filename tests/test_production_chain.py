@@ -1853,8 +1853,8 @@ def test_second_run_skips_unchanged_inputs(tmp_path):
         ("b_in01_001", stages)]
 
 
-def test_later_fcstd_rewrite_does_not_reopen_earlier_stages(tmp_path):
-    """Export rewriting the FCStd must not make validate look like a new input."""
+def _fcstd_rewrite_ready(tmp_path):
+    """A part whose export already rewrote the FCStd, ready to skip."""
     import acceptance
     import fleet_runner
     root = tmp_path / "cad"
@@ -1910,8 +1910,43 @@ def test_later_fcstd_rewrite_does_not_reopen_earlier_stages(tmp_path):
         conn.close()
     intake = tmp_path / "w.json"
     intake.write_text(json.dumps({"parts": ["b_in01_001"]}), encoding="utf-8")
-    assert fleet_runner.pending(
-        rec, str(intake), early + ["export"]) == []
+    stages = early + ["export"]
+    return rec, intake, stages, proj, root
+
+
+def test_later_fcstd_rewrite_does_not_reopen_earlier_stages(tmp_path):
+    """Export rewriting the FCStd must not make validate look like a new input."""
+    import fleet_runner
+    rec, intake, stages, _proj, _root = _fcstd_rewrite_ready(tmp_path)
+    assert fleet_runner.pending(rec, str(intake), stages) == []
+
+
+def test_editing_build_py_reruns_from_build(tmp_path):
+    import fleet_runner
+    rec, intake, stages, proj, _root = _fcstd_rewrite_ready(tmp_path)
+    assert fleet_runner.pending(rec, str(intake), stages) == []
+    (proj / "build.py").write_text("build-src-edited", encoding="utf-8")
+    assert fleet_runner.pending(rec, str(intake), stages) == [
+        ("b_in01_001", stages)]
+
+
+def test_editing_project_yml_reruns_from_build(tmp_path):
+    import fleet_runner
+    rec, intake, stages, proj, _root = _fcstd_rewrite_ready(tmp_path)
+    assert fleet_runner.pending(rec, str(intake), stages) == []
+    (proj / "project.yml").write_text(
+        json.dumps({"family": "in01", "note": "edited"}), encoding="utf-8")
+    assert fleet_runner.pending(rec, str(intake), stages) == [
+        ("b_in01_001", stages)]
+
+
+def test_editing_family_core_reruns_from_build(tmp_path):
+    import fleet_runner
+    rec, intake, stages, _proj, root = _fcstd_rewrite_ready(tmp_path)
+    assert fleet_runner.pending(rec, str(intake), stages) == []
+    (root / "family" / "in01.py").write_text("core-edited", encoding="utf-8")
+    assert fleet_runner.pending(rec, str(intake), stages) == [
+        ("b_in01_001", stages)]
 
 
 def test_tamper_then_ack_does_not_whitewash(tmp_path):
@@ -1989,13 +2024,10 @@ def test_tamper_then_ack_does_not_whitewash(tmp_path):
         conn.close()
 
 
-def test_recover_known_drift_checks_the_backup_diff(tmp_path):
+def _sealed_drift_ledger(tmp_path):
     import subprocess
-    from cadkit.ledger import (RecoveryError, job_record as _ignored,
-                               ledger_acceptance_blocks, raise_alarm,
-                               read_end_sha, recover_known_drift,
-                               refresh_external_anchors, write_status_anchor)
-    del _ignored
+    from cadkit.ledger import (read_end_sha, refresh_external_anchors,
+                               write_status_anchor)
     repo = _git_repo_with_origin(tmp_path)
     root = tmp_path / "cad"
     root.mkdir()
@@ -2009,45 +2041,139 @@ def test_recover_known_drift_checks_the_backup_diff(tmp_path):
         conn.close()
     subprocess.check_call(
         ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
-    subprocess.check_call(
-        ["git", "commit", "-m", "anchor"], cwd=str(repo))
+    subprocess.check_call(["git", "commit", "-m", "anchor"], cwd=str(repo))
     subprocess.check_call(
         ["git", "push", "origin", "HEAD:main"], cwd=str(repo))
-    allowed = [
-        {"table": "event", "kind": "ledger_sha_mismatch"},
-        {"table": "event", "kind": "chain_anchor_mismatch"},
-        {"table": "event", "kind": "job_transition"},
-        {"table": "event", "kind": "alarm_ack"},
-        {"table": "ledger_alarm", "kind": "ledger_sha_mismatch"},
-        {"table": "ledger_alarm", "kind": "chain_anchor_mismatch"},
-        {"table": "job", "project_id": "p", "stage": "validate", "state": "OK"},
-        {"table": "state_transition", "project_id": "p", "stage": "validate"},
-    ]
+    return root, repo, old
+
+
+def _raise_known_alarms(root):
+    from cadkit.ledger import raise_alarm
     conn = open_ledger(str(root))
     try:
         raise_alarm(conn, "ledger_sha_mismatch", "run 2 start")
         raise_alarm(conn, "chain_anchor_mismatch", "run 2 start")
-        job_record(conn, "p", "validate", "in", "rules", "OK")
-        with pytest.raises(RecoveryError) as injected:
-            recover_known_drift(
-                str(root), str(repo), old[:12],
-                [row for row in allowed if row["table"] != "job"],
-                "this allow-list drops the validate job")
-        assert "job" in str(injected.value)
-        assert read_end_sha(str(root)) == old
-        recover_known_drift(
-            str(root), str(repo), old[:12], allowed,
-            "backup diff is only the run-2 alarm and validate rows")
     finally:
         conn.close()
-    assert read_end_sha(str(root)) != old
+
+
+def _recover(root, repo, monkeypatch, reason):
+    import cadkit.ledger as ledger
+    monkeypatch.setattr(
+        ledger, "KNOWN_DRIFT_BACKUP_PREFIX", ledger.read_end_sha(str(root))[:8])
+    return ledger.recover_known_drift(str(root), str(repo), reason)
+
+
+def test_known_drift_prefix_is_fixed():
+    from cadkit.ledger import KNOWN_DRIFT_BACKUP_PREFIX
+    assert KNOWN_DRIFT_BACKUP_PREFIX == "71ed1087"
+
+
+def test_recover_known_drift_acks_the_alarm_tail_once(tmp_path, monkeypatch):
+    import inspect
+    from cadkit.ledger import (RecoveryError, ledger_acceptance_blocks,
+                               read_end_sha, recover_known_drift)
+    assert "allowed_extra" not in inspect.signature(recover_known_drift).parameters
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    _raise_known_alarms(root)
+    assert read_end_sha(str(root)) == old
+    _recover(root, repo, monkeypatch,
+             "upgrade: run-2 drift is only the known anchor alarms")
+    sealed = read_end_sha(str(root))
+    assert sealed != old
+    with pytest.raises(RecoveryError, match="recovery already recorded"):
+        _recover(root, repo, monkeypatch, "second call must not seal again")
+    assert read_end_sha(str(root)) == sealed
     conn = open_ledger(str(root))
     try:
         blocked = ledger_acceptance_blocks(conn)
+        kinds = [row[0] for row in conn.execute(
+            "SELECT kind FROM event WHERE kind='known_drift_recovery'")]
     finally:
         conn.close()
+    assert kinds == ["known_drift_recovery"]
     assert "ledger_changed_outside_runner" not in blocked
     assert "chain_anchor_mismatch" not in blocked
+
+
+def test_recover_known_drift_refuses_a_widened_diff(tmp_path, monkeypatch):
+    import sqlite3
+    from cadkit.ledger import (RecoveryError, _event_hash, _register_sql_functions,
+                               read_end_sha)
+    reason = "upgrade: run-2 drift is only the known anchor alarms"
+
+    def attempt(name, mutate):
+        base = tmp_path / name
+        base.mkdir()
+        root, repo, old = _sealed_drift_ledger(base)
+        _raise_known_alarms(root)
+        mutate(root)
+        with pytest.raises(RecoveryError) as caught:
+            _recover(root, repo, monkeypatch, reason)
+        assert read_end_sha(str(root)) == old
+        return str(caught.value)
+
+    def forge_waiver(root):
+        raw = sqlite3.connect(str(root / "ledger.sqlite3"))
+        _register_sql_functions(raw)
+        prev = raw.execute(
+            "SELECT row_hash FROM event WHERE row_hash IS NOT NULL "
+            "ORDER BY event_id DESC LIMIT 1").fetchone()[0]
+        payload = json.dumps({
+            "input_sha": "h", "kind": "waiver", "project_id": "p",
+            "reason": "forged", "rules_sha": "rules", "stage": "build",
+        }, separators=(",", ":"), sort_keys=True)
+        created = 9
+        row_hash = _event_hash(prev, "", "waiver", payload, created)
+        cur = raw.execute(
+            "INSERT INTO event(rev, kind, payload, created, prev_hash, row_hash) "
+            "VALUES(?,?,?,?,?,?)",
+            (None, "waiver", payload, created, prev, row_hash))
+        raw.execute(
+            "INSERT INTO waiver(project_id, stage, input_sha, rules_sha, kind, "
+            "reason, created, event_id, content_hash) VALUES(?,?,?,?,?,?,?,?,?)",
+            ("p", "build", "h", "rules", "waiver", "forged", created,
+             cur.lastrowid, row_hash))
+        raw.execute(
+            "INSERT INTO state_transition(project_id, stage, input_sha, rules_sha, "
+            "old_state, new_state, old_attempt, new_attempt, source, created) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?)",
+            ("p", "build", "h", "rules", "OK", "WAIVED", 1, 1, "forged", created))
+        raw.execute(
+            "UPDATE job SET state='WAIVED' WHERE project_id='p' AND stage='build'")
+        raw.commit()
+        raw.close()
+
+    waiver = attempt("waiver", forge_waiver)
+    assert "waiver" in waiver
+
+    def add_job(root):
+        conn = open_ledger(str(root))
+        try:
+            job_record(conn, "p", "validate", "in", "rules", "OK")
+        finally:
+            conn.close()
+
+    job = attempt("job", add_job)
+    assert "job" in job
+
+    def add_meta(root):
+        raw = sqlite3.connect(str(root / "ledger.sqlite3"))
+        raw.execute("INSERT INTO meta(k, v) VALUES('tamper', '1')")
+        raw.commit()
+        raw.close()
+
+    meta = attempt("meta", add_meta)
+    assert "meta" in meta
+
+    def drop_trigger(root):
+        raw = sqlite3.connect(str(root / "ledger.sqlite3"))
+        raw.execute("DROP TRIGGER job_update_guard")
+        raw.commit()
+        raw.close()
+
+    dropped = attempt("trigger", drop_trigger)
+    assert "sqlite_master" in dropped
 
 
 def test_wave_ledger_error_is_a_fail(tmp_path):

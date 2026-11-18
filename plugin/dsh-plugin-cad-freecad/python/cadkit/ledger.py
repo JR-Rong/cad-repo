@@ -2237,131 +2237,158 @@ def _user_tables(conn):
         "AND name NOT LIKE 'sqlite_%' ORDER BY 1")]
 
 
-def _spec_matches(table, row, spec):
-    if spec.get("table") != table:
-        return False
-    for key, value in spec.items():
-        if key == "table":
-            continue
-        if row.get(key) != value:
-            return False
-    return True
+# The Mac snapshot taken at the end of the first real run. Not a parameter:
+# callers cannot point this at a later, already-tampered backup.
+KNOWN_DRIFT_BACKUP_PREFIX = "71ed1087"
+RECOVERY_EVENT_KIND = "known_drift_recovery"
 
 
-def _format_change(kind, table, key, row):
-    brief = {k: row.get(k) for k in (
-        "kind", "action", "project_id", "stage", "state", "k", "reason")
-        if k in row}
-    return "%s %s %s %s" % (kind, table, key, brief)
+def _sqlite_master_rows(conn):
+    return conn.execute(
+        "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+    ).fetchall()
 
 
-def _diff_against_backup(backup_path, live_path):
+def _alarm_tail_problems(backup_path, live_path):
+    """Diff the live ledger against the backup.
+
+    The only permitted difference is alarm events whose ``event_id`` is
+    past the backup's last event, each with the ``ledger_alarm`` row that
+    points at that id. ``job``, ``waiver``, ``state_transition``, ``meta``
+    and ``sqlite_master`` have to match exactly. Identification is by
+    those ids, not by event kind supplied from outside.
+    """
     from urllib.parse import quote
-    old = sqlite3.connect(
-        "file:%s?mode=ro" % quote(os.path.abspath(backup_path), safe="/:"),
-        uri=True)
-    new = sqlite3.connect(
-        "file:%s?mode=ro" % quote(os.path.abspath(live_path), safe="/:"),
-        uri=True)
+
+    def ro(path):
+        return sqlite3.connect(
+            "file:%s?mode=ro" % quote(os.path.abspath(path), safe="/:"),
+            uri=True)
+
+    old = ro(backup_path)
+    new = ro(live_path)
+    problems = []
     try:
-        changes = []
+        if _sqlite_master_rows(old) != _sqlite_master_rows(new):
+            problems.append("sqlite_master differs")
         old_names = set(_user_tables(old))
-        for table in _user_tables(new):
-            new_rows = _table_maps(new, table)
-            if table not in old_names:
-                for key, row in sorted(new_rows.items(), key=lambda item: str(item[0])):
-                    changes.append(("added", table, key, row))
+        new_names = set(_user_tables(new))
+        if old_names != new_names:
+            problems.append("tables differ: %s" % sorted(
+                old_names.symmetric_difference(new_names)))
+        for table in sorted(old_names & new_names):
+            if table in ("event", "ledger_alarm"):
                 continue
-            old_rows = _table_maps(old, table)
-            for key in sorted(set(old_rows) | set(new_rows), key=str):
-                if key not in old_rows:
-                    changes.append(("added", table, key, new_rows[key]))
-                elif key not in new_rows:
-                    changes.append(("removed", table, key, old_rows[key]))
-                elif old_rows[key] != new_rows[key]:
-                    changes.append(("changed", table, key, new_rows[key]))
-        for table in sorted(old_names - set(_user_tables(new))):
-            for key, row in _table_maps(old, table).items():
-                changes.append(("removed", table, key, row))
-        return changes
-    finally:
-        old.close()
-        new.close()
-
-
-def _extra_events_chain(backup_path, live_path):
-    """Walk events added since the backup and require each hash to extend it."""
-    from urllib.parse import quote
-    old = sqlite3.connect(
-        "file:%s?mode=ro" % quote(os.path.abspath(backup_path), safe="/:"),
-        uri=True)
-    new = sqlite3.connect(
-        "file:%s?mode=ro" % quote(os.path.abspath(live_path), safe="/:"),
-        uri=True)
-    try:
+            if _table_maps(old, table) != _table_maps(new, table):
+                problems.append("%s differs" % table)
         head = old.execute(
-            "SELECT row_hash FROM event ORDER BY event_id DESC LIMIT 1"
-        ).fetchone()
-        prev = head[0] if head and head[0] else ""
-        old_ids = {row[0] for row in old.execute("SELECT event_id FROM event")}
-        added = new.execute(
-            "SELECT event_id, rev, kind, payload, created, prev_hash, row_hash "
-            "FROM event ORDER BY event_id").fetchall()
-        problems = []
-        checked = []
-        for event_id, rev, kind, payload, created, prev_hash, row_hash in added:
-            if event_id in old_ids:
+            "SELECT event_id, row_hash FROM event ORDER BY event_id DESC "
+            "LIMIT 1").fetchone()
+        tail_id = head[0] if head else 0
+        prev = head[1] if head and head[1] else ""
+        old_events = {
+            row[0]: row for row in old.execute(
+                "SELECT event_id, rev, kind, payload, created, prev_hash, "
+                "row_hash FROM event")}
+        new_events = new.execute(
+            "SELECT event_id, rev, kind, payload, created, prev_hash, "
+            "row_hash FROM event ORDER BY event_id").fetchall()
+        allowed_ids = []
+        for event_id, rev, kind, payload, created, prev_hash, row_hash in new_events:
+            previous = old_events.get(event_id)
+            if event_id <= tail_id:
+                current = (event_id, rev, kind, payload, created,
+                           prev_hash, row_hash)
+                if previous != current:
+                    problems.append("event %s changed" % event_id)
                 continue
-            if (prev_hash or "") != prev:
+            bad_kind = kind not in ALARM_KINDS
+            bad_chain = ((prev_hash or "") != prev or _event_hash(
+                prev_hash, rev, kind, payload, created) != row_hash)
+            if bad_kind:
                 problems.append(
-                    "event %s prev_hash does not extend the backup head" % event_id)
-            elif _event_hash(prev_hash, rev, kind, payload, created) != row_hash:
-                problems.append("event %s row_hash does not match its bytes" % event_id)
-            else:
-                checked.append(event_id)
+                    "event %s kind %s is not an alarm appended after "
+                    "the backup" % (event_id, kind))
+            if bad_chain:
+                problems.append(
+                    "event %s does not extend the backup hash chain"
+                    % event_id)
+            if not bad_kind and not bad_chain:
+                allowed_ids.append(event_id)
             prev = row_hash or prev
-        return checked, problems
+        old_alarms = _table_maps(old, "ledger_alarm")
+        new_alarms = _table_maps(new, "ledger_alarm")
+        for key, row in old_alarms.items():
+            if key not in new_alarms or new_alarms[key] != row:
+                problems.append("ledger_alarm %s changed or disappeared" % (key,))
+        seen = set()
+        for key, row in new_alarms.items():
+            if key in old_alarms:
+                continue
+            event_id = row.get("event_id")
+            if event_id not in allowed_ids or row.get("action") != "raise":
+                problems.append(
+                    "ledger_alarm %s is not the row for an alarm event "
+                    "after the backup" % (key,))
+            else:
+                seen.add(event_id)
+        missing = [event_id for event_id in allowed_ids if event_id not in seen]
+        for event_id in missing:
+            problems.append(
+                "alarm event %s has no ledger_alarm row" % event_id)
+        return allowed_ids, problems
     finally:
         old.close()
         new.close()
 
 
-def recover_known_drift(root, repo, expected_old_end_sha, allowed_extra,
-                        reason, remote="origin"):
-    """Ack a known between-run drift only after the backup still explains it.
+def recover_known_drift(root, repo, reason, remote="origin"):
+    """Ack the known Mac drift, once, and only if the backup still explains it.
 
-    ``expected_old_end_sha`` is the full sha or a unique prefix (the Mac
-    snapshot starts with ``71ed1087``). The backup with that sha must be
-    the ``ledger_end_sha`` on ``origin/main``. The current database may
-    differ from that backup only by rows described in ``allowed_extra``.
-    Each added event must extend that backup's hash chain. Only then are
-    the open sha and anchor alarms acknowledged and the anchors refreshed.
+    The backup is the one whose stable sha starts with
+    ``KNOWN_DRIFT_BACKUP_PREFIX`` (``71ed1087``). ``origin/main``'s
+    ``ledger_end_sha`` must be that same sha. The live database may differ
+    only by alarm events appended after that backup and the
+    ``ledger_alarm`` rows that point at those event ids. A second call
+    finds the recovery event and refuses.
     """
     reason = str(reason or "").strip()
     if not reason:
         raise RecoveryError("recovery requires a reason")
-    path, digest = _backup_matching(root, expected_old_end_sha)
+    live = os.path.join(root, "ledger.sqlite3")
+    if not os.path.isfile(live):
+        raise RecoveryError("no ledger")
+    from urllib.parse import quote
+    probe = sqlite3.connect(
+        "file:%s?mode=ro" % quote(os.path.abspath(live), safe="/:"), uri=True)
+    try:
+        already = probe.execute(
+            "SELECT 1 FROM event WHERE kind=? LIMIT 1",
+            (RECOVERY_EVENT_KIND,)).fetchone()
+    finally:
+        probe.close()
+    if already:
+        raise RecoveryError("recovery already recorded")
+    path, digest = _backup_matching(root, KNOWN_DRIFT_BACKUP_PREFIX)
     origin = _origin_main_anchor(repo, remote=remote)
     if origin.get("ledger_end_sha") != digest:
         raise RecoveryError(
             "origin/main ledger_end_sha %s != backup %s" % (
                 origin.get("ledger_end_sha"), digest))
-    live = os.path.join(root, "ledger.sqlite3")
-    changes = _diff_against_backup(path, live)
-    unexplained = []
-    for kind, table, key, row in changes:
-        if any(_spec_matches(table, row, spec) for spec in allowed_extra):
-            continue
-        unexplained.append(_format_change(kind, table, key, row))
-    checked, chain_problems = _extra_events_chain(path, live)
-    if unexplained or chain_problems:
-        lines = ["recovery refused"] + unexplained + chain_problems
-        if checked:
-            lines.append("chain-checked events: %s" % ",".join(
-                str(item) for item in checked))
-        raise RecoveryError("\n".join(lines))
+    checked, problems = _alarm_tail_problems(path, live)
+    if problems:
+        raise RecoveryError("\n".join(["recovery refused"] + problems))
     conn = open_ledger(root)
     try:
+        again = conn.execute(
+            "SELECT 1 FROM event WHERE kind=? LIMIT 1",
+            (RECOVERY_EVENT_KIND,)).fetchone()
+        if again:
+            raise RecoveryError("recovery already recorded")
+        _insert_event(conn, None, RECOVERY_EVENT_KIND, {
+            "backup_sha": digest, "reason": reason,
+            "alarm_event_ids": checked,
+        })
         for kind in ("ledger_sha_mismatch", "chain_anchor_mismatch"):
             if alarm_open(conn, kind):
                 _insert_alarm(conn, kind, "ack", reason, "alarm_ack", {
@@ -2370,8 +2397,7 @@ def recover_known_drift(root, repo, expected_old_end_sha, allowed_extra,
         refresh_external_anchors(conn, root, repo)
     finally:
         conn.close()
-    return {"backup": path, "end_sha": digest,
-            "events_checked": checked}
+    return {"backup": path, "end_sha": digest, "events_checked": checked}
 
 
 class AnchorDrift(Exception):

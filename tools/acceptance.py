@@ -214,29 +214,6 @@ def is_transient(error_class):
 STAGE_ORDER = ("build", "validate", "probe", "dedupe", "export", "package")
 
 
-def downstream_fcstd_matches(ev, stage, current_fcstd_sha):
-    """True when a later OK stage already recorded this FCStd sha.
-
-    Export (and anything after validate) can rewrite the FCStd. The
-    earlier stage's input hash was computed from the file as it was then.
-    If a later stage's stored snapshot is the file on disk now, that
-    rewrite is downstream, not a new input.
-    """
-    if not current_fcstd_sha or not isinstance(ev, dict):
-        return False
-    try:
-        index = STAGE_ORDER.index(stage)
-    except ValueError:
-        return False
-    stages = ev.get("stages") or {}
-    for later in STAGE_ORDER[index + 1:]:
-        row = stages.get(later) or {}
-        if (row.get("state") == "OK"
-                and row.get("fcstd_sha256") == current_fcstd_sha):
-            return True
-    return False
-
-
 def stage_skippable(ev, stage, input_sha, hashes=None, rules_sha=None,
                     ledger_state=None):
     """Skip a stage already OK for this input hash under this rules_sha.

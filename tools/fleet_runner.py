@@ -117,7 +117,7 @@ class Recorder:
         self.root, self.rules = root, rules
         self._open, self._state, self._rec = open_ledger, job_state, job_record
 
-    def input_hash(self, pid, stage):
+    def input_hash(self, pid, stage, fcstd_sha=None):
         pr = os.path.join(self.root, "projects", pid)
         try:
             fam = (json.load(open(os.path.join(pr, "project.yml"),
@@ -130,7 +130,11 @@ class Recorder:
         base = _h(yml, famsha, self.rules)
         bsrc = _sha(os.path.join(pr, "build.py"))
         bd = os.path.join(pr, "build")
-        fc = _sha(os.path.join(bd, pid + ".FCStd"))
+        # build never reads the FCStd. Callers may pass a recorded FCStd
+        # sha only to recompute validate/probe/dedupe after a later stage
+        # rewrote the file.
+        fc = fcstd_sha if fcstd_sha is not None else _sha(
+            os.path.join(bd, pid + ".FCStd"))
         if stage == "build":
             return _h(base, bsrc)
         if stage in ("validate", "probe", "dedupe", "export"):
@@ -362,13 +366,21 @@ def pending(rec, intake, stages, limit=None, repair_failed=False,
                 raise
             except Exception:
                 ih = None
-            recorded = (((ev or {}).get("stages") or {}).get(stage) or {}
-                        ).get("input_sha")
-            current_fc = (hashes or {}).get("fcstd_sha256")
-            if (recorded and ih and recorded != ih
-                    and acceptance.downstream_fcstd_matches(
-                        ev, stage, current_fc)):
-                ih = recorded
+            row = ((ev or {}).get("stages") or {}).get(stage) or {}
+            recorded = row.get("input_sha")
+            recorded_fc = row.get("fcstd_sha256")
+            # Only the FCStd half may be replayed from the stage snapshot.
+            # project.yml, the family core and rules are always current.
+            # build has no FCStd term, so it never substitutes.
+            if (stage in ("validate", "probe", "dedupe")
+                    and recorded and recorded_fc and ih and recorded != ih):
+                try:
+                    substituted = rec.input_hash(
+                        pid, stage, fcstd_sha=recorded_fc)
+                except TypeError:
+                    substituted = None
+                if substituted == recorded:
+                    ih = recorded
             ledger_state = None
             if ih and hasattr(rec, "state"):
                 try:
