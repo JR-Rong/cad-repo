@@ -1544,27 +1544,34 @@ def test_push_ledger_anchor_is_explicit(tmp_path):
         ["git", "config", "user.name", "anchor-test"], cwd=str(repo))
     subprocess.check_call(
         ["git", "remote", "add", "origin", str(bare)], cwd=str(repo))
+    subprocess.check_call(["git", "branch", "-M", "main"], cwd=str(repo))
     status = repo / "status"
     status.mkdir()
     (status / "ledger_anchor.json").write_text("{}\n", encoding="utf-8")
+    subprocess.check_call(
+        ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
+    subprocess.check_call(["git", "commit", "-m", "anchor"], cwd=str(repo))
+    subprocess.check_call(["git", "push", "-u", "origin", "main"], cwd=str(repo))
+    (status / "ledger_anchor.json").write_text('{"n": 1}\n', encoding="utf-8")
     (repo / "other.txt").write_text("leave me", encoding="utf-8")
     dry = subprocess.check_output(
         [sys.executable, script, "--repo", str(repo), "--dry-run"],
         text=True)
     assert "git push" in dry
     assert "git commit" in dry
+    assert "-- status/ledger_anchor.json" in dry
     subprocess.check_call(
         [sys.executable, script, "--repo", str(repo), "--remote", "origin"])
     shown = subprocess.check_output(
         ["git", "show", "HEAD:status/ledger_anchor.json"],
         cwd=str(repo), text=True)
-    assert shown.strip() == "{}"
+    assert shown.strip() == '{"n": 1}'
     other = subprocess.run(
         ["git", "show", "HEAD:other.txt"], cwd=str(repo),
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     assert other.returncode != 0
     pushed = subprocess.check_output(
-        ["git", "ls-tree", "-r", "HEAD", "--name-only"],
+        ["git", "ls-tree", "-r", "main", "--name-only"],
         cwd=str(bare), text=True)
     assert "status/ledger_anchor.json" in pushed
     assert "other.txt" not in pushed
@@ -2049,11 +2056,11 @@ def _sealed_drift_ledger(tmp_path):
         write_status_anchor(str(repo), conn, old, timestamp="2026-11-11T00:00:00Z")
     finally:
         conn.close()
+    subprocess.check_call(["git", "branch", "-M", "main"], cwd=str(repo))
     subprocess.check_call(
         ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
     subprocess.check_call(["git", "commit", "-m", "anchor"], cwd=str(repo))
-    subprocess.check_call(
-        ["git", "push", "origin", "HEAD:main"], cwd=str(repo))
+    subprocess.check_call(["git", "push", "-u", "origin", "main"], cwd=str(repo))
     return root, repo, old
 
 
@@ -2553,7 +2560,65 @@ def test_deleting_the_local_marker_does_not_reopen_restore(
     assert "backup_sha" in shown
 
 
-def test_restore_push_failure_rolls_back(tmp_path, monkeypatch):
+def _locks_are_free(root):
+    import fcntl
+    for name in ("ledger.lock", "ledger.inuse"):
+        path = os.path.join(str(root), name)
+        fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+
+def test_restore_refuses_off_main(tmp_path, monkeypatch):
+    import subprocess
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    subprocess.check_call(["git", "checkout", "-b", "wip"], cwd=str(repo))
+    (repo / "wip.txt").write_text("unreviewed\n", encoding="utf-8")
+    subprocess.check_call(["git", "add", "wip.txt"], cwd=str(repo))
+    subprocess.check_call(["git", "commit", "-m", "wip"], cwd=str(repo))
+    origin = subprocess.check_output(
+        ["git", "rev-parse", "origin/main"], cwd=str(repo), text=True).strip()
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    with pytest.raises(ledger.RecoveryError, match="not main"):
+        ledger.restore_to_anchor(
+            str(root), str(repo), "must not publish a WIP branch")
+    assert ledger.read_end_sha(str(root)) == old
+    assert not list(root.glob("ledger.pre-restore.*.sqlite3"))
+    assert subprocess.check_output(
+        ["git", "rev-parse", "origin/main"], cwd=str(repo), text=True).strip() == origin
+    tree = subprocess.check_output(
+        ["git", "ls-tree", "-r", "origin/main", "--name-only"],
+        cwd=str(repo), text=True)
+    assert "wip.txt" not in tree
+
+
+def test_restore_refuses_a_dirty_index(tmp_path, monkeypatch):
+    import subprocess
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    (repo / "secret.env").write_text("TOKEN=secret\n", encoding="utf-8")
+    subprocess.check_call(["git", "add", "secret.env"], cwd=str(repo))
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    with pytest.raises(ledger.RecoveryError, match="index is not clean"):
+        ledger.restore_to_anchor(
+            str(root), str(repo), "must not publish a staged secret")
+    assert ledger.read_end_sha(str(root)) == old
+    assert not list(root.glob("ledger.pre-restore.*.sqlite3"))
+    staged = subprocess.check_output(
+        ["git", "diff", "--cached", "--name-only"], cwd=str(repo), text=True)
+    assert "secret.env" in staged
+    tree = subprocess.check_output(
+        ["git", "ls-tree", "-r", "origin/main", "--name-only"],
+        cwd=str(repo), text=True)
+    assert "secret.env" not in tree
+
+
+def test_restore_push_timeout_rolls_back_and_releases_locks(
+        tmp_path, monkeypatch):
     import subprocess
     import cadkit.ledger as ledger
     root, repo, old = _sealed_drift_ledger(tmp_path)
@@ -2567,23 +2632,19 @@ def test_restore_push_failure_rolls_back(tmp_path, monkeypatch):
     evidence.write_text("{}\n", encoding="utf-8")
     head = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=str(repo), text=True).strip()
-    real = subprocess.check_call
-
-    def fail_push(cmd, **kwargs):
-        if isinstance(cmd, (list, tuple)) and len(cmd) >= 2 and cmd[1] == "push":
-            raise subprocess.CalledProcessError(1, cmd)
-        return real(cmd, **kwargs)
-
-    monkeypatch.setattr(subprocess, "check_call", fail_push)
+    hook = repo / ".git" / "hooks" / "pre-push"
+    hook.write_text("#!/bin/sh\nsleep 30\n", encoding="utf-8")
+    hook.chmod(0o755)
     monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
-    with pytest.raises(ledger.RecoveryError, match="push"):
+    with pytest.raises(ledger.RecoveryError, match="timed out"):
         ledger.restore_to_anchor(
-            str(root), str(repo), "push failure must not leave the restore behind")
+            str(root), str(repo), "a hung push must roll back", push_timeout=1)
     assert evidence.is_file()
     assert not list(root.glob("ledger.pre-restore.*.sqlite3"))
     assert not (repo / "status" / "ledger_restore.json").exists()
     assert subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=str(repo), text=True).strip() == head
+    _locks_are_free(root)
     conn = open_ledger(str(root))
     try:
         ids = [row[0] for row in conn.execute(
@@ -2591,6 +2652,62 @@ def test_restore_push_failure_rolls_back(tmp_path, monkeypatch):
     finally:
         conn.close()
     assert ids == ["b_in01_001"]
+
+
+def test_push_ledger_anchor_preflight(tmp_path):
+    import subprocess
+    script = os.path.join(TOOLS, "push_ledger_anchor.py")
+    bare = tmp_path / "bare.git"
+    repo = tmp_path / "repo"
+    subprocess.check_call(["git", "init", "--bare", str(bare)])
+    subprocess.check_call(["git", "init", str(repo)])
+    subprocess.check_call(
+        ["git", "config", "user.email", "anchor@example.com"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "config", "user.name", "anchor-test"], cwd=str(repo))
+    subprocess.check_call(
+        ["git", "remote", "add", "origin", str(bare)], cwd=str(repo))
+    subprocess.check_call(["git", "branch", "-M", "main"], cwd=str(repo))
+    status = repo / "status"
+    status.mkdir()
+    (status / "ledger_anchor.json").write_text("{}\n", encoding="utf-8")
+    subprocess.check_call(
+        ["git", "add", "status/ledger_anchor.json"], cwd=str(repo))
+    subprocess.check_call(["git", "commit", "-m", "anchor"], cwd=str(repo))
+    subprocess.check_call(["git", "push", "-u", "origin", "main"], cwd=str(repo))
+    subprocess.check_call(["git", "checkout", "-b", "wip"], cwd=str(repo))
+    refused = subprocess.run(
+        [sys.executable, script, "--repo", str(repo)],
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert refused.returncode != 0
+    assert "not main" in refused.stdout + refused.stderr
+    subprocess.check_call(["git", "checkout", "main"], cwd=str(repo))
+    (repo / "secret.env").write_text("TOKEN=secret\n", encoding="utf-8")
+    subprocess.check_call(["git", "add", "secret.env"], cwd=str(repo))
+    refused = subprocess.run(
+        [sys.executable, script, "--repo", str(repo)],
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert refused.returncode != 0
+    assert "index is not clean" in refused.stdout + refused.stderr
+    tree = subprocess.check_output(
+        ["git", "ls-tree", "-r", "origin/main", "--name-only"],
+        cwd=str(repo), text=True)
+    assert "secret.env" not in tree
+
+
+def test_push_env_appends_batchmode(monkeypatch):
+    import importlib.util
+    script = os.path.join(TOOLS, "push_ledger_anchor.py")
+    spec = importlib.util.spec_from_file_location("push_ledger_anchor", script)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setenv("GIT_SSH_COMMAND", "ssh -i /tmp/key")
+    env = mod.push_env()
+    assert env["GIT_TERMINAL_PROMPT"] == "0"
+    assert env["GIT_SSH_COMMAND"] == "ssh -i /tmp/key -o BatchMode=yes"
+    monkeypatch.delenv("GIT_SSH_COMMAND")
+    env = mod.push_env()
+    assert env["GIT_SSH_COMMAND"] == "ssh -o BatchMode=yes"
 
 
 def test_wave_ledger_error_is_a_fail(tmp_path):

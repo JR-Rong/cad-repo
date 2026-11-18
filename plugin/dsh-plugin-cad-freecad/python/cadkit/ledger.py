@@ -2714,7 +2714,7 @@ def _anchors_match_origin(root, repo, origin, digest, conn):
                 % key)
 
 
-def restore_to_anchor(root, repo, reason, remote="origin"):
+def restore_to_anchor(root, repo, reason, remote="origin", push_timeout=60):
     """Replace the ledger with the anchored backup. One shot.
 
     ``recover_known_drift`` refuses when run 2 kept going and wrote job
@@ -2727,15 +2727,17 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
     file that was just moved aside.
 
     The restored database is byte-for-byte the backup, so the one-shot
-    marker cannot live in it. This function writes
-    ``status/ledger_restore.json`` (backup sha, timestamp, reason, and
-    the pre-restore file's name and sha) and commits it to ``origin/main``
-    together with ``status/ledger_anchor.json`` before it returns. A
-    second call fetches that file and refuses when it is present. It also
-    refuses while a local copy is still in the worktree. Deleting the
-    local file does not reopen the restore once the push has landed.
-    If the commit or the push fails, the live database, the quarantined
-    evidence and the anchor files are put back and the call refuses.
+    marker cannot live in it. Before anything is moved, the checkout must
+    be ``main``, ``HEAD`` must equal ``origin/main``, and the index must
+    be clean. This function then writes ``status/ledger_restore.json``
+    (backup sha, timestamp, reason, and the pre-restore file's name and
+    sha) and commits only that file and ``status/ledger_anchor.json``,
+    then pushes ``main``. The push does not prompt and is killed after
+    ``push_timeout`` seconds. A second call fetches that file and refuses
+    when it is present. It also refuses while a local copy is still in
+    the worktree. If the commit or the push fails, the live database,
+    the quarantined evidence and the anchor files are put back, the
+    local commit is reset, and the call refuses.
 
     Parts whose on-disk evidence is not sealed in the restored ledger
     have that evidence and their build outputs moved to
@@ -2749,9 +2751,10 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
     if not repo:
         raise RecoveryError("restore requires the status repo")
     record_path = os.path.join(repo, RESTORE_RECORD_PATH)
-    if _origin_restore_record(repo, remote=remote) is not None:
-        raise RecoveryError("restore already recorded")
     if os.path.isfile(record_path):
+        raise RecoveryError("restore already recorded")
+    _require_publish_preflight(repo, remote, push_timeout)
+    if _origin_restore_record(repo, remote=remote) is not None:
         raise RecoveryError("restore already recorded")
     live = os.path.join(root, "ledger.sqlite3")
     if not os.path.isfile(live):
@@ -2761,7 +2764,7 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
             inuse_fd = _acquire_inuse_exclusive(root)
             try:
                 return _restore_to_anchor_locked(
-                    root, repo, reason, remote, record_path)
+                    root, repo, reason, remote, record_path, push_timeout)
             finally:
                 _release_inuse_exclusive(inuse_fd)
     except BlockingIOError:
@@ -2769,7 +2772,8 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
             "ledger lock is held; stop the runner before restore")
 
 
-def _restore_to_anchor_locked(root, repo, reason, remote, record_path):
+def _restore_to_anchor_locked(root, repo, reason, remote, record_path,
+                              push_timeout):
     import shutil
     busy = _active_writer_locks(root)
     if busy:
@@ -2836,7 +2840,7 @@ def _restore_to_anchor_locked(root, repo, reason, remote, record_path):
         os.makedirs(os.path.dirname(record_path), exist_ok=True)
         _atomic_text(
             record_path, json.dumps(record, indent=2, sort_keys=True) + "\n")
-        _commit_and_push_restore(repo, remote)
+        _commit_and_push_restore(repo, remote, push_timeout)
     except Exception as exc:
         _undo_quarantine(moved)
         _restore_anchor_files(saved_anchors)
@@ -2897,13 +2901,7 @@ def _reset_restore_commit(repo, head_before):
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def _commit_and_push_restore(repo, remote):
-    """Commit the anchor and the restore record, then push them to main.
-
-    Same git steps as ``tools/push_ledger_anchor.py``. The restore record
-    is what a later call reads from ``origin/main``, so this push is part
-    of the restore, not a follow-up the operator can skip.
-    """
+def _push_module():
     import importlib.util
     d = os.path.dirname(os.path.abspath(__file__))
     script = None
@@ -2922,9 +2920,33 @@ def _commit_and_push_restore(repo, remote):
         "push_ledger_anchor", script)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    mod.commit_and_push(
-        repo, remote=remote, refspec="HEAD:main",
-        paths=[STATUS_ANCHOR_PATH, RESTORE_RECORD_PATH])
+    return mod
+
+
+def _require_publish_preflight(repo, remote, timeout):
+    """Same checks as ``push_ledger_anchor.py``, before the ledger is moved."""
+    mod = _push_module()
+    try:
+        mod.preflight(repo, remote=remote, timeout=timeout)
+    except (mod.PublishRefused, mod.PublishFailed) as exc:
+        raise RecoveryError(str(exc))
+
+
+def _commit_and_push_restore(repo, remote, timeout):
+    """Commit only the anchor files, then push ``main``.
+
+    Same helper as ``tools/push_ledger_anchor.py``. The restore record is
+    what a later call reads from ``origin/main``, so this push is part of
+    the restore. A timeout or a rejected push is a failure: the caller
+    rolls the database back and resets this commit.
+    """
+    mod = _push_module()
+    try:
+        mod.commit_and_push(
+            repo, remote=remote, timeout=timeout,
+            paths=[STATUS_ANCHOR_PATH, RESTORE_RECORD_PATH])
+    except (mod.PublishRefused, mod.PublishFailed) as exc:
+        raise RecoveryError("restore push failed: %s" % exc)
 
 
 def _sanctioned(conn, write_fn):

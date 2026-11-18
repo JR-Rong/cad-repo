@@ -143,7 +143,9 @@ python3 tools/push_ledger_anchor.py
 
 它只认 sha 以 `71ed1087` 开头的那份备份，并且这份 sha 必须等于 `origin/main` 的 `ledger_end_sha`，对不上就拒绝，当前库原样不动。对上了才把当前库挪成 `ledger.pre-restore.<时间>.sqlite3`，把那份备份拷回来。然后把三个锚写成这份备份的结束 sha 和链头：`ledger.end.sha`、`ledger.chain.anchor`、`status/ledger_anchor.json`，再读回来核对，必须和 origin 上的锚一致。链上不追加事件，因为拷回来的就是锚上的那一份。
 
-恢复出来的库和备份一模一样，所以「已经恢复过」不能写进库里。函数自己把 `status/ledger_restore.json`（备份 sha、时间、原因、挪走的那个文件名和那个文件的 sha）和 `status/ledger_anchor.json` 一起提交，并推到 `origin/main`。这一步失败的话，当前库从 `ledger.pre-restore.<时间>.sqlite3` 拷回去，隔离出去的证据放回原处，三个锚也恢复原样，然后报错。不要先删掉本地的 `ledger_restore.json` 再指望之后手工推。第二次调用会 fetch `origin/main`，文件在就拒绝；本地这份还在也拒绝。把 `ledger.pre-restore.*.sqlite3` 改名并不能再恢复一次。已经打开的旧连接如果还往被换掉的库文件上写，带锚核对的写入会因为文件号对不上而拒绝，什么都不写进去。
+恢复出来的库和备份一模一样，所以「已经恢复过」不能写进库里。动手之前先核对仓库：当前分支必须是 `main`，`git fetch origin main` 之后 `HEAD` 必须等于 `origin/main`，暂存区必须是空的（`git diff --cached --quiet`）。对不上就拒绝，库、证据、锚都不动。对上了，函数才把 `status/ledger_restore.json`（备份 sha、时间、原因、挪走的那个文件名和那个文件的 sha）和 `status/ledger_anchor.json` 单独提交，再推 `main`。提交只包含这两个文件，不会把已经暂存的别的文件或当前分支上还没审的提交带上去。推送不询问口令（`GIT_TERMINAL_PROMPT=0`，ssh 加 `BatchMode=yes`），超过 60 秒就中止。这一步失败的话，当前库从 `ledger.pre-restore.<时间>.sqlite3` 拷回去，隔离出去的证据放回原处，三个锚恢复原样，本地这次提交也撤掉，然后报错。不要先删掉本地的 `ledger_restore.json` 再指望之后手工推。第二次调用会 fetch `origin/main`，文件在就拒绝；本地这份还在也拒绝。把 `ledger.pre-restore.*.sqlite3` 改名并不能再恢复一次。已经打开的旧连接如果还往被换掉的库文件上写，带锚核对的写入会因为文件号对不上而拒绝，什么都不写进去。
+
+`python3 tools/push_ledger_anchor.py` 用同一套核对：不在 `main` 上、落后或超前于 `origin/main`、或者暂存区不干净，就直接退出，不提交。
 
 磁盘上还留着第二轮的 `chain_evidence.json` 和 build 产物，但恢复后的库里没有对应的 `evidence_seal`。这些件的整个 `build/` 会被挪到 `quarantine-restore.<时间>/<件号>/build/`。`project.yml` 和 `build.py` 留在原地，下一轮从 build 重跑，不会靠旧证据跳过任何阶段。`b_in01_001` 和 `b_in01_003` 就是这样。
 
