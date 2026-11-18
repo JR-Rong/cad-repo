@@ -147,6 +147,8 @@ python3 tools/push_ledger_anchor.py
 
 `python3 tools/push_ledger_anchor.py` 用同一套核对：不在 `main` 上、落后或超前于 `origin/main`、或者暂存区不干净，就直接退出，不提交。
 
+恢复或 `push_ledger_anchor.py` 报推送超时之后，先不要重试。超时可能发生在服务器已经收下这次推送之后：本地会把库、证据、锚和这次提交撤回去，而 `origin/main` 上已经有新的 `status/ledger_restore.json` 或锚提交。先执行 `git fetch origin main`，再看 `origin/main` 上有没有这个新文件或这次锚提交。有的话就不要再跑，交给人工处理；这时再跑会因为 `HEAD` 不等于 `origin/main` 而拒绝，这是故意失败关闭，不是可以自行解开的状态。以后的版本应在超时之后先重新 fetch，确认远端没有这次提交，再决定是否回滚。
+
 磁盘上还留着第二轮的 `chain_evidence.json` 和 build 产物，但恢复后的库里没有对应的 `evidence_seal`。这些件的整个 `build/` 会被挪到 `quarantine-restore.<时间>/<件号>/build/`。`project.yml` 和 `build.py` 留在原地，下一轮从 build 重跑，不会靠旧证据跳过任何阶段。`b_in01_001` 和 `b_in01_003` 就是这样。
 
 这两件第二轮的包装停在 `PENDING_REVIEW`，没有发布，也没有推送，所以没有要作废的交付。如果哪一件其实已经发出去了，必须先作废或换发，再开下一轮。
