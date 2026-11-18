@@ -139,11 +139,11 @@ python3 tools/push_ledger_anchor.py
 
 如果 `recover_known_drift` 因为 `job differs` 拒绝，那是第二轮在告警之后继续跑了，给 `b_in01_001` 和 `b_in01_003` 写了 job / state_transition。不要把这些行加进恢复的允许范围。改用 `restore_to_anchor`。
 
-先停掉 `fleet_runner`，以及任何 DeepSeek / DSH 拉起来的跑。恢复会占着 `ledger.lock`，并且在这把锁或 `delivery/<批次>/.publisher.lock`（还有件锁）已经被占的时候直接拒绝。已经打开的连接在文件被挪走之后还会往旧文件里写，那些记录就丢了。
+先停掉 `fleet_runner`，以及任何 DeepSeek / DSH 拉起来的跑，并关掉所有已经打开的台账连接。`open_ledger` 会在 `ledger.inuse` 上拿一把共享锁，直到 `close`。恢复要拿这把锁的独占、而且不等待：还有连接开着就直接拒绝。另外它会占着 `ledger.lock`，`delivery/<批次>/.publisher.lock`（还有件锁）已经被占的时候也拒绝。
 
 它只认 sha 以 `71ed1087` 开头的那份备份，并且这份 sha 必须等于 `origin/main` 的 `ledger_end_sha`，对不上就拒绝，当前库原样不动。对上了才把当前库挪成 `ledger.pre-restore.<时间>.sqlite3`，把那份备份拷回来。然后把三个锚写成这份备份的结束 sha 和链头：`ledger.end.sha`、`ledger.chain.anchor`、`status/ledger_anchor.json`，再读回来核对，必须和 origin 上的锚一致。链上不追加事件，因为拷回来的就是锚上的那一份。
 
-恢复出来的库和备份一模一样，所以「已经恢复过」不能写进库里。它写在仓库的 `status/ledger_restore.json`：备份 sha、时间、原因、挪走的那个文件名和那个文件的 sha。第二次调用先 fetch，看 `origin/main` 上有没有这个文件，有就拒绝；本地这份还在也拒绝。把 `ledger.pre-restore.*.sqlite3` 改名并不能再恢复一次。
+恢复出来的库和备份一模一样，所以「已经恢复过」不能写进库里。函数自己把 `status/ledger_restore.json`（备份 sha、时间、原因、挪走的那个文件名和那个文件的 sha）和 `status/ledger_anchor.json` 一起提交，并推到 `origin/main`。这一步失败的话，当前库从 `ledger.pre-restore.<时间>.sqlite3` 拷回去，隔离出去的证据放回原处，三个锚也恢复原样，然后报错。不要先删掉本地的 `ledger_restore.json` 再指望之后手工推。第二次调用会 fetch `origin/main`，文件在就拒绝；本地这份还在也拒绝。把 `ledger.pre-restore.*.sqlite3` 改名并不能再恢复一次。已经打开的旧连接如果还往被换掉的库文件上写，带锚核对的写入会因为文件号对不上而拒绝，什么都不写进去。
 
 磁盘上还留着第二轮的 `chain_evidence.json` 和 build 产物，但恢复后的库里没有对应的 `evidence_seal`。这些件的整个 `build/` 会被挪到 `quarantine-restore.<时间>/<件号>/build/`。`project.yml` 和 `build.py` 留在原地，下一轮从 build 重跑，不会靠旧证据跳过任何阶段。`b_in01_001` 和 `b_in01_003` 就是这样。
 
@@ -159,10 +159,9 @@ restore_to_anchor(
     os.getcwd(),
     "run-2 wrote job rows for b_in01_001 and b_in01_003; restore and rerun them")
 PY
-python3 tools/push_ledger_anchor.py
 ```
 
-`push_ledger_anchor.py` 会把 `status/ledger_anchor.json` 和已经写好的 `status/ledger_restore.json` 一起提交并推送。推完再开下一轮。
+上面这次调用自己完成提交和推送。推送成功之后再开下一轮。平常跑完一轮仍然要单独执行 `python3 tools/push_ledger_anchor.py`，那是运行结束时写的锚，不是这次恢复。
 
 同一 `input_sha` 和 `rules_sha` 下，台账是 OK 且 `chain_evidence.json` 里该阶段也是 OK，下一轮就跳过这个阶段。validate / probe / dedupe 只有在两件事都成立时代换 FCStd：用现在的 project.yml、族核和 rules，加上该阶段当时记下的 FCStd sha，重算出来等于当时的输入哈希；并且磁盘上的 FCStd 等于后面某个 OK 阶段（export）记下的那份。build 不代换。改了 `build.py`、`project.yml` 或族核，从 build 起后面每一段都重跑。后面的阶段改写了 FCStd、别的输入没变，则整段仍跳过。磁盘上的 FCStd 被换成别的内容，则从 validate 起后面每一段都重跑。`rules_sha` 变了则输入哈希变了，已导出的件会整段重跑。
 

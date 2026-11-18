@@ -2396,16 +2396,11 @@ def test_restore_quarantines_unsealed_evidence(tmp_path, monkeypatch):
 
 def test_renaming_the_aside_db_does_not_allow_a_second_restore(
         tmp_path, monkeypatch):
-    import subprocess
     import cadkit.ledger as ledger
     root, repo, old = _sealed_drift_ledger(tmp_path)
     monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
     restored = ledger.restore_to_anchor(
         str(root), str(repo), "restore once, then a rerun must stick")
-    subprocess.check_call(["git", "branch", "-M", "main"], cwd=str(repo))
-    script = os.path.join(TOOLS, "push_ledger_anchor.py")
-    subprocess.check_call(
-        [sys.executable, script, "--repo", str(repo), "--remote", "origin"])
     conn = open_ledger(str(root))
     try:
         job_record(conn, "b_in01_001", "build", "rerun", "rules", "OK")
@@ -2475,6 +2470,127 @@ def test_restore_refuses_while_lock_or_publisher_busy(tmp_path, monkeypatch):
         publisher.wait(timeout=5)
     assert not (repo / "status" / "ledger_restore.json").exists()
     assert ledger.read_end_sha(str(root)) == old
+
+
+def test_idle_connection_blocks_restore(tmp_path, monkeypatch):
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    held = open_ledger(str(root))
+    try:
+        with pytest.raises(ledger.RecoveryError, match="connection is busy"):
+            ledger.restore_to_anchor(
+                str(root), str(repo),
+                "must not move the db out from under an open connection")
+        assert not list(root.glob("ledger.pre-restore.*.sqlite3"))
+        job_record(held, "b_in01_001", "build", "still-live", "rules", "OK")
+        found = held.execute(
+            "SELECT project_id FROM job WHERE project_id='b_in01_001'"
+        ).fetchone()
+        assert found is not None
+    finally:
+        held.close()
+    again = open_ledger(str(root))
+    try:
+        found = again.execute(
+            "SELECT project_id FROM job WHERE project_id='b_in01_001'"
+        ).fetchone()
+    finally:
+        again.close()
+    assert found is not None
+
+
+def test_stale_connection_sanctioned_write_is_refused(tmp_path):
+    import shutil
+    from cadkit.ledger import AnchorDrift, acknowledge_alarm
+    root = tmp_path / "cad"
+    root.mkdir()
+    conn = open_ledger(str(root))
+    try:
+        live = root / "ledger.sqlite3"
+        other = root / "other.sqlite3"
+        aside = root / "moved-aside.sqlite3"
+        shutil.copyfile(live, other)
+        os.replace(live, aside)
+        os.replace(other, live)
+        with pytest.raises(AnchorDrift, match="replaced"):
+            acknowledge_alarm(
+                conn, "ledger_sha_mismatch", "must not land in the aside file")
+        acks = conn.execute(
+            "SELECT COUNT(*) FROM event WHERE kind='alarm_ack'").fetchone()[0]
+        assert acks == 0
+    finally:
+        conn.close()
+
+
+def test_deleting_the_local_marker_does_not_reopen_restore(
+        tmp_path, monkeypatch):
+    import subprocess
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    ledger.restore_to_anchor(
+        str(root), str(repo), "push the marker before anyone can delete it")
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "b_in01_001", "build", "rerun-after-restore", "rules", "OK")
+    finally:
+        conn.close()
+    os.remove(repo / "status" / "ledger_restore.json")
+    with pytest.raises(ledger.RecoveryError, match="restore already recorded"):
+        ledger.restore_to_anchor(
+            str(root), str(repo), "second call after the local marker was deleted")
+    conn = open_ledger(str(root))
+    try:
+        ids = [row[0] for row in conn.execute(
+            "SELECT project_id FROM job WHERE project_id='b_in01_001'")]
+    finally:
+        conn.close()
+    assert ids == ["b_in01_001"]
+    shown = subprocess.check_output(
+        ["git", "show", "origin/main:status/ledger_restore.json"],
+        cwd=str(repo), text=True)
+    assert "backup_sha" in shown
+
+
+def test_restore_push_failure_rolls_back(tmp_path, monkeypatch):
+    import subprocess
+    import cadkit.ledger as ledger
+    root, repo, old = _sealed_drift_ledger(tmp_path)
+    conn = open_ledger(str(root))
+    try:
+        job_record(conn, "b_in01_001", "build", "keep-me", "rules", "OK")
+    finally:
+        conn.close()
+    evidence = root / "projects" / "b_in01_001" / "build" / "chain_evidence.json"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("{}\n", encoding="utf-8")
+    head = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=str(repo), text=True).strip()
+    real = subprocess.check_call
+
+    def fail_push(cmd, **kwargs):
+        if isinstance(cmd, (list, tuple)) and len(cmd) >= 2 and cmd[1] == "push":
+            raise subprocess.CalledProcessError(1, cmd)
+        return real(cmd, **kwargs)
+
+    monkeypatch.setattr(subprocess, "check_call", fail_push)
+    monkeypatch.setattr(ledger, "KNOWN_DRIFT_BACKUP_PREFIX", old[:8])
+    with pytest.raises(ledger.RecoveryError, match="push"):
+        ledger.restore_to_anchor(
+            str(root), str(repo), "push failure must not leave the restore behind")
+    assert evidence.is_file()
+    assert not list(root.glob("ledger.pre-restore.*.sqlite3"))
+    assert not (repo / "status" / "ledger_restore.json").exists()
+    assert subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=str(repo), text=True).strip() == head
+    conn = open_ledger(str(root))
+    try:
+        ids = [row[0] for row in conn.execute(
+            "SELECT project_id FROM job WHERE project_id='b_in01_001'")]
+    finally:
+        conn.close()
+    assert ids == ["b_in01_001"]
 
 
 def test_wave_ledger_error_is_a_fail(tmp_path):

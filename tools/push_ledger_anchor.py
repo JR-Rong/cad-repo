@@ -2,13 +2,14 @@
 """Commit and push the ledger anchor, and the restore record when present.
 
 ``fleet_runner`` writes ``status/ledger_anchor.json`` at the end of a run
-and does not commit or push. ``restore_to_anchor`` also writes
-``status/ledger_restore.json``. Run this yourself after a production run
-or a restore, before the next run:
+and does not commit or push. Run this yourself after a production run,
+before the next one:
 
     python3 tools/push_ledger_anchor.py
 
-Only those paths are added. Other dirty files in the worktree stay unstaged.
+``restore_to_anchor`` commits and pushes that anchor together with
+``status/ledger_restore.json`` itself. Only those paths are added. Other
+dirty files in the worktree stay unstaged.
 """
 import argparse
 import os
@@ -19,6 +20,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 ANCHOR = "status/ledger_anchor.json"
 RESTORE = "status/ledger_restore.json"
+
+
+def paths_to_publish(repo):
+    paths = [ANCHOR]
+    if os.path.isfile(os.path.join(repo, RESTORE)):
+        paths.append(RESTORE)
+    return paths
+
+
+def commit_and_push(repo, remote="origin", refspec="HEAD", paths=None):
+    """``git add`` the given paths, commit, and push. Raises on failure."""
+    if paths is None:
+        paths = paths_to_publish(repo)
+    subprocess.check_call(["git", "add", "--"] + list(paths), cwd=repo)
+    subprocess.check_call(["git", "commit", "-m", "ledger anchor"], cwd=repo)
+    subprocess.check_call(["git", "push", remote, refspec], cwd=repo)
 
 
 def main(argv=None):
@@ -33,9 +50,7 @@ def main(argv=None):
     if not os.path.isfile(path):
         print("没有 %s。先跑完一轮 fleet_runner，它会写这个文件。" % ANCHOR)
         return 2
-    paths = [ANCHOR]
-    if os.path.isfile(os.path.join(args.repo, RESTORE)):
-        paths.append(RESTORE)
+    paths = paths_to_publish(args.repo)
     commands = [
         ["git", "add", "--"] + paths,
         ["git", "commit", "-m", "ledger anchor"],
@@ -45,8 +60,7 @@ def main(argv=None):
         for cmd in commands:
             print(" ".join(cmd))
         return 0
-    for cmd in commands:
-        subprocess.check_call(cmd, cwd=args.repo)
+    commit_and_push(args.repo, remote=args.remote, paths=paths)
     return 0
 
 

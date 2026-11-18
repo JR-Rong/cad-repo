@@ -480,6 +480,30 @@ class _GuardedConnection:
         self._bad = sql_is_unscoped_mutation
         self._tx_depth = 0
         self._own_tx = False
+        self._inuse_fd = None
+        self._opened_identity = None
+        self._closed = False
+
+    def close(self):
+        """Close the sqlite handle and drop the shared ``ledger.inuse`` lock."""
+        self._release_inuse()
+        if self._closed:
+            return
+        self._closed = True
+        self._conn.close()
+
+    def _release_inuse(self):
+        fd = self._inuse_fd
+        self._inuse_fd = None
+        if fd is None:
+            return
+        _release_flock(fd)
+
+    def __del__(self):
+        try:
+            self._release_inuse()
+        except Exception:
+            pass
 
     def execute(self, sql, parameters=()):
         self._assert(sql)
@@ -1064,34 +1088,103 @@ def set_meta(conn, key, value):
         (key, value))
 
 
+INUSE_NAME = "ledger.inuse"
+_INUSE_EXCLUSIVE = threading.local()
+
+
+def _inuse_path(root):
+    return os.path.join(root, INUSE_NAME)
+
+
+def _release_flock(fd):
+    import fcntl
+    try:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
+def _acquire_inuse_shared(root):
+    """Shared lock held for as long as an ``open_ledger`` connection lives.
+
+    ``LOCK_SH`` so many readers and writers can be open together. Restore
+    takes ``LOCK_EX`` and therefore sees every one of them. A thread that
+    already holds the exclusive lock must not take a shared lock too: that
+    waits on itself.
+    """
+    if not root or getattr(_INUSE_EXCLUSIVE, "held", False):
+        return None
+    import fcntl
+    fd = os.open(_inuse_path(root), os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_SH)
+    except Exception:
+        os.close(fd)
+        raise
+    return fd
+
+
+def _acquire_inuse_exclusive(root):
+    """Non-blocking exclusive lock. Fails while any ledger connection is open."""
+    import fcntl
+    fd = os.open(_inuse_path(root), os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        raise RecoveryError(
+            "ledger connection is busy; close it before restore")
+    _INUSE_EXCLUSIVE.held = True
+    return fd
+
+
+def _release_inuse_exclusive(fd):
+    _INUSE_EXCLUSIVE.held = False
+    if fd is not None:
+        _release_flock(fd)
+
+
 def open_ledger(cad_root):
     path = os.path.join(cad_root, "ledger.sqlite3")
-    raw = sqlite3.connect(path, timeout=30)
-    _register_sql_functions(raw)
-    missing = _missing_triggers(raw)
-    conn = _install_sql_guard(raw)
-    conn.execute("PRAGMA foreign_keys=ON")
-    mode = conn.execute("PRAGMA journal_mode").fetchone()
-    if not mode or str(mode[0]).lower() != "wal":
-        conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=FULL")
-    _ensure_event_columns(conn)
-    conn.executescript(_SCHEMA)
-    if not conn.execute("SELECT v FROM meta WHERE k='schema_version'")\
-            .fetchone():
-        conn.execute("INSERT INTO meta VALUES('schema_version',?)",
-                     (str(SCHEMA_VERSION),))
-        conn.commit()
-    _migrate(conn)
-    _ensure_auth_link_columns(conn)
-    _backfill_event_hashes(conn, cad_root)
-    _ensure_job_triggers(conn)
-    migrate_rules_rereview_from_events(conn)
-    if missing:
-        raise_alarm(conn, "schema_tampered",
-                    "missing triggers: %s" % ",".join(missing))
-    audit_orphan_authorizations(conn)
-    return conn
+    inuse_fd = _acquire_inuse_shared(cad_root)
+    raw = None
+    try:
+        raw = sqlite3.connect(path, timeout=30)
+        _register_sql_functions(raw)
+        missing = _missing_triggers(raw)
+        conn = _install_sql_guard(raw)
+        conn.execute("PRAGMA foreign_keys=ON")
+        mode = conn.execute("PRAGMA journal_mode").fetchone()
+        if not mode or str(mode[0]).lower() != "wal":
+            conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=FULL")
+        _ensure_event_columns(conn)
+        conn.executescript(_SCHEMA)
+        if not conn.execute("SELECT v FROM meta WHERE k='schema_version'")\
+                .fetchone():
+            conn.execute("INSERT INTO meta VALUES('schema_version',?)",
+                         (str(SCHEMA_VERSION),))
+            conn.commit()
+        _migrate(conn)
+        _ensure_auth_link_columns(conn)
+        _backfill_event_hashes(conn, cad_root)
+        _ensure_job_triggers(conn)
+        migrate_rules_rereview_from_events(conn)
+        if missing:
+            raise_alarm(conn, "schema_tampered",
+                        "missing triggers: %s" % ",".join(missing))
+        audit_orphan_authorizations(conn)
+        st = os.stat(path)
+        conn._inuse_fd = inuse_fd
+        conn._opened_identity = (st.st_dev, st.st_ino)
+        inuse_fd = None
+        raw = None
+        return conn
+    finally:
+        if raw is not None:
+            raw.close()
+        if inuse_fd is not None:
+            _release_flock(inuse_fd)
 
 
 def _ensure_job_triggers(conn):
@@ -2634,12 +2727,15 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
     file that was just moved aside.
 
     The restored database is byte-for-byte the backup, so the one-shot
-    marker cannot live in it. ``status/ledger_restore.json`` sits in the
-    repo: backup sha, timestamp, reason, and the pre-restore file's name
-    and sha. A second call fetches ``origin/main`` and refuses when that
-    file is there, and also refuses when the local copy is there. Push
-    it with ``push_ledger_anchor.py`` after this returns. Renaming the
-    moved-aside database does not clear the marker.
+    marker cannot live in it. This function writes
+    ``status/ledger_restore.json`` (backup sha, timestamp, reason, and
+    the pre-restore file's name and sha) and commits it to ``origin/main``
+    together with ``status/ledger_anchor.json`` before it returns. A
+    second call fetches that file and refuses when it is present. It also
+    refuses while a local copy is still in the worktree. Deleting the
+    local file does not reopen the restore once the push has landed.
+    If the commit or the push fails, the live database, the quarantined
+    evidence and the anchor files are put back and the call refuses.
 
     Parts whose on-disk evidence is not sealed in the restored ledger
     have that evidence and their build outputs moved to
@@ -2662,8 +2758,12 @@ def restore_to_anchor(root, repo, reason, remote="origin"):
         raise RecoveryError("no ledger")
     try:
         with ledger_file_lock(root, nonblocking=True):
-            return _restore_to_anchor_locked(
-                root, repo, reason, remote, record_path)
+            inuse_fd = _acquire_inuse_exclusive(root)
+            try:
+                return _restore_to_anchor_locked(
+                    root, repo, reason, remote, record_path)
+            finally:
+                _release_inuse_exclusive(inuse_fd)
     except BlockingIOError:
         raise RecoveryError(
             "ledger lock is held; stop the runner before restore")
@@ -2693,6 +2793,7 @@ def _restore_to_anchor_locked(root, repo, reason, remote, record_path):
     ts = time.strftime("%Y%m%d_%H%M%S")
     aside = os.path.join(root, "ledger.pre-restore.%s.sqlite3" % ts)
     saved_anchors = _save_anchor_files(root, repo)
+    head_before = _git_head(repo)
     live = _move_ledger_aside(root, aside)
     moved = []
     try:
@@ -2735,11 +2836,15 @@ def _restore_to_anchor_locked(root, repo, reason, remote, record_path):
         os.makedirs(os.path.dirname(record_path), exist_ok=True)
         _atomic_text(
             record_path, json.dumps(record, indent=2, sort_keys=True) + "\n")
-    except Exception:
+        _commit_and_push_restore(repo, remote)
+    except Exception as exc:
         _undo_quarantine(moved)
         _restore_anchor_files(saved_anchors)
         _put_ledger_back(live, aside)
-        raise
+        _reset_restore_commit(repo, head_before)
+        if isinstance(exc, RecoveryError):
+            raise
+        raise RecoveryError("restore push failed: %s" % exc)
     return {
         "backup": path,
         "end_sha": digest,
@@ -2769,14 +2874,82 @@ def _anchors_match(conn, root):
     return True, ""
 
 
+def _git_head(repo):
+    import subprocess
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=repo,
+            stderr=subprocess.DEVNULL).decode().strip()
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
+def _reset_restore_commit(repo, head_before):
+    """Drop a commit that never made it to origin."""
+    if not repo or not head_before:
+        return
+    import subprocess
+    head_now = _git_head(repo)
+    if not head_now or head_now == head_before:
+        return
+    subprocess.check_call(
+        ["git", "reset", "--mixed", head_before], cwd=repo,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _commit_and_push_restore(repo, remote):
+    """Commit the anchor and the restore record, then push them to main.
+
+    Same git steps as ``tools/push_ledger_anchor.py``. The restore record
+    is what a later call reads from ``origin/main``, so this push is part
+    of the restore, not a follow-up the operator can skip.
+    """
+    import importlib.util
+    d = os.path.dirname(os.path.abspath(__file__))
+    script = None
+    for _ in range(8):
+        cand = os.path.join(d, "tools", "push_ledger_anchor.py")
+        if os.path.isfile(cand):
+            script = cand
+            break
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    if not script:
+        raise RecoveryError("push_ledger_anchor.py is not in this checkout")
+    spec = importlib.util.spec_from_file_location(
+        "push_ledger_anchor", script)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.commit_and_push(
+        repo, remote=remote, refspec="HEAD:main",
+        paths=[STATUS_ANCHOR_PATH, RESTORE_RECORD_PATH])
+
+
 def _sanctioned(conn, write_fn):
     """Run ``write_fn`` only when the saved anchors still match, then refresh.
 
     The check happens after the lock and before the write. A mismatch
     records ``ledger_sha_mismatch`` and leaves every anchor file as it was.
+    A connection opened against a database file that has since been
+    replaced (restore moved the inode aside) writes nothing.
     """
     root = ledger_root(conn)
     with ledger_file_lock(root):
+        opened = getattr(conn, "_opened_identity", None)
+        if opened is not None and root:
+            live = os.path.join(root, "ledger.sqlite3")
+            try:
+                st = os.stat(live)
+            except OSError as exc:
+                raise AnchorDrift(
+                    "ledger.sqlite3 was replaced; refusing to write "
+                    "through a stale connection (%s)" % exc)
+            if (st.st_dev, st.st_ino) != opened:
+                raise AnchorDrift(
+                    "ledger.sqlite3 was replaced; refusing to write "
+                    "through a stale connection")
         ok, why = _anchors_match(conn, root)
         if not ok:
             if not alarm_open(conn, "ledger_sha_mismatch"):
